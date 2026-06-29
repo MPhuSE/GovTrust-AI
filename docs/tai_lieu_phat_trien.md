@@ -263,7 +263,7 @@ npx -y @nestjs/cli new api --package-manager pnpm --skip-git
 # 5. Khởi tạo FastAPI (Python)
 mkdir -p ai-gateway/app && cd ai-gateway
 python -m venv venv
-pip install fastapi uvicorn python-dotenv httpx redis celery pymongo chromadb sentence-transformers
+pip install fastapi uvicorn python-dotenv httpx redis celery pymongo qdrant-client sentence-transformers
 
 # 6. Khởi tạo Rule Engine package
 cd ../../packages
@@ -309,7 +309,7 @@ pnpm add -D typescript jest @types/jest ts-jest
 | --- | --- | --- | --- |
 | Framework | FastAPI | 0.110+ | Async, high performance, auto docs |
 | HTTP Client | httpx | latest | Async HTTP cho VNPT APIs |
-| Vector DB | ChromaDB / Qdrant | latest | Embedding storage cho LawGuard |
+| Vector DB | Qdrant | latest | Embedding storage cho LawGuard |
 | Embeddings | sentence-transformers | latest | Vietnamese text embeddings |
 | Task Queue | Celery / RQ | latest | Heavy AI tasks |
 | Schema | Pydantic v2 | latest | Data validation |
@@ -323,7 +323,7 @@ pnpm add -D typescript jest @types/jest ts-jest
 | Reverse Proxy | Nginx | Route traffic, SSL |
 | Cache/Queue | Redis | BullMQ backend + caching |
 | Database | MongoDB | Nghiệp vụ data |
-| Vector DB | ChromaDB / Qdrant | LawGuard embeddings |
+| Vector DB | Qdrant | LawGuard embeddings |
 
 ---
 
@@ -379,9 +379,9 @@ VNPT_SMARTVOICE_BASE_URL=https://api.smartvoice.vnpt.vn
 VNPT_SMARTVOICE_API_KEY=your-api-key
 
 # --- Vector DB ---
-VECTOR_DB_TYPE=chroma
-CHROMA_HOST=localhost
-CHROMA_PORT=8100
+VECTOR_DB_TYPE=qdrant
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
 
 # --- File Storage ---
 UPLOAD_DIR=./uploads
@@ -437,12 +437,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - CHROMA_HOST=chroma
+      - QDRANT_HOST=qdrant
       - REDIS_HOST=redis
     env_file:
       - ../.env
     depends_on:
-      - chroma
+      - qdrant
       - redis
 
   # --- Infrastructure ---
@@ -459,12 +459,12 @@ services:
     ports:
       - "6379:6379"
 
-  chroma:
-    image: chromadb/chroma:latest
+  qdrant:
+    image: qdrant/qdrant:latest
     ports:
-      - "8100:8000"
+      - "6333:6333"
     volumes:
-      - chroma-data:/chroma/chroma
+      - qdrant-data:/qdrant/storage
 
   nginx:
     image: nginx:alpine
@@ -478,7 +478,7 @@ services:
 
 volumes:
   mongo-data:
-  chroma-data:
+  qdrant-data:
 ```
 
 ---
@@ -534,7 +534,7 @@ volumes:
 │  │ RAG Engine     │  │     │
 │  │ LawGuard       │  │     │
 │  ├────────────────┤  │     │
-│  │  Vector DB     │←─│─────│── ChromaDB
+│  │  Vector DB     │←─│─────│── Qdrant
 │  │  (Embeddings)  │  │     │
 │  └────────────────┘  │     │
 └──────────────────────┘     │
@@ -556,7 +556,7 @@ volumes:
 | API → AI Gateway | BullMQ (Redis) | Tác vụ AI nặng, bất đồng bộ | OCR, RAG/LawGuard, Embeddings |
 | AI Gateway → VNPT | REST (HTTPS) | Gọi API thật của VNPT | OCR, eKYC, SmartBot, SmartVoice |
 | API → MongoDB | Mongoose driver | Lưu session, metadata, logs | CRUD nghiệp vụ |
-| AI Gateway → Vector DB | ChromaDB client | Lưu/truy vấn embeddings | LawGuard retrieval |
+| AI Gateway → Vector DB | Qdrant client | Lưu/truy vấn embeddings | LawGuard retrieval |
 | API ↔ Redis | BullMQ + ioredis | Queue + cache | Job queue, session cache |
 
 ---
@@ -1057,8 +1057,8 @@ interface User {
 ### Vector DB Collections (FastAPI sở hữu)
 
 ```python
-# ChromaDB collection cho LawGuard
-# Collection: "legal_sources"
+# Qdrant collection cho LawGuard
+# Collection: "legal_chunks"
 {
     "id": "luat-ho-tich-2014-dieu-16",
     "document": "Điều 16. Thủ tục đăng ký khai sinh...",
@@ -1321,7 +1321,8 @@ def normalize_ocr_result(raw_result: dict, doc_type: str) -> dict:
 ```python
 # apps/ai-gateway/app/services/rag_engine.py
 
-import chromadb
+from qdrant_client import QdrantClient
+from qdrant_client.models import Filter, FieldCondition, MatchValue
 from sentence_transformers import SentenceTransformer
 
 class RAGEngine:
@@ -1331,29 +1332,31 @@ class RAGEngine:
     """
 
     def __init__(self):
-        self.chroma_client = chromadb.HttpClient(host="chroma", port=8000)
-        self.collection = self.chroma_client.get_or_create_collection("legal_sources")
+        self.qdrant = QdrantClient(host="qdrant", port=6333)
+        self.collection_name = "legal_chunks"
         self.encoder = SentenceTransformer("keepitreal/vietnamese-sbert")
 
-    async def retrieve(self, query: str, top_k: int = 5) -> list[dict]:
+    async def retrieve(self, query: str, top_k: int = 5, category: str = None) -> list[dict]:
         """Truy xuất top-k văn bản pháp luật liên quan."""
         query_embedding = self.encoder.encode(query).tolist()
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"]
+        query_filter = None
+        if category:
+            query_filter = Filter(must=[
+                FieldCondition(key="category", match=MatchValue(value=category))
+            ])
+        results = self.qdrant.search(
+            collection_name=self.collection_name,
+            query_vector=query_embedding,
+            query_filter=query_filter,
+            limit=top_k,
         )
         return [
             {
-                "content": doc,
-                "metadata": meta,
-                "relevance_score": 1 - dist  # ChromaDB dùng L2 distance
+                "content": hit.payload.get("text", ""),
+                "metadata": hit.payload,
+                "relevance_score": hit.score  # Qdrant Cosine: score càng cao càng liên quan
             }
-            for doc, meta, dist in zip(
-                results["documents"][0],
-                results["metadatas"][0],
-                results["distances"][0]
-            )
+            for hit in results
         ]
 
     async def generate_alerts(self, checklist: list, procedure_id: str) -> list[dict]:
@@ -1499,7 +1502,7 @@ export class ScoreEngine {
    ├── Thu thập văn bản từ thuvienphapluat.vn (công khai)
    ├── Chunk theo điều/khoản (500-1000 tokens)
    ├── Gắn metadata: tên luật, điều, URL, ngày truy cập
-   └── Tạo embeddings → lưu ChromaDB
+   └── Tạo embeddings → lưu Qdrant
 
 2. Truy xuất (Retrieval)
    ├── Nhận checklist từ procedure template

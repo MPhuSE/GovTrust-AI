@@ -146,7 +146,7 @@
 - **AI Gateway (Microservices):** NestJS (session, API nghiệp vụ, phân quyền, metadata) + FastAPI (RAG, embedding, chuẩn hóa OCR, LawGuard); giao tiếp qua REST nội bộ (đồng bộ, tác vụ nhanh) và Redis Queue/BullMQ (bất đồng bộ, tác vụ AI nặng).
 - **Document AI:** Tích hợp VNPT SmartReader/eKYC OCR + CrossCheck.
 - **Decision Layer:** Score Engine + Rule Engine (audit được, tránh LLM phán quyết khó kiểm soát).
-- **Legal AI:** LawGuard + RAG trên Vector DB (Chroma/Qdrant/FAISS).
+- **Legal AI:** LawGuard + RAG trên Vector DB (Qdrant).
 - **Form Engine:** SmartForm.
 - **Analytics:** InsightMap Dashboard.
 - **Data Layer:** MongoDB (nghiệp vụ, do NestJS sở hữu) + Vector DB (AI, do FastAPI sở hữu) — theo nguyên tắc **Database per Service**, không truy cập chéo trực tiếp.
