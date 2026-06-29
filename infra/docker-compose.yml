@@ -1,0 +1,24 @@
+# GovTrust AI — Data layer (giai đoạn này: Qdrant cho LawGuard)
+# MongoDB + Redis sẽ được thêm khi NestJS API vào việc.
+#
+#   docker compose -f infra/docker-compose.yml up -d
+#   docker compose -f infra/docker-compose.yml ps
+#
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: govtrust-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # REST + dashboard (http://localhost:6333/dashboard)
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/6333"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  qdrant-data:

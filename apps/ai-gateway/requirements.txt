@@ -1,0 +1,25 @@
+# GovTrust AI — AI Gateway (FastAPI) dependencies
+# Python >= 3.11
+
+# --- Web framework (đã có sẵn để mở rộng route OCR/CrossCheck/LawGuard) ---
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29
+
+# --- Config / validation ---
+pydantic>=2.6,<3.0
+pydantic-settings>=2.2
+python-dotenv>=1.0
+
+# --- Vector DB (LawGuard / RAG) ---
+qdrant-client>=1.9,<2.0
+
+# --- Embeddings (Vietnamese, 768 chiều) ---
+sentence-transformers>=2.7
+# torch được sentence-transformers kéo theo; cài bản CPU nếu không có GPU:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# --- HTTP client (gọi VNPT về sau) ---
+httpx>=0.27
+
+# --- Parse PDF văn bản luật → chunk (pdf_to_chunks) ---
+pypdf>=4.2
