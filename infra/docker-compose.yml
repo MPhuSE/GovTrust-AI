@@ -1,0 +1,114 @@
+version: '3.9'
+
+# ============================================================
+# GovTrust AI — Microservices Architecture
+#
+# Giao tiếp:
+#   web       → core-svc  : REST HTTP (:4000)
+#   core-svc  → ai-svc    : gRPC (:50051)
+#   core-svc  → insights-svc : gRPC (:50052)
+# ============================================================
+
+services:
+  # ── Frontend ──────────────────────────────────────────────
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://core-svc:4000
+      - NEXT_PUBLIC_APP_NAME=GovTrust AI
+    depends_on:
+      - core-svc
+
+  # ── core-svc (NestJS) ─────────────────────────────────────
+  core-svc:
+    build:
+      context: ../apps/core-svc
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"   # REST API
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/govtrust_core
+      - MONGO_DB_NAME=govtrust_core
+      - REDIS_HOST=redis
+      - AI_SVC_GRPC_URL=ai-svc:50051
+      - INSIGHTS_SVC_GRPC_URL=insights-svc:50052
+    env_file:
+      - ../.env
+    depends_on:
+      - mongo
+      - redis
+      - ai-svc
+      - insights-svc
+
+  # ── ai-svc (FastAPI + gRPC) ───────────────────────────────
+  ai-svc:
+    build:
+      context: ../apps/ai-svc
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"   # FastAPI REST (docs/health)
+      - "50051:50051" # gRPC server
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379
+    env_file:
+      - ../.env
+    depends_on:
+      - qdrant
+      - redis
+
+  # ── insights-svc (NestJS gRPC microservice) ───────────────
+  insights-svc:
+    build:
+      context: ../apps/insights-svc
+      dockerfile: Dockerfile
+    ports:
+      - "50052:50052" # gRPC server
+    environment:
+      - INSIGHTS_MONGO_URI=mongodb://mongo:27017/govtrust_analytics
+      - INSIGHTS_GRPC_PORT=50052
+    depends_on:
+      - mongo
+
+  # ── Infrastructure ────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+      - ./mongo/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+      - core-svc
+
+volumes:
+  mongo-data:
+  redis-data:
+  qdrant-data:

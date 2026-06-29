@@ -1,0 +1,52 @@
+{
+  "DK_KHAI_SINH": {
+    "baseScore": 100,
+    "penalties": {
+      "missingRequired": -20,
+      "infoMismatch": -10,
+      "expiredDoc": -15,
+      "lowQualityImage": -5,
+      "lowOcrConfidence": -5
+    }
+  },
+  "DANG_KY_CU_TRU": {
+    "baseScore": 100,
+    "penalties": {
+      "missingRequired": -20,
+      "infoMismatch": -8,
+      "expiredDoc": -15,
+      "lowQualityImage": -5,
+      "lowOcrConfidence": -3
+    }
+  },
+  "CHUNG_THUC": {
+    "baseScore": 100,
+    "penalties": {
+      "missingRequired": -25,
+      "infoMismatch": -10,
+      "expiredDoc": -20,
+      "lowQualityImage": -5,
+      "lowOcrConfidence": -5
+    }
+  },
+  "CAP_DOI_GIAY_TO": {
+    "baseScore": 100,
+    "penalties": {
+      "missingRequired": -20,
+      "infoMismatch": -10,
+      "expiredDoc": -10,
+      "lowQualityImage": -5,
+      "lowOcrConfidence": -5
+    }
+  },
+  "HO_KINH_DOANH": {
+    "baseScore": 100,
+    "penalties": {
+      "missingRequired": -20,
+      "infoMismatch": -10,
+      "expiredDoc": -15,
+      "lowQualityImage": -5,
+      "lowOcrConfidence": -5
+    }
+  }
+}
