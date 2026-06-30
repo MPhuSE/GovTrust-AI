@@ -8,18 +8,34 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-apiClient.interceptors.request.use(config => {
+// Request interceptor — attach JWT token
+apiClient.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('govtrust_token');
     if (token) config.headers.Authorization = `Bearer ${token}`;
+
+    // Add request ID for tracing
+    config.headers['X-Request-ID'] = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
   return config;
 });
 
+// Response interceptor — extract data, handle auth errors
 apiClient.interceptors.response.use(
-  r => r.data,
-  err => {
+  (r) => r.data,
+  (err) => {
+    const status = err.response?.status;
     const message = err.response?.data?.message ?? err.message;
+
+    // Auto-redirect on 401 Unauthorized
+    if (status === 401 && typeof window !== 'undefined') {
+      localStorage.removeItem('govtrust_token');
+      localStorage.removeItem('govtrust_user');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+
     return Promise.reject(new Error(message));
   },
 );
@@ -40,7 +56,9 @@ export const sessionsApi = {
 
 export const documentsApi = {
   upload: (formData: FormData) =>
-    apiClient.post('/documents/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    apiClient.post('/documents/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
   triggerOcr: (sessionId: string, documentTypeCode: string) =>
     apiClient.post(`/documents/${sessionId}/ocr/${documentTypeCode}`),
 };
@@ -55,6 +73,14 @@ export const smartformApi = {
   generate: (sessionId: string) => apiClient.post(`/sessions/${sessionId}/smartform`),
 };
 
+export const recheckApi = {
+  recheck: (sessionId: string) => apiClient.post(`/sessions/${sessionId}/recheck`),
+};
+
+export const priorityApi = {
+  getQueue: () => apiClient.get('/priority'),
+};
+
 export const insightsApi = {
   dashboard: (days?: number) => apiClient.get('/insights/dashboard', { params: { days } }),
   topErrors: (days?: number) => apiClient.get('/insights/top-errors', { params: { days } }),
@@ -62,7 +88,8 @@ export const insightsApi = {
 };
 
 export const authApi = {
-  login: (username: string, password: string) => apiClient.post('/auth/login', { username, password }),
+  login: (username: string, password: string) =>
+    apiClient.post('/auth/login', { username, password }),
   register: (data: { username: string; password: string; fullName: string }) =>
     apiClient.post('/auth/register', data),
 };
