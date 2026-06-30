@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package govtrust.ai;
+
+service AIService {
+  rpc ExtractOCR (OCRRequest) returns (OCRResponse);
+  rpc CheckLawGuard (LawGuardRequest) returns (LawGuardResponse);
+  rpc IdentifyProcedure (IdentifyRequest) returns (IdentifyResponse);
+}
+
+// ---- OCR ----
+
+message OCRRequest {
+  string checklist_id        = 1;
+  string document_type_code  = 2;
+  bytes  image_data          = 3;
+  bool   run_liveness        = 4;
+}
+
+message OCRResponse {
+  string checklist_id    = 1;
+  string provider        = 2;
+  map<string, FieldValue> fields = 3;
+  double avg_confidence  = 4;
+  bool   liveness        = 5;
+  int32  processing_time_ms = 6;
+}
+
+message FieldValue {
+  string value      = 1;
+  double confidence = 2;
+}
+
+// ---- LawGuard ----
+
+message LawGuardRequest {
+  string procedure_code  = 1;
+  string category        = 2;
+  repeated ChecklistItem checklist = 3;
+}
+
+message LawGuardResponse {
+  repeated LegalAlert alerts = 1;
+  string disclaimer          = 2;
+}
+
+message ChecklistItem {
+  string id                = 1;
+  string role_in_procedure = 2;
+}
+
+message LegalAlert {
+  string type               = 1;
+  string message            = 2;
+  double confidence         = 3;
+  bool   needs_verification = 4;
+  string source_title       = 5;
+  string source_article     = 6;
+  string source_url         = 7;
+}
+
+// ---- HoSoBot ----
+
+message IdentifyRequest {
+  string query      = 1;
+  string session_id = 2;
+}
+
+message IdentifyResponse {
+  string procedure_code = 1;
+  double confidence     = 2;
+  string message        = 3;
+}

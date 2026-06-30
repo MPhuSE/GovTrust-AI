@@ -263,7 +263,7 @@ npx -y @nestjs/cli new api --package-manager pnpm --skip-git
 # 5. Khởi tạo FastAPI (Python)
 mkdir -p ai-gateway/app && cd ai-gateway
 python -m venv venv
-pip install fastapi uvicorn python-dotenv httpx redis celery pymongo chromadb sentence-transformers
+pip install fastapi uvicorn python-dotenv httpx redis celery pymongo qdrant-client fastembed sentence-transformers
 
 # 6. Khởi tạo Rule Engine package
 cd ../../packages
@@ -309,7 +309,7 @@ pnpm add -D typescript jest @types/jest ts-jest
 | --- | --- | --- | --- |
 | Framework | FastAPI | 0.110+ | Async, high performance, auto docs |
 | HTTP Client | httpx | latest | Async HTTP cho VNPT APIs |
-| Vector DB | ChromaDB / Qdrant | latest | Embedding storage cho LawGuard |
+| Vector DB | Qdrant | latest | Embedding storage cho LawGuard (collection `legal_chunks`, OI-1) |
 | Embeddings | sentence-transformers | latest | Vietnamese text embeddings |
 | Task Queue | Celery / RQ | latest | Heavy AI tasks |
 | Schema | Pydantic v2 | latest | Data validation |
@@ -323,7 +323,7 @@ pnpm add -D typescript jest @types/jest ts-jest
 | Reverse Proxy | Nginx | Route traffic, SSL |
 | Cache/Queue | Redis | BullMQ backend + caching |
 | Database | MongoDB | Nghiệp vụ data |
-| Vector DB | ChromaDB / Qdrant | LawGuard embeddings |
+| Vector DB | Qdrant | LawGuard embeddings |
 
 ---
 
@@ -459,12 +459,13 @@ services:
     ports:
       - "6379:6379"
 
-  chroma:
-    image: chromadb/chroma:latest
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
     ports:
-      - "8100:8000"
+      - "6333:6333"   # REST + dashboard
+      - "6334:6334"   # gRPC
     volumes:
-      - chroma-data:/chroma/chroma
+      - qdrant-data:/qdrant/storage
 
   nginx:
     image: nginx:alpine
@@ -478,7 +479,7 @@ services:
 
 volumes:
   mongo-data:
-  chroma-data:
+  qdrant-data:
 ```
 
 ---
@@ -534,7 +535,7 @@ volumes:
 │  │ RAG Engine     │  │     │
 │  │ LawGuard       │  │     │
 │  ├────────────────┤  │     │
-│  │  Vector DB     │←─│─────│── ChromaDB
+│  │  Vector DB     │←─│─────│── Qdrant
 │  │  (Embeddings)  │  │     │
 │  └────────────────┘  │     │
 └──────────────────────┘     │
@@ -556,7 +557,7 @@ volumes:
 | API → AI Gateway | BullMQ (Redis) | Tác vụ AI nặng, bất đồng bộ | OCR, RAG/LawGuard, Embeddings |
 | AI Gateway → VNPT | REST (HTTPS) | Gọi API thật của VNPT | OCR, eKYC, SmartBot, SmartVoice |
 | API → MongoDB | Mongoose driver | Lưu session, metadata, logs | CRUD nghiệp vụ |
-| AI Gateway → Vector DB | ChromaDB client | Lưu/truy vấn embeddings | LawGuard retrieval |
+| AI Gateway → Vector DB | Qdrant client | Lưu/truy vấn embeddings | LawGuard retrieval |
 | API ↔ Redis | BullMQ + ioredis | Queue + cache | Job queue, session cache |
 
 ---
@@ -987,29 +988,78 @@ class VNPTSmartBotClient:
 
 ### MongoDB Collections (NestJS sở hữu)
 
+> Đồng bộ với `DATABASE_DESIGN.md` v2.1 — **6 collections**: `users`, `document_types`, `procedures`, `sessions`, `jobs`, `insight_logs`.
+
 ```typescript
+// === Document Type (catalog dùng chung — định nghĩa mỗi giấy tờ ĐÚNG 1 LẦN) ===
+interface DocumentType {
+  _id: ObjectId;
+  code: string;                   // "GIAY_KHAI_SINH" — unique, viết hoa không dấu
+  name: string;                   // "Giấy khai sinh"
+  category: 'NHAN_THAN' | 'HO_TICH' | 'DAT_DAI' | 'DOANH_NGHIEP';
+  issuingAuthority: string;       // "UBND cấp xã"
+  hasPortrait: boolean;           // có ảnh chân dung → liveness/eKYC
+  pagesRequired: number;          // số mặt cần chụp (CCCD=2)
+  fields: DocumentField[];        // bộ trường — OCR lưu theo key ở đây (hết hardcode)
+  validity: ValidityRule;
+  aliasCodes: string[];           // giấy thay thế, vd CCCD ⟷ ["CMND"]
+  isActive: boolean;
+}
+
+interface DocumentField {
+  key: string;                    // "hoTenMe" — dùng để CrossCheck ghép field giữa các giấy
+  label: string;                  // "Họ tên mẹ"
+  dataType: 'string' | 'date' | 'enum' | 'number' | 'id_number';
+  format?: string;                // "dd/mm/yyyy"
+  regex?: string;                 // "^\\d{12}$" (số CCCD)
+  required: boolean;              // OCR bắt buộc đọc được
+  isIdentity: boolean;            // trường định danh (PII) → cross-check & ẩn danh hoá
+  enumValues?: string[];          // ["Nam","Nữ"] nếu enum
+}
+
+interface ValidityRule {
+  hasExpiry: boolean;             // giấy khai sinh = false (không hết hạn)
+  expiryField?: string;           // CCCD = "coGiaTriDen"
+  validityRule?: string;          // "AGE_MILESTONE_25_40_60" nếu hạn không in sẵn
+  gracePeriodDays?: number;
+}
+
 // === Procedure Template ===
 interface Procedure {
   _id: ObjectId;
-  procedureId: string;            // "ho-tich-khai-sinh"
+  code: string;                   // "DK_KHAI_SINH"
   name: string;                   // "Đăng ký khai sinh"
-  category: string;               // "ho-tich"
+  category: string;               // "HO_TICH"
   description: string;
-  checklist: ChecklistItem[];     // Danh sách giấy tờ cần
-  formFields: FormField[];        // Trường form cần điền
-  legalSourceIds: string[];       // Liên kết văn bản luật
-  scoreWeights: ScoreWeight[];    // Trọng số chấm điểm
+  checklist: ChecklistItem[];     // CHỈ trỏ document_types, không định nghĩa lại giấy
+  crossCheckRules: CrossCheckRule[]; // đối chiếu chéo đa giấy tờ (cốt lõi khai sinh)
+  formFields: FormField[];        // SmartForm map vào
+  legalSourceIds: string[];       // liên kết văn bản luật (Qdrant)
+  scoreWeights: ScoreWeight[];    // trọng số chấm điểm
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 interface ChecklistItem {
-  id: string;
-  name: string;                   // "CCCD cha/mẹ"
-  documentType: string;           // "cccd"
+  id: string;                     // "cccd_cha_me" — khoá nội bộ (gắn ảnh upload)
+  documentTypeCode: string;       // "CCCD" → trỏ document_types.code
+  acceptedCodes?: string[];       // mã thay thế chấp nhận: ["CCCD","CMND","PASSPORT"]
+  roleInProcedure?: string;       // "CCCD của cha hoặc mẹ"
+  quantity?: number;              // số bản (2 = cha + mẹ)
   required: boolean;
-  description?: string;
+  conditionalOn?: string;         // chỉ cần khi điều kiện nào đó
+  points?: number;
+}
+
+interface CrossCheckRule {
+  name: string;                   // "Tên mẹ khớp giữa tờ khai và giấy chứng sinh"
+  left: string;                   // "to_khai.hoTenMe"  (checklistId.fieldKey)
+  right: string;                  // "chung_sinh.hoTenMe"
+  matchType: 'exact' | 'normalized' | 'fuzzy';  // normalized = bỏ dấu/hoa-thường
+  tolerance?: number;             // ngưỡng cho fuzzy
+  severityIfMismatch: 'HIGH' | 'MEDIUM' | 'LOW';
+  skipIfMissing?: string;         // bỏ qua nếu giấy này thiếu (vd "dkkh" optional)
 }
 
 // === Session (phiên kiểm tra hồ sơ) ===
@@ -1018,28 +1068,67 @@ interface Session {
   sessionId: string;
   procedureId: string;
   userId?: string;                // null nếu anonymous
-  status: 'CREATED' | 'UPLOADING' | 'PROCESSING' | 'SCORED' | 'CONFIRMED' | 'RECHECKED';
-  documents: DocumentRef[];
+  status: 'CREATED' | 'UPLOADING' | 'PROCESSING' | 'SCORED' | 'CONFIRMED' | 'RECHECKED' | 'REJECTED';
+  documents: DocumentRef[];       // con trỏ fileUrl — KHÔNG lưu ảnh trong DB
   crosscheckResult?: CrossCheckResult;
   score?: ScoreResult;
   lawguardAlerts?: LawGuardAlert[];
   smartformData?: Record<string, FormFieldValue>;
-  recheckResult?: ReCheckResult;
-  priorityLevel?: 'A' | 'B' | 'C' | 'D';
+  govReCheck?: GovReCheckResult;  // BƯỚC 9 — góc nhìn cơ quan (riskFlags), ẩn với dân
+  priority?: PriorityResult;      // BƯỚC 10 — xếp hồ sơ nào xử trước theo SLA
+  officerNotes?: string;
   createdAt: Date;
   updatedAt: Date;
-  expiresAt: Date;                // TTL — tự xóa sau 30 phút
+  expiresAt: Date;                // TTL — tự xóa sau SESSION_TTL_HOURS (mặc định 24h)
 }
 
-// === Insight Log (ẩn danh) ===
+// BƯỚC 9 ≠ Score(b5): b5 cho DÂN biết "đủ chưa"; b9 cho CÁN BỘ biết "có RỦI RO gì"
+interface GovReCheckResult {
+  completenessLevel: 'DAY_DU' | 'CAN_BO_SUNG' | 'CAN_KIEM_TRA_KY';  // xác nhận lại (phụ)
+  riskFlags: RiskFlag[];          // GIÁ TRỊ CHÍNH — ẩn với dân
+  reviewedBy?: string;            // userId officer
+  reviewedAt?: Date;
+}
+
+interface RiskFlag {
+  type: 'SUSPECTED_EDIT' | 'NAME_MISMATCH_MULTI' | 'FRAUD_SUSPECTED' | 'MANUAL_REVIEW';
+  message: string;                // "Tên mẹ lệch trên 3 giấy — cần kiểm tra kỹ"
+  severity: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+// BƯỚC 10 ≠ Score: Score="hồ sơ TỐT không" (không thời gian); Priority="xử cái nào TRƯỚC" (có SLA)
+interface PriorityResult {
+  level: 'A' | 'B' | 'C' | 'D';   // A=xử ngay … D=để sau → SORT hàng đợi cán bộ
+  reason: string;                 // "Khai sinh - hạn còn 2 ngày, hồ sơ đầy đủ"
+  slaDeadline: Date;              // = tiếp nhận + procedures.priorityConfig.slaDays
+  finalDecisionByOfficer?: string;
+}
+
+// === Insight Log (ẩn danh — sống vĩnh viễn) ===
 interface InsightLog {
   _id: ObjectId;
   procedureId: string;            // Chỉ lưu ID thủ tục
-  errorType: string;              // "missing-document", "mismatch-info"
-  errorDetail: string;            // "Thiếu CCCD"
-  score: number;
+  errorType: 'MISSING_DOC' | 'INFO_MISMATCH' | 'EXPIRED_DOC' | 'LOW_QUALITY_IMG' | 'LIVENESS_FAIL';
+  severity: 'HIGH' | 'MEDIUM' | 'LOW';
+  specificDocType?: string;       // "chung_sinh" — giấy nào lỗi
+  finalScore: number;
+  droppedAtStep?: string;         // "Upload" | "Score" | "Form" — đo funnel
+  deviceType?: 'MOBILE' | 'DESKTOP';
+  processingTimeMs?: number;
   timestamp: Date;
   // KHÔNG lưu: tên, CCCD, địa chỉ, ảnh giấy tờ
+}
+
+// === Job (outbox — backstop hàng đợi AI, để Redis chết không mất job) ===
+interface Job {
+  _id: ObjectId;
+  sessionId: string;
+  type: 'OCR' | 'CROSSCHECK' | 'LAWGUARD' | 'SCORE' | 'SMARTFORM';
+  state: 'PENDING' | 'ENQUEUED' | 'PROCESSING' | 'DONE' | 'FAILED';
+  attempts: number;
+  lastError?: string;
+  createdAt: Date;
+  expiresAt: Date;                // TTL nhẹ dọn job DONE
 }
 
 // === User (RBAC) ===
@@ -1047,30 +1136,32 @@ interface User {
   _id: ObjectId;
   username: string;
   passwordHash: string;
-  role: 'citizen' | 'officer' | 'admin';
+  role: 'CITIZEN' | 'OFFICER' | 'ADMIN';
   fullName: string;
-  department?: string;            // Cho cán bộ
+  organization?: string;          // Cho OFFICER, vd "UBND Phường X"
   createdAt: Date;
 }
 ```
 
 ### Vector DB Collections (FastAPI sở hữu)
 
+> Đồng bộ OI-1: dùng **Qdrant** (không phải ChromaDB), collection **`legal_chunks`**, vector **768**, distance **Cosine**.
+
 ```python
-# ChromaDB collection cho LawGuard
-# Collection: "legal_sources"
+# Qdrant collection cho LawGuard
+# Collection: "legal_chunks"  (vector size 768, distance Cosine)
 {
-    "id": "luat-ho-tich-2014-dieu-16",
-    "document": "Điều 16. Thủ tục đăng ký khai sinh...",
-    "metadata": {
-        "source_title": "Luật Hộ tịch 2014",
+    "id": "luat-ho-tich-2014-dieu16-chunk1",
+    "vector": [0.123, -0.456, ...],   # 768 floats — sentence-transformers
+    "payload": {
+        "chunkId": "luat-ho-tich-2014-dieu16-chunk1",
+        "category": "HO_TICH",         # payload index để filter nhanh
+        "title": "Luật Hộ tịch 2014",
         "article": "Điều 16",
         "url": "https://thuvienphapluat.vn/...",
-        "access_date": "2026-06-20",
-        "version": "1.0",
-        "category": "ho-tich"
-    },
-    "embedding": [0.123, -0.456, ...]  # sentence-transformers
+        "sourceVersion": "2014",
+        "text": "Điều 16. Thủ tục đăng ký khai sinh..."  # chunk 300-500 từ
+    }
 }
 ```
 
@@ -1318,11 +1409,13 @@ def normalize_ocr_result(raw_result: dict, doc_type: str) -> dict:
 
 ### LawGuard RAG Engine
 
+> Đồng bộ OI-1 + code thật: dùng **Qdrant** collection `legal_chunks`, qua `LegalSearchService`
+> (`app/vector_db/search.py`) — hỗ trợ hybrid (dense + sparse BM25) + rerank, filter theo `category`/`status`.
+
 ```python
 # apps/ai-gateway/app/services/rag_engine.py
 
-import chromadb
-from sentence_transformers import SentenceTransformer
+from app.vector_db.search import LegalSearchService
 
 class RAGEngine:
     """
@@ -1331,29 +1424,23 @@ class RAGEngine:
     """
 
     def __init__(self):
-        self.chroma_client = chromadb.HttpClient(host="chroma", port=8000)
-        self.collection = self.chroma_client.get_or_create_collection("legal_sources")
-        self.encoder = SentenceTransformer("keepitreal/vietnamese-sbert")
+        # LegalSearchService tự khởi tạo Qdrant client + embedder + reranker theo config
+        self.search_service = LegalSearchService()
 
-    async def retrieve(self, query: str, top_k: int = 5) -> list[dict]:
-        """Truy xuất top-k văn bản pháp luật liên quan."""
-        query_embedding = self.encoder.encode(query).tolist()
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"]
-        )
+    async def retrieve(self, query: str, category: str | None = None, top_k: int = 5) -> list[dict]:
+        """Truy xuất top-k chunk luật liên quan (đã rerank nếu bật)."""
+        results = self.search_service.search(query, category=category, top_k=top_k)
         return [
             {
-                "content": doc,
-                "metadata": meta,
-                "relevance_score": 1 - dist  # ChromaDB dùng L2 distance
+                "content": r.text,
+                "relevance_score": r.score,    # rerank [0,1] nếu bật, không thì cosine/fusion
+                "source": {
+                    "title": r.title,
+                    "article": r.article,
+                    "sourceVersion": r.sourceVersion,
+                },
             }
-            for doc, meta, dist in zip(
-                results["documents"][0],
-                results["metadatas"][0],
-                results["distances"][0]
-            )
+            for r in results
         ]
 
     async def generate_alerts(self, checklist: list, procedure_id: str) -> list[dict]:
@@ -1499,7 +1586,7 @@ export class ScoreEngine {
    ├── Thu thập văn bản từ thuvienphapluat.vn (công khai)
    ├── Chunk theo điều/khoản (500-1000 tokens)
    ├── Gắn metadata: tên luật, điều, URL, ngày truy cập
-   └── Tạo embeddings → lưu ChromaDB
+   └── Tạo embeddings → lưu Qdrant
 
 2. Truy xuất (Retrieval)
    ├── Nhận checklist từ procedure template

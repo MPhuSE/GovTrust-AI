@@ -136,8 +136,8 @@
 | 6. LawGuard | Checklist + legal KB | RAG truy xuất văn bản công khai và so sánh yêu cầu | Cảnh báo có dấu hiệu chưa rõ căn cứ | Căn cứ + confidence + disclaimer |
 | 7. SmartForm | ExtractedFields + formFields | Map dữ liệu vào form mẫu | Form đã tự điền | Form preview, trường thiếu |
 | 8. Người dân xác nhận | Form + cảnh báo | Người dân kiểm tra/sửa và quyết định nộp hồ sơ | Hồ sơ đã xác nhận | Nút xác nhận và trạng thái |
-| 9. Gov Re-Check | Hồ sơ đã xác nhận | AI tái kiểm sau tiếp nhận | Đầy đủ / cần bổ sung / cần kiểm tra kỹ | Màn cơ quan |
-| 10. Priority Ranking | Re-check + hạn xử lý + mức độ cấp bách | Gợi ý thứ tự ưu tiên | Priority A/B/C/D + lý do | Dashboard cán bộ |
+| 9. Gov Re-Check | Hồ sơ đã xác nhận | AI tái kiểm góc nhìn cơ quan: phát hiện **rủi ro/dấu hiệu bất thường** (khác Score b5 cho dân) | completenessLevel + **riskFlags** (nghi sửa ảnh, lệch tên đa giấy) | Màn cơ quan |
+| 10. Priority Ranking | Re-check + **hạn xử lý (SLA)** + mức độ cấp bách | Xếp **hồ sơ nào xử trước** trong hàng đợi (có yếu tố thời gian — khác Score) | Priority A/B/C/D + slaDeadline + lý do | Dashboard cán bộ |
 | 11. InsightMap | Log lỗi ẩn danh | Aggregate theo thủ tục, loại lỗi, giấy tờ, thời điểm | Dashboard điểm nghẽn | Chart top lỗi, heatmap |
 
 ### 3.2. Kiến trúc hệ thống (tham chiếu)
