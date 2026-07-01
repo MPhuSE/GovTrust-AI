@@ -12,7 +12,9 @@ import { SessionsModule } from './modules/sessions/sessions.module';
 import { SmartFormModule } from './modules/smartform/smartform.module';
 import { RecheckModule } from './modules/recheck/recheck.module';
 import { PriorityModule } from './modules/priority/priority.module';
-import { InsightsProxyModule } from './modules/insights-proxy/insights-proxy.module';
+import { InsightsModule } from './modules/insights/insights.module';
+import { DocumentTypesModule } from './modules/document-types/document-types.module';
+import { QueueModule } from './queue/queue.module';
 
 @Module({
   imports: [
@@ -21,8 +23,8 @@ import { InsightsProxyModule } from './modules/insights-proxy/insights-proxy.mod
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        uri: config.get<string>('MONGO_URI', 'mongodb://localhost:27017/govtrust_core'),
-        dbName: config.get<string>('MONGO_DB_NAME', 'govtrust_core'),
+        uri: config.get<string>('MONGO_URI', 'mongodb://localhost:27017/govtrust_business'),
+        dbName: config.get<string>('MONGO_DB_NAME', 'govtrust_business'),
       }),
     }),
 
@@ -40,13 +42,15 @@ import { InsightsProxyModule } from './modules/insights-proxy/insights-proxy.mod
 
     AuthModule,
     ProceduresModule,
+    DocumentTypesModule,
     DocumentsModule,
     ScoringModule,
     SessionsModule,
     SmartFormModule,
     RecheckModule,
     PriorityModule,
-    InsightsProxyModule,
+    InsightsModule,
+    QueueModule,
   ],
 })
 export class AppModule {}

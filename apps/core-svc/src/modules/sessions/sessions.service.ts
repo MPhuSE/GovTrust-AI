@@ -1,33 +1,19 @@
-import { Injectable, NotFoundException, OnModuleInit, Inject, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { ClientGrpc } from '@nestjs/microservices';
 import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
-import { Observable, firstValueFrom } from 'rxjs';
 import { Session, SessionDocument, SessionStatus } from '../../database/schemas/session.schema';
-import { INSIGHTS_SERVICE_GRPC } from '../../grpc/grpc.constants';
-
-interface InsightsServiceGrpcClient {
-  LogInsight(req: {
-    procedureId: string; sessionId: string; errorType: string;
-    severity: string; finalScore: number;
-  }): Observable<{ success: boolean }>;
-}
+import { InsightLog, InsightLogDocument, ErrorType } from '../../database/schemas/insight-log.schema';
 
 @Injectable()
-export class SessionsService implements OnModuleInit {
+export class SessionsService {
   private readonly logger = new Logger(SessionsService.name);
-  private insightsGrpc: InsightsServiceGrpcClient;
 
   constructor(
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
+    @InjectModel(InsightLog.name) private insightModel: Model<InsightLogDocument>,
     private readonly config: ConfigService,
-    @Inject(INSIGHTS_SERVICE_GRPC) private readonly insightsClient: ClientGrpc,
   ) {}
-
-  onModuleInit() {
-    this.insightsGrpc = this.insightsClient.getService<InsightsServiceGrpcClient>('InsightsService');
-  }
 
   async create(procedureId: string, userId?: string): Promise<SessionDocument> {
     const ttlHours = this.config.get<number>('SESSION_TTL_HOURS', 24);
@@ -89,17 +75,21 @@ export class SessionsService implements OnModuleInit {
     const procedureId = session.procedureId.toString();
     const sessionId = (session._id as Types.ObjectId).toString();
 
-    const emit = async (errorType: string, severity: string) => {
+    const emit = async (errorType: ErrorType, severity: string) => {
       try {
-        await firstValueFrom(
-          this.insightsGrpc.LogInsight({ procedureId, sessionId, errorType, severity, finalScore }),
-        );
+        await this.insightModel.create({
+          procedureId: new Types.ObjectId(procedureId),
+          sessionId: new Types.ObjectId(sessionId),
+          errorType,
+          severity,
+          finalScore,
+        });
       } catch (e) {
-        this.logger.warn(`InsightLog gRPC failed: ${(e as Error).message}`);
+        this.logger.warn(`Ghi InsightLog thất bại: ${(e as Error).message}`);
       }
     };
 
-    if (crossCheck?.mismatches?.length) await emit('INFO_MISMATCH', 'HIGH');
-    if (crossCheck?.missing?.length) await emit('MISSING_DOC', 'HIGH');
+    if (crossCheck?.mismatches?.length) await emit(ErrorType.INFO_MISMATCH, 'HIGH');
+    if (crossCheck?.missing?.length) await emit(ErrorType.MISSING_DOC, 'HIGH');
   }
 }

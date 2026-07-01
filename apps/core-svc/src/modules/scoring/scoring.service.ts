@@ -6,9 +6,60 @@ import { Observable, firstValueFrom } from 'rxjs';
 import { Session, SessionDocument, SessionStatus } from '../../database/schemas/session.schema';
 import { Procedure, ProcedureDocument } from '../../database/schemas/procedure.schema';
 import { CrossChecker, ScoreEngine } from '@govtrust/rule-engine';
+import type {
+  ProcedureTemplate,
+  ChecklistItem,
+  CrossCheckRule,
+  Severity,
+  ExtractedDocument,
+  CrossCheckResult,
+  ImageQuality,
+  FieldValue,
+} from '@govtrust/rule-engine';
 import { AI_SERVICE_GRPC } from '../../grpc/grpc.constants';
 
-interface LegalAlert {
+/** Shape của 1 giấy tờ trong session.aiResult.ocrData (ghi bởi BullMQ consumer). */
+interface OcrDataEntry {
+  documentTypeCode: string;
+  fields?: Record<string, FieldValue>;
+  imageQuality?: ImageQuality;
+}
+
+/**
+ * Map procedure (shape MongoDB) → ProcedureTemplate (rule-engine).
+ * Khác biệt: schema dùng `isRequired`, rule-engine dùng `required`;
+ * `severityIfMismatch` ở schema là string → ép về Severity.
+ */
+function toTemplate(p: ProcedureDocument): ProcedureTemplate {
+  const checklist: ChecklistItem[] = (p.checklist ?? []).map(c => ({
+    id: c.id,
+    documentTypeCode: c.documentTypeCode,
+    acceptedCodes: c.acceptedCodes,
+    roleInProcedure: c.roleInProcedure,
+    quantity: c.quantity,
+    required: c.isRequired,
+    conditionalOn: c.conditionalOn,
+    points: c.points,
+  }));
+  const crossCheckRules: CrossCheckRule[] = (p.crossCheckRules ?? []).map(r => ({
+    name: r.name,
+    left: r.left,
+    right: r.right,
+    matchType: r.matchType,
+    tolerance: r.tolerance,
+    severityIfMismatch: r.severityIfMismatch as Severity,
+    skipIfMissing: r.skipIfMissing,
+  }));
+  return {
+    code: p.code,
+    name: p.name,
+    checklist,
+    crossCheckRules,
+    scoringRules: p.scoringRules,
+  };
+}
+
+export interface LegalAlert {
   type: string; message: string; confidence: number;
   needsVerification: boolean; sourceTitle: string; sourceArticle: string; sourceUrl: string;
 }
@@ -35,29 +86,17 @@ export class ScoringService implements OnModuleInit {
     if (!session) throw new NotFoundException('Phiên không tồn tại');
 
     const procedure = session.procedureId as unknown as ProcedureDocument;
-    const ocrData = session.aiResult?.ocrData as Record<string, unknown> ?? {};
+    const ocrData = (session.aiResult?.ocrData ?? {}) as Record<string, OcrDataEntry>;
 
     // Chuyển ocrData thành ExtractedDocument[]
-    const documents = Object.entries(ocrData).map(([checklistId, data]) => {
-      const d = data as { documentTypeCode: string; fields: Record<string, { value: string; confidence: number }> };
-      return {
-        checklistId,
-        documentTypeCode: d.documentTypeCode,
-        fields: d.fields ?? {},
-      };
-    });
+    const documents: ExtractedDocument[] = Object.entries(ocrData).map(([checklistId, d]) => ({
+      checklistId,
+      documentTypeCode: d.documentTypeCode,
+      fields: d.fields ?? {},
+    }));
 
     const checker = new CrossChecker();
-    const crosscheckResult = checker.run(
-      {
-        code: procedure.code,
-        name: procedure.name,
-        checklist: procedure.checklist,
-        crossCheckRules: procedure.crossCheckRules,
-        scoringRules: procedure.scoringRules,
-      },
-      documents,
-    );
+    const crosscheckResult = checker.run(toTemplate(procedure), documents);
 
     await this.sessionModel.findByIdAndUpdate(sessionId, {
       'aiResult.crossCheck': crosscheckResult,
@@ -71,26 +110,22 @@ export class ScoringService implements OnModuleInit {
     if (!session) throw new NotFoundException('Phiên không tồn tại');
 
     const procedure = session.procedureId as unknown as ProcedureDocument;
-    const crosscheckResult = session.aiResult?.crossCheck;
+    const crosscheckResult = session.aiResult?.crossCheck as CrossCheckResult | undefined;
     if (!crosscheckResult) throw new NotFoundException('Chưa chạy CrossCheck');
 
-    const ocrData = session.aiResult?.ocrData as Record<string, unknown> ?? {};
-    const documents = Object.entries(ocrData).map(([checklistId, data]) => {
-      const d = data as { documentTypeCode: string; fields: Record<string, { value: string; confidence: number }>; imageQuality?: unknown };
-      return { checklistId, documentTypeCode: d.documentTypeCode, fields: d.fields ?? {}, imageQuality: d.imageQuality as any };
-    });
+    const ocrData = (session.aiResult?.ocrData ?? {}) as Record<string, OcrDataEntry>;
+    const documents: ExtractedDocument[] = Object.entries(ocrData).map(([checklistId, d]) => ({
+      checklistId,
+      documentTypeCode: d.documentTypeCode,
+      fields: d.fields ?? {},
+      imageQuality: d.imageQuality,
+    }));
 
     const engine = new ScoreEngine();
     const scoreResult = engine.evaluate({
-      procedure: {
-        code: procedure.code,
-        name: procedure.name,
-        checklist: procedure.checklist,
-        crossCheckRules: procedure.crossCheckRules,
-        scoringRules: procedure.scoringRules,
-      },
+      procedure: toTemplate(procedure),
       documents,
-      crosscheckResult: crosscheckResult as any,
+      crosscheckResult,
     });
 
     await this.sessionModel.findByIdAndUpdate(sessionId, {
@@ -111,7 +146,7 @@ export class ScoringService implements OnModuleInit {
     const result = await firstValueFrom(
       this.aiGrpc.CheckLawGuard({
         procedureCode: procedure.code,
-        category: (procedure as any).category ?? '',
+        category: procedure.category ?? '',
         checklist: procedure.checklist.map(c => ({ id: c.id, roleInProcedure: c.roleInProcedure ?? '' })),
       }),
     );

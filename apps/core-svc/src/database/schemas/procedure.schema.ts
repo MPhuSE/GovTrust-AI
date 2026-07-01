@@ -12,6 +12,9 @@ export class Procedure {
   name: string;
 
   @Prop()
+  category: string;
+
+  @Prop()
   description: string;
 
   @Prop()

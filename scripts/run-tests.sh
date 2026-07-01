@@ -3,28 +3,25 @@ set -e
 
 echo "=== GovTrust AI — Test Suite ==="
 
-# 1. Rule Engine unit tests (TypeScript)
+# 1. Rule Engine unit tests (TypeScript thuần)
 echo ""
 echo "→ [1/3] Rule Engine unit tests..."
 cd packages/rule-engine
 pnpm test
 cd ../..
 
-# 2. NestJS integration tests
+# 2. Type-check các service TypeScript
 echo ""
-echo "→ [2/3] NestJS API tests..."
-cd apps/api
-pnpm test
-cd ../..
+echo "→ [2/3] Type-check core-svc / api-gateway..."
+for svc in core-svc api-gateway; do
+  echo "   • $svc"
+  (cd "apps/$svc" && npx tsc --noEmit)
+done
 
-# 3. FastAPI tests
+# 3. FastAPI tests + Python syntax check
 echo ""
-echo "→ [3/3] FastAPI AI Gateway tests..."
-cd apps/ai-gateway
-source venv/bin/activate 2>/dev/null || true
-python -m pytest tests/ -v
-deactivate 2>/dev/null || true
-cd ../..
+echo "→ [3/3] FastAPI ai-svc tests..."
+(cd apps/ai-svc && .venv/bin/python -m compileall -q app && .venv/bin/python -m pytest tests -q)
 
 echo ""
-echo "=== All tests passed ✓ ==="
+echo "=== All checks passed ✓ ==="

@@ -47,7 +47,7 @@ export class PriorityService {
 
   private calcSlaDeadline(session: SessionDocument, procedure: ProcedureDocument): Date {
     const slaDays = procedure?.priorityConfig?.slaDays ?? 5;
-    const base = (session as any).createdAt ?? new Date();
+    const base = session.createdAt ?? new Date();
     return new Date(base.getTime() + slaDays * 86400000);
   }
 

@@ -1,0 +1,13 @@
+.git
+.github
+.claude
+**/node_modules
+**/dist
+**/.next
+**/__pycache__
+**/.pytest_cache
+**/.venv
+.env
+uploads
+coverage
+

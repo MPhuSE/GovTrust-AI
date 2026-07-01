@@ -1,78 +1,87 @@
 version: '3.9'
 
 # ============================================================
-# GovTrust AI — Microservices Architecture
+# GovTrust AI — 4 service (xem docs/ARCHITECTURE.md)
 #
-# Giao tiếp:
-#   web       → core-svc  : REST HTTP (:4000)
-#   core-svc  → ai-svc    : gRPC (:50051)
-#   core-svc  → insights-svc : gRPC (:50052)
+# Luồng:
+#   web        → api-gateway : HTTP (:8080)  — cổng public DUY NHẤT
+#   api-gateway→ core-svc    : HTTP (:4000)  — proxy + verify JWT
+#   core-svc   → ai-svc      : gRPC (:50051) + BullMQ (Redis)
+#
+# core-svc & ai-svc KHÔNG expose ra ngoài (chỉ nội bộ).
 # ============================================================
 
 services:
   # ── Frontend ──────────────────────────────────────────────
   web:
     build:
-      context: ../apps/web
+      context: ../web
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://core-svc:4000
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
       - NEXT_PUBLIC_APP_NAME=GovTrust AI
+    depends_on:
+      - api-gateway
+
+  # ── api-gateway (NestJS edge) ─────────────────────────────
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: apps/api-gateway/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - GATEWAY_PORT=8080
+      - CORE_SVC_URL=http://core-svc:4000
+      - WEB_ORIGIN=http://localhost:3000
+    env_file:
+      - ../.env
     depends_on:
       - core-svc
 
-  # ── core-svc (NestJS) ─────────────────────────────────────
+  # ── core-svc (NestJS, MongoDB) — internal ────────────────
   core-svc:
     build:
-      context: ../apps/core-svc
-      dockerfile: Dockerfile
-    ports:
-      - "4000:4000"   # REST API
+      context: ..
+      dockerfile: apps/core-svc/Dockerfile
+    expose:
+      - "4000"
     environment:
-      - MONGO_URI=mongodb://mongo:27017/govtrust_core
-      - MONGO_DB_NAME=govtrust_core
+      - API_PORT=4000
+      - MONGO_URI=mongodb://mongo:27017/govtrust_business
+      - MONGO_DB_NAME=govtrust_business
       - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - AI_SVC_GRPC_URL=ai-svc:50051
-      - INSIGHTS_SVC_GRPC_URL=insights-svc:50052
     env_file:
       - ../.env
     depends_on:
       - mongo
       - redis
       - ai-svc
-      - insights-svc
 
-  # ── ai-svc (FastAPI + gRPC) ───────────────────────────────
+  # ── ai-svc (FastAPI/Python gRPC + Qdrant) — internal ─────
   ai-svc:
     build:
-      context: ../apps/ai-svc
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"   # FastAPI REST (docs/health)
-      - "50051:50051" # gRPC server
+      context: ..
+      dockerfile: apps/ai-svc/Dockerfile
+    expose:
+      - "50051"
+      - "8000"
     environment:
+      - AI_SVC_GRPC_URL=0.0.0.0:50051
+      - AI_SVC_PORT=8000
       - QDRANT_URL=http://qdrant:6333
-      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LEGAL_CHUNKS_DIR=/app/data/legal-sources/chunks
     env_file:
       - ../.env
     depends_on:
       - qdrant
       - redis
-
-  # ── insights-svc (NestJS gRPC microservice) ───────────────
-  insights-svc:
-    build:
-      context: ../apps/insights-svc
-      dockerfile: Dockerfile
-    ports:
-      - "50052:50052" # gRPC server
-    environment:
-      - INSIGHTS_MONGO_URI=mongodb://mongo:27017/govtrust_analytics
-      - INSIGHTS_GRPC_PORT=50052
-    depends_on:
-      - mongo
 
   # ── Infrastructure ────────────────────────────────────────
   mongo:
@@ -97,16 +106,6 @@ services:
       - "6334:6334"
     volumes:
       - qdrant-data:/qdrant/storage
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - web
-      - core-svc
 
 volumes:
   mongo-data:
