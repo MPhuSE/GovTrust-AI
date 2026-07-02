@@ -6,7 +6,7 @@ WORKDIR /app
 # 1. Build rule-engine (TS thuần) → dist
 COPY packages/rule-engine ./packages/rule-engine
 WORKDIR /app/packages/rule-engine
-RUN npm install && npm run build
+RUN npm install --legacy-peer-deps && npm run build
 
 # 2. proto + data dùng chung
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY template ./template
 # 3. Deps core-svc (bỏ dòng workspace:* để npm không lỗi, ta tự link ở bước 5)
 COPY apps/core-svc/package.json ./apps/core-svc/
 WORKDIR /app/apps/core-svc
-RUN sed -i '/@govtrust\/rule-engine/d' package.json && npm install
+RUN sed -i '/@govtrust\/rule-engine/d' package.json && npm install --legacy-peer-deps
 
 # 4. Link rule-engine đã build vào node_modules để require() chạy được runtime
 RUN mkdir -p node_modules/@govtrust/rule-engine \
