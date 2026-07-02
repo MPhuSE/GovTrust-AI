@@ -52,11 +52,12 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
             href={variant === 'officer' ? '/dashboard' : '/'}
             className="flex items-center gap-4 shrink-0 group"
           >
-            <img 
-              src="/logo.jpg" 
-              alt="GovTrust AI Logo" 
-              className="w-12 h-12 md:w-14 md:h-14 object-cover rounded-full shadow-sm border border-gray-200 group-hover:scale-105 transition-transform duration-300"
-            />
+            <div
+              aria-label="GovTrust AI Logo"
+              className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full bg-emerald-700 text-white font-extrabold text-lg md:text-xl shadow-sm border border-emerald-800 group-hover:scale-105 transition-transform duration-300"
+            >
+              GT
+            </div>
             
             <div className="flex flex-col">
               <span className="text-emerald-700 font-extrabold text-xl md:text-2xl uppercase tracking-wide">

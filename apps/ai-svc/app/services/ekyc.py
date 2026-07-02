@@ -227,11 +227,13 @@ class EkycService:
             return "document.png", "image/png", False
         return "document.jpg", "image/jpeg", False
 
+    # VNPT /ai/v1/web/ocr/id trả field CCCD bằng key tiếng Anh (khớp EKYC_MAPPING
+    # trong ocr.py). Map: VNPT key -> key nội bộ mà core-svc/web sử dụng.
     FIELD_MAP = {
-        "soCCCD": "cccdNumber", "hoTen": "fullName", "ngaySinh": "birthDay",
-        "gioiTinh": "gender", "quocTich": "nationality",
-        "queQuan": "originLocation", "noiThuongTru": "recentLocation",
-        "ngayHetHan": "validDate", "issue_date": "issueDate", "issue_place": "issuePlace",
+        "id": "cccdNumber", "name": "fullName", "birth_day": "birthDay",
+        "gender": "gender", "nationality": "nationality",
+        "origin_location": "originLocation", "recent_location": "recentLocation",
+        "valid_date": "validDate", "issue_date": "issueDate", "issue_place": "issuePlace",
     }
 
     @classmethod

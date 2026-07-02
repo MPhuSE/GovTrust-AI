@@ -12,6 +12,7 @@ import {
   maskFormData,
   maskOcrData,
   maskScoreResult,
+  maskSmartForm,
 } from '../../common/utils/pii-mask.util';
 import { FileCleanupService } from './file-cleanup.service';
 
@@ -128,6 +129,7 @@ export class SessionsService {
         crossCheck: maskCrossCheck(plain.aiResult.crossCheck),
         score: maskScoreResult(plain.aiResult.score),
         formData: maskFormData(plain.aiResult.formData),
+        smartForm: maskSmartForm(plain.aiResult.smartForm),
       };
     }
     plain.documents = (plain.documents ?? []).map(

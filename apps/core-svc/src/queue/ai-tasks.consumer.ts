@@ -158,9 +158,10 @@ export class AiTasksConsumer implements OnModuleInit {
       const result = await firstValueFrom(
         this.aiGrpc.CheckLawGuard({ procedureCode, category, checklist }),
       );
+      const alerts = result.alerts ?? [];
       await this.sessionModel.findByIdAndUpdate(sessionId, {
         $set: {
-          'aiResult.lawGuardAlerts': result.alerts,
+          'aiResult.lawGuardAlerts': alerts,
           'aiResult.lawGuardDisclaimer': result.disclaimer,
           'pipeline.steps.lawguard': 'done',
           'pipeline.step': 'LAWGUARD',
@@ -168,7 +169,7 @@ export class AiTasksConsumer implements OnModuleInit {
         },
       });
       await this.markJob(jobId, JobState.DONE);
-      return { ok: true, alerts: result.alerts.length };
+      return { ok: true, alerts: alerts.length };
     } catch (error) {
       this.logger.error(`LawGuard job lỗi (session ${sessionId}): ${(error as Error).message}`);
       const retrying = this.hasRetry(job);

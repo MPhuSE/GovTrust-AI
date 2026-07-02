@@ -137,7 +137,7 @@ export default function ProfilePage() {
               {badge.label}
               {isVerified && profile.kycFaceMatchProb !== null && (
                 <span className="opacity-70 ml-1">
-                  ({Math.round(profile.kycFaceMatchProb * 100)}% match)
+                  ({Math.round(profile.kycFaceMatchProb)}% match)
                 </span>
               )}
             </div>

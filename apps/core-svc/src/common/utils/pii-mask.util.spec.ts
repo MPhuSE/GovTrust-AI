@@ -9,6 +9,7 @@ import {
   maskName,
   maskOcrData,
   maskScoreResult,
+  maskSmartForm,
 } from './pii-mask.util';
 
 describe('pii-mask primitives', () => {
@@ -116,5 +117,29 @@ describe('maskFormData', () => {
     expect(masked['chuHo.soCCCD'].value).toBe('01********01');
     expect(masked['hoKinhDoanh.nganhNghe'].value).toBe('Bán lẻ');
     expect(masked['chuHo.hoTen'].editable).toBe(true);
+  });
+});
+
+describe('maskSmartForm', () => {
+  it('masks PII in autoFilledFields by field key, leaves manualFields untouched', () => {
+    const masked = maskSmartForm({
+      procedureName: 'Đăng ký khai sinh',
+      autoFilledFields: [
+        { key: 'hoTen', label: 'Họ tên', value: 'Nguyễn Văn An', source: 'ocr', editable: false },
+        { key: 'soCCCD', label: 'Số CCCD', value: '012345678901', source: 'ocr', editable: false },
+      ],
+      manualFields: [
+        { key: 'ghiChu', label: 'Ghi chú', value: 'nội dung tự nhập', source: 'manual', editable: true },
+      ],
+    }) as any;
+    expect(masked.autoFilledFields[0].value).toBe('Nguyễn V. A.');
+    expect(masked.autoFilledFields[1].value).toBe('01********01');
+    expect(masked.manualFields[0].value).toBe('nội dung tự nhập');
+    expect(JSON.stringify(masked)).not.toContain('012345678901');
+  });
+
+  it('returns non-object input unchanged', () => {
+    expect(maskSmartForm(undefined)).toBeUndefined();
+    expect(maskSmartForm(null)).toBeNull();
   });
 });

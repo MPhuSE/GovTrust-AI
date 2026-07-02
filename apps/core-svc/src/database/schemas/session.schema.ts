@@ -48,6 +48,7 @@ export class Session {
     lawGuardAlerts?: unknown[];
     lawGuardDisclaimer?: string;
     formData?: Record<string, unknown>;
+    smartForm?: unknown;
   };
 
   @Prop({ type: Object })

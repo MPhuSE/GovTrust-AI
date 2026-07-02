@@ -159,6 +159,30 @@ export function maskFormData(
   return masked;
 }
 
+interface SmartFormFieldSlot {
+  key?: string;
+  value?: unknown;
+  [k: string]: unknown;
+}
+
+/**
+ * Mask PII trong aiResult.smartForm (view mà web đọc). autoFilledFields chứa
+ * giá trị bóc từ CCCD (số, họ tên, ngày sinh, địa chỉ) nên phải che trước khi
+ * trả ra public; manualFields do người dùng tự nhập, giữ nguyên để họ sửa.
+ */
+export function maskSmartForm(smartForm: unknown): unknown {
+  if (!smartForm || typeof smartForm !== 'object') return smartForm;
+  const sf = smartForm as { autoFilledFields?: SmartFormFieldSlot[]; [k: string]: unknown };
+  if (!Array.isArray(sf.autoFilledFields)) return smartForm;
+  return {
+    ...sf,
+    autoFilledFields: sf.autoFilledFields.map((field) => ({
+      ...field,
+      value: maskFieldValue(field.key ?? '', field.value),
+    })),
+  };
+}
+
 /** Ẩn danh sessionId cho InsightLog — hash một chiều, không truy ngược được. */
 export function anonymizeId(id: string): string {
   return createHash('sha256').update(id).digest('hex').slice(0, 16);

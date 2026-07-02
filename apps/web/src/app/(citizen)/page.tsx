@@ -118,7 +118,17 @@ export default function HomePage() {
             </div>
             {/* Illustration space */}
             <div className="relative h-48 md:h-full w-full md:w-2/5 mt-auto overflow-hidden flex items-end justify-end">
-               <img src="/ai-illustration.png" alt="GovTrust AI" className="h-[120%] md:h-[140%] object-contain object-right-bottom mix-blend-multiply group-hover:scale-105 transition-transform duration-700 origin-bottom-right opacity-90" />
+               <svg
+                 role="img"
+                 aria-label="GovTrust AI"
+                 viewBox="0 0 200 200"
+                 className="h-[120%] md:h-[140%] object-right-bottom group-hover:scale-105 transition-transform duration-700 origin-bottom-right opacity-90 text-white/80"
+                 fill="none"
+                 xmlns="http://www.w3.org/2000/svg"
+               >
+                 <path d="M100 20 L160 44 V96 C160 134 134 162 100 176 C66 162 40 134 40 96 V44 Z" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="3" />
+                 <path d="M74 100 l18 18 l36 -40" stroke="currentColor" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+               </svg>
             </div>
           </div>
         </section>

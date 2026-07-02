@@ -5,6 +5,7 @@
   "description": "GovTrust AI — Hệ thống hỗ trợ tiền kiểm hồ sơ dịch vụ công",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:full": "bash scripts/dev-fullstack.sh",
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",

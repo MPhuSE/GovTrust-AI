@@ -17,6 +17,22 @@ export interface FormFieldValue {
   confidence?: number;
 }
 
+/** View mà web (trang smartform) đọc từ aiResult.smartForm. */
+export interface SmartFormFieldView {
+  key: string;
+  label: string;
+  value: string;
+  source: 'ocr' | 'auto' | 'manual';
+  editable: boolean;
+  required: boolean;
+}
+
+export interface SmartFormView {
+  procedureName: string;
+  autoFilledFields: SmartFormFieldView[];
+  manualFields: SmartFormFieldView[];
+}
+
 @Injectable()
 export class SmartFormService {
   constructor(
@@ -114,12 +130,46 @@ export class SmartFormService {
       else if (field.required) missingFields.push(field.id);
     }
 
+    // View cho web: tách field đã tự điền (từ OCR/mặc định) và field cần nhập tay.
+    const autoFilledFields: SmartFormFieldView[] = [];
+    const manualFields: SmartFormFieldView[] = [];
+    for (const field of procedure.formFields) {
+      const entry = formData[field.id];
+      const hasValue = Boolean(entry.value);
+      const isUserSource = entry.source === 'USER';
+      if (hasValue && !isUserSource) {
+        autoFilledFields.push({
+          key: field.id,
+          label: field.label,
+          value: entry.value ?? '',
+          source: entry.source === 'PROCEDURE_DEFAULT' ? 'auto' : 'ocr',
+          editable: false,
+          required: field.required,
+        });
+      } else {
+        manualFields.push({
+          key: field.id,
+          label: field.label,
+          value: entry.value ?? '',
+          source: 'manual',
+          editable: true,
+          required: field.required,
+        });
+      }
+    }
+    const smartForm: SmartFormView = {
+      procedureName: procedure.name,
+      autoFilledFields,
+      manualFields,
+    };
+
     const result = {
       sessionId,
       procedureCode: procedure.code,
       procedureName: procedure.name,
       template: procedure.outputTemplate,
       formData,
+      smartForm,
       filledCount,
       totalCount: procedure.formFields.length,
       missingFields,
@@ -132,6 +182,7 @@ export class SmartFormService {
     await this.sessionModel.findByIdAndUpdate(sessionId, {
       $set: {
         'aiResult.formData': formData,
+        'aiResult.smartForm': smartForm,
         'pipeline.steps.smartform': 'done',
         'pipeline.step': 'SMARTFORM',
         'pipeline.updatedAt': new Date(),

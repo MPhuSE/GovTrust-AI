@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { Providers } from '@/components/layout/Providers';
 import '@/styles/globals.css';
@@ -21,7 +21,12 @@ export const metadata: Metadata = {
     'Hệ thống hỗ trợ tiền kiểm hồ sơ dịch vụ công — kiểm tra giấy tờ trước khi nộp, phát hiện lỗi ngay tại nhà. Vietnamese Student HackAIthon 2026.',
   keywords: 'dịch vụ công, kiểm tra hồ sơ, AI, GovTrust, tiền kiểm',
   robots: 'noindex, nofollow',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=5',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

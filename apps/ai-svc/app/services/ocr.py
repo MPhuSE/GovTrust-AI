@@ -437,7 +437,7 @@ class OcrService:
                 continue
             fields[internal_key] = {"value": str(value).strip(), "confidence": 0.95}
         average = 0.95 if fields else 0
-        return OcrResult(fields, round(average, 3), 0, None)
+        return OcrResult(fields, round(average, 3), 0, None, {})
 
     @staticmethod
     def _ekyc_confidence(obj: dict, source_key: str) -> float:
@@ -468,4 +468,4 @@ class OcrService:
         average = (
             sum(item["confidence"] for item in fields.values()) / len(fields) if fields else 0
         )
-        return OcrResult(fields, round(average, 3), 0, None)
+        return OcrResult(fields, round(average, 3), 0, None, {})

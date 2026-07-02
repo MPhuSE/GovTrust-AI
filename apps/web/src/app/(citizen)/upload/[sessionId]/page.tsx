@@ -170,7 +170,7 @@ export default function UploadPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const router = useRouter();
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
-  const [uploadedDocs, setUploadedDocs] = useState<Record<string, { fileName: string; preview?: string }>>({});
+  const [uploadedDocs, setUploadedDocs] = useState<Record<string, { fileName: string; preview?: string; checklistId: string }>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [procedureName, setProcedureName] = useState('');
@@ -252,23 +252,24 @@ export default function UploadPage() {
   }, [sessionId]);
 
   // ── Xử lý file (từ file input hoặc camera confirm) ──
-  const handleFile = useCallback(async (file: File, documentTypeCode: string) => {
+  const handleFile = useCallback(async (file: File, documentTypeCode: string, checklistId: string) => {
     if (file.size > 10 * 1024 * 1024) return;
     const formData = new FormData();
     formData.append('file', file);
     formData.append('sessionId', sessionId);
     formData.append('documentTypeCode', documentTypeCode);
+    formData.append('checklistId', checklistId);
     await documentsApi.upload(formData);
     const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
-    setUploadedDocs(prev => ({ ...prev, [documentTypeCode]: { fileName: file.name, preview } }));
+    setUploadedDocs(prev => ({ ...prev, [documentTypeCode]: { fileName: file.name, preview, checklistId } }));
   }, [sessionId]);
 
   const handleRunPipeline = async () => {
     setIsProcessing(true);
     try {
       setStatusMsg('Đang bóc tách thông tin từ giấy tờ...');
-      for (const docCode of Object.keys(uploadedDocs))
-        await documentsApi.triggerOcr(sessionId, docCode);
+      for (const [docCode, doc] of Object.entries(uploadedDocs))
+        await documentsApi.triggerOcr(sessionId, docCode, doc.checklistId);
 
       setStatusMsg('Đang kiểm tra chéo thông tin...');
       await scoringApi.crosscheck(sessionId);
@@ -302,7 +303,7 @@ export default function UploadPage() {
           label={cameraField.label}
           onConfirm={async (file) => {
             setCameraField(null);
-            await handleFile(file, cameraField.documentTypeCode);
+            await handleFile(file, cameraField.documentTypeCode, cameraField.id);
           }}
           onCancel={() => setCameraField(null)}
         />
@@ -442,7 +443,7 @@ export default function UploadPage() {
                             className="hidden"
                             onChange={async e => {
                               const f = e.target.files?.[0];
-                              if (f) await handleFile(f, item.documentTypeCode);
+                              if (f) await handleFile(f, item.documentTypeCode, item.id);
                             }}
                           />
                           <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center">

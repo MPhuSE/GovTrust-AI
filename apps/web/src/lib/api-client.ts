@@ -103,7 +103,7 @@ export const sessionsApi = {
 // ─── Documents ─────────────────────────────────────────
 // Controller: @Controller('documents')
 export const documentsApi = {
-  /** POST /documents/upload — multipart { file, sessionId, documentTypeCode } */
+  /** POST /documents/upload — multipart { file, sessionId, documentTypeCode, checklistId } */
   upload: (formData: FormData) =>
     apiClient.post('/documents/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

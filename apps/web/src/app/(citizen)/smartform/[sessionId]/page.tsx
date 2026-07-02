@@ -33,44 +33,63 @@ export default function SmartFormPage() {
   const [formData, setFormData] = useState<SmartFormData | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    sessionsApi
-      .get(sessionId)
-      .then((session: unknown) => {
-        const s = session as { aiResult?: { smartForm?: SmartFormData } };
-        if (s.aiResult?.smartForm) {
-          setFormData(s.aiResult.smartForm);
-          // Initialize form values
-          const values: Record<string, string> = {};
-          [...(s.aiResult.smartForm.autoFilledFields || []), ...(s.aiResult.smartForm.manualFields || [])].forEach((f) => {
-            values[f.key] = f.value || '';
-          });
-          setFormValues(values);
-        } else {
-          // Fallback demo data
-          const demo: SmartFormData = {
-            autoFilledFields: [
-              { key: 'fullName', label: 'Họ và tên', value: 'NGUYỄN VĂN A', source: 'ocr', editable: false },
-              { key: 'dob', label: 'Ngày sinh', value: '15/08/1985', source: 'ocr', editable: false },
-              { key: 'cccd', label: 'Số CCCD', value: '001085123456', source: 'ocr', editable: false },
-              { key: 'address', label: 'Địa chỉ thường trú', value: '123 Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh', source: 'ocr', editable: false },
-            ],
-            manualFields: [
-              { key: 'childName', label: 'Họ và tên con', value: '', source: 'manual', editable: true, required: true, hint: 'Viết hoa chữ cái đầu của mỗi từ (Ví dụ: Nguyễn Văn B)' },
-              { key: 'childDob', label: 'Ngày sinh con', value: '', source: 'manual', editable: true, required: true },
-            ],
-          };
-          setFormData(demo);
-          const values: Record<string, string> = {};
-          [...demo.autoFilledFields, ...demo.manualFields].forEach((f) => {
-            values[f.key] = f.value || '';
-          });
-          setFormValues(values);
+    let cancelled = false;
+
+    const applyForm = (smartForm: SmartFormData) => {
+      setFormData(smartForm);
+      const values: Record<string, string> = {};
+      [...(smartForm.autoFilledFields || []), ...(smartForm.manualFields || [])].forEach((f) => {
+        values[f.key] = f.value || '';
+      });
+      setFormValues(values);
+    };
+
+    const readSmartForm = async (): Promise<SmartFormData | null> => {
+      const session = (await sessionsApi.get(sessionId)) as {
+        aiResult?: { smartForm?: SmartFormData };
+      };
+      return session.aiResult?.smartForm ?? null;
+    };
+
+    const load = async () => {
+      try {
+        // 1) Đã có sẵn từ pipeline (consumer chạy SmartFormService) → dùng ngay.
+        let smartForm = await readSmartForm();
+
+        // 2) Chưa có → chủ động yêu cầu sinh rồi poll tới khi backend ghi xong.
+        if (!smartForm) {
+          try {
+            await smartformApi.generate(sessionId);
+          } catch {
+            // generate 202 hoặc lỗi tạm — vẫn thử poll bên dưới.
+          }
+          for (let attempt = 0; attempt < 8 && !smartForm; attempt++) {
+            await new Promise((r) => setTimeout(r, 1500));
+            if (cancelled) return;
+            smartForm = await readSmartForm();
+          }
         }
-        setIsLoading(false);
-      })
-      .catch(() => setIsLoading(false));
+
+        if (cancelled) return;
+        if (smartForm) {
+          applyForm(smartForm);
+        } else {
+          setLoadError('Chưa tạo được biểu mẫu tự điền. Vui lòng thử lại sau ít phút.');
+        }
+      } catch {
+        if (!cancelled) setLoadError('Không tải được biểu mẫu. Vui lòng thử lại.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [sessionId]);
 
   const handleFieldChange = (key: string, value: string) => {
@@ -97,6 +116,33 @@ export default function SmartFormPage() {
         <div className="max-w-2xl mx-auto px-4 py-8">
           <LoadingSkeleton variant="card" className="rounded-md" />
           <LoadingSkeleton variant="card" className="mt-6 rounded-md" />
+        </div>
+      </CitizenLayout>
+    );
+  }
+
+  if (loadError || !formData) {
+    return (
+      <CitizenLayout>
+        <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+          <p className="text-gray-700 font-bold text-lg mb-2">Chưa tạo được biểu mẫu</p>
+          <p className="text-gray-500 text-sm font-medium mb-6">
+            {loadError || 'Không có dữ liệu biểu mẫu cho phiên này.'}
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2.5 bg-teal-700 text-white text-sm font-bold rounded hover:bg-teal-800 transition-colors"
+            >
+              Thử lại
+            </button>
+            <button
+              onClick={() => router.push(`/result/${sessionId}`)}
+              className="px-6 py-2.5 border border-gray-200 text-gray-600 text-sm font-bold rounded hover:bg-gray-50 transition-colors"
+            >
+              Về kết quả
+            </button>
+          </div>
         </div>
       </CitizenLayout>
     );
