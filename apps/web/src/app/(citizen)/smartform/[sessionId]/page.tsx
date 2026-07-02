@@ -77,7 +77,17 @@ export default function SmartFormPage() {
     setFormValues((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleContinue = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleContinue = async () => {
+    setIsSaving(true);
+    try {
+      // Save form values to backend before proceeding
+      await smartformApi.render(sessionId, formValues);
+    } catch {
+      // If render fails (e.g. backend not ready), continue anyway
+    }
+    setIsSaving(false);
     router.push(`/confirm/${sessionId}`);
   };
 
@@ -200,10 +210,11 @@ export default function SmartFormPage() {
             Quay lại
           </button>
           <button 
-            className="px-6 py-4 rounded-xl font-bold bg-[#0A192F] text-white hover:bg-[#112240] transition-all flex-[2] text-center shadow-md flex items-center justify-center gap-2"
+            className="px-6 py-4 rounded-xl font-bold bg-[#0A192F] text-white hover:bg-[#112240] transition-all flex-[2] text-center shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
             onClick={handleContinue}
+            disabled={isSaving}
           >
-            Tiếp tục xác nhận →
+            {isSaving ? 'Đang lưu...' : 'Tiếp tục xác nhận →'}
           </button>
         </div>
 

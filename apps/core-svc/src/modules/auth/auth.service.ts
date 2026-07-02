@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   UnprocessableEntityException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
@@ -15,6 +16,21 @@ import {
   UserRole,
 } from '../../database/schemas/user.schema';
 import { EkycFiles, EkycVerificationService } from './ekyc-verification.service';
+
+/** Mask CCCD: giữ 3 số đầu và 3 số cuối, che phần giữa.
+ *  Ví dụ: "034095012345" → "034******345"
+ */
+function maskCccd(num: string): string {
+  if (!num || num.length <= 6) return '***';
+  const keep = 3;
+  return num.slice(0, keep) + '*'.repeat(Math.max(0, num.length - keep * 2)) + num.slice(-keep);
+}
+
+/** Mask địa chỉ: hiện 12 ký tự đầu rồi '...' */
+function maskAddr(addr: string): string {
+  if (!addr || addr.length <= 15) return addr;
+  return addr.slice(0, 15) + '...';
+}
 
 @Injectable()
 export class AuthService {
@@ -103,6 +119,33 @@ export class AuthService {
     if (!ok) throw new UnauthorizedException('Sai tên đăng nhập hoặc mật khẩu');
 
     return this.buildToken(user);
+  }
+
+  /** GET /auth/me — trả thông tin người dùng + CCCD đã mask.
+   *  CCCD number che phần giữa để bảo vệ PII trên giao diện.
+   */
+  async getProfile(userId: string) {
+    const user = await this.userModel.findById(userId).select('-passwordHash').lean();
+    if (!user) throw new NotFoundException('Người dùng không tồn tại');
+
+    return {
+      id: user._id,
+      username: user.username,
+      fullName: user.fullName,
+      role: user.role,
+      kycStatus: user.kycStatus ?? KycStatus.NONE,
+      kycVerifiedAt: user.kycVerifiedAt ?? null,
+      kycFaceMatchProb: user.kycFaceMatchProb ?? null,
+      // CCCD — masked để bảo vệ PII; full value chỉ nằm trong DB
+      cccdNumber:        user.cccdNumber    ? maskCccd(user.cccdNumber) : null,
+      cccdFullName:      user.cccdFullName  ?? null,
+      cccdBirthDay:      user.cccdBirthDay  ?? null,
+      cccdGender:        user.cccdGender    ?? null,
+      cccdNationality:   user.cccdNationality ?? null,
+      cccdOriginLocation: user.cccdOriginLocation ? maskAddr(user.cccdOriginLocation) : null,
+      cccdRecentLocation: user.cccdRecentLocation ? maskAddr(user.cccdRecentLocation) : null,
+      cccdValidDate:     user.cccdValidDate ?? null,
+    };
   }
 
   private buildToken(user: UserDocument) {

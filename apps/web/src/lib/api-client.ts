@@ -40,56 +40,154 @@ apiClient.interceptors.response.use(
   },
 );
 
-// --- API helpers ---
+// ─── Auth ──────────────────────────────────────────────
+// Controller: @Controller('auth')
+export const authApi = {
+  /** POST /auth/login — { username, password } */
+  login: (username: string, password: string) =>
+    apiClient.post('/auth/login', { username, password }),
 
-export const proceduresApi = {
-  list: () => apiClient.get('/procedures'),
-  get: (code: string) => apiClient.get(`/procedures/${code}`),
-  identify: (userQuery: string) => apiClient.post('/procedures/identify', { userQuery }),
+  /** POST /auth/register — { username, password, fullName } */
+  register: (data: { username: string; password: string; fullName: string }) =>
+    apiClient.post('/auth/register', data),
+
+  /** POST /auth/register/ekyc — multipart { username, password, fullName, front, back, selfie } */
+  registerWithEkyc: (formData: FormData) =>
+    apiClient.post('/auth/register/ekyc', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
+  /** POST /auth/ekyc/verify — multipart { front, back, selfie } — requires JWT */
+  ekycVerify: (formData: FormData) =>
+    apiClient.post('/auth/ekyc/verify', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
+  /** GET /auth/me — hồ sơ cá nhân + CCCD masked; requires JWT */
+  me: () => apiClient.get('/auth/me'),
 };
 
+// ─── Procedures ────────────────────────────────────────
+// Controller: @Controller('procedures')
+export const proceduresApi = {
+  /** GET /procedures */
+  list: () => apiClient.get('/procedures'),
+
+  /** GET /procedures/:code */
+  get: (code: string) => apiClient.get(`/procedures/${code}`),
+
+  /** POST /procedures/identify — { userQuery } */
+  identify: (userQuery: string) => apiClient.post('/procedures/identify', { userQuery }),
+
+  /** POST /procedures/consult — { question, procedureCode, topK? } */
+  consult: (question: string, procedureCode: string, topK?: number) =>
+    apiClient.post('/procedures/consult', { question, procedureCode, topK }),
+};
+
+// ─── Sessions ──────────────────────────────────────────
+// Controller: @Controller('sessions')
 export const sessionsApi = {
+  /** POST /sessions — { procedureId } — requires JWT */
   create: (procedureId: string) => apiClient.post('/sessions', { procedureId }),
+
+  /** GET /sessions/:id */
   get: (id: string) => apiClient.get(`/sessions/${id}`),
+
+  /** POST /sessions/:id/confirm */
   confirm: (id: string) => apiClient.post(`/sessions/${id}/confirm`),
 };
 
+// ─── Documents ─────────────────────────────────────────
+// Controller: @Controller('documents')
 export const documentsApi = {
+  /** POST /documents/upload — multipart { file, sessionId, documentTypeCode } */
   upload: (formData: FormData) =>
     apiClient.post('/documents/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
-  triggerOcr: (sessionId: string, documentTypeCode: string) =>
-    apiClient.post(`/documents/${sessionId}/ocr/${documentTypeCode}`),
+
+  /** POST /documents/:sessionId/ocr/:documentTypeCode — { checklistId? } */
+  triggerOcr: (sessionId: string, documentTypeCode: string, checklistId?: string) =>
+    apiClient.post(`/documents/${sessionId}/ocr/${documentTypeCode}`, { checklistId }),
 };
 
+// ─── Document Types ────────────────────────────────────
+// Controller: @Controller('document-types')
+export const documentTypesApi = {
+  /** GET /document-types */
+  list: () => apiClient.get('/document-types'),
+
+  /** GET /document-types/:code */
+  get: (code: string) => apiClient.get(`/document-types/${code}`),
+};
+
+// ─── Scoring (mounted on sessions) ─────────────────────
+// Controller: @Controller('sessions')
 export const scoringApi = {
+  /** POST /sessions/:id/crosscheck — 202 Accepted */
   crosscheck: (sessionId: string) => apiClient.post(`/sessions/${sessionId}/crosscheck`),
+
+  /** POST /sessions/:id/score — 202 Accepted */
   score: (sessionId: string) => apiClient.post(`/sessions/${sessionId}/score`),
+
+  /** POST /sessions/:id/lawguard — 202 Accepted */
   lawguard: (sessionId: string) => apiClient.post(`/sessions/${sessionId}/lawguard`),
 };
 
+// ─── SmartForm (mounted on sessions) ───────────────────
+// Controller: @Controller('sessions')
 export const smartformApi = {
+  /** POST /sessions/:id/smartform — 202 Accepted */
   generate: (sessionId: string) => apiClient.post(`/sessions/${sessionId}/smartform`),
+
+  /** POST /sessions/:id/smartform/render — { values: Record<string,string> } */
+  render: (sessionId: string, values: Record<string, string>) =>
+    apiClient.post(`/sessions/${sessionId}/smartform/render`, { values }),
+
+  /** GET /sessions/:id/smartform/:format — download docx or pdf */
+  download: (sessionId: string, format: 'docx' | 'pdf') =>
+    apiClient.get(`/sessions/${sessionId}/smartform/${format}`, {
+      responseType: 'blob',
+    }),
 };
 
+// ─── Recheck (mounted on sessions) ─────────────────────
+// Controller: @Controller('sessions') — requires OFFICER/ADMIN
 export const recheckApi = {
+  /** POST /sessions/:id/recheck — requires JWT + OFFICER/ADMIN role */
   recheck: (sessionId: string) => apiClient.post(`/sessions/${sessionId}/recheck`),
 };
 
+// ─── Priority ──────────────────────────────────────────
+// Controller: @Controller('priority') — requires OFFICER/ADMIN
 export const priorityApi = {
+  /** GET /priority */
   getQueue: () => apiClient.get('/priority'),
 };
 
+// ─── Insights ──────────────────────────────────────────
+// Controller: @Controller('insights') — requires OFFICER/ADMIN
 export const insightsApi = {
+  /** GET /insights/dashboard?days= */
   dashboard: (days?: number) => apiClient.get('/insights/dashboard', { params: { days } }),
+
+  /** GET /insights/top-errors?days= */
   topErrors: (days?: number) => apiClient.get('/insights/top-errors', { params: { days } }),
+
+  /** GET /insights/trend?days= */
   trend: (days?: number) => apiClient.get('/insights/trend', { params: { days } }),
+
+  /** POST /insights/reports?days= — 202 Accepted, async job */
+  generateReport: (days?: number) => apiClient.post('/insights/reports', null, { params: { days } }),
 };
 
-export const authApi = {
-  login: (username: string, password: string) =>
-    apiClient.post('/auth/login', { username, password }),
-  register: (data: { username: string; password: string; fullName: string }) =>
-    apiClient.post('/auth/register', data),
+// ─── Jobs ──────────────────────────────────────────────
+// Controller: @Controller('jobs') — requires ADMIN
+export const jobsApi = {
+  /** POST /jobs/embeddings — { chunksDir?, collection? } */
+  createEmbedding: (dto?: { chunksDir?: string; collection?: string }) =>
+    apiClient.post('/jobs/embeddings', dto),
+
+  /** GET /jobs/:id */
+  get: (id: string) => apiClient.get(`/jobs/${id}`),
 };

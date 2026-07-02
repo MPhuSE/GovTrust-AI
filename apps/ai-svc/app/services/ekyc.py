@@ -140,6 +140,21 @@ class EkycService:
             },
             timeout=60,
         )
+        # VNPT trả 400 khi ảnh không đạt chất lượng hoặc liveness thất bại —
+        # đây là kết quả xác thực thất bại, không phải lỗi hệ thống.
+        # Chỉ raise_for_status cho 5xx (lỗi phía VNPT).
+        if resp.status_code == 400:
+            try:
+                body = resp.json()
+            except Exception:
+                body = {}
+            msg = (
+                body.get("message")
+                or body.get("msg")
+                or f"VNPT liveness từ chối ảnh (400)"
+            )
+            logger.warning("VNPT liveness 400: %s | body=%s", msg, body)
+            return {"liveness": "failed", "liveness_msg": msg, "liveness_prob": 0.0}
         resp.raise_for_status()
         return resp.json().get("object", {})
 
@@ -170,10 +185,22 @@ class EkycService:
             timeout=30,
         )
         resp.raise_for_status()
-        payload = resp.json()
+        try:
+            payload = resp.json()
+        except Exception:
+            raise RuntimeError(f"VNPT addFile trả response không phải JSON: {resp.text[:300]}")
         hash_value = (payload.get("object") or {}).get("hash")
         if not hash_value:
-            raise RuntimeError(f"VNPT addFile không trả hash: {payload.get('message')}")
+            # Log đầy đủ để debug (token hết hạn / sai credentials / VNPT lỗi)
+            logger.error(
+                "VNPT addFile không trả hash — code=%s msg=%s payload=%s",
+                payload.get("code"),
+                payload.get("message"),
+                str(payload)[:400],
+            )
+            raise RuntimeError(
+                f"VNPT addFile lỗi [{payload.get('code')}]: {payload.get('message') or str(payload)[:200]}"
+            )
         return hash_value
 
     @property

@@ -2,8 +2,6 @@ import importlib
 import sys
 from pathlib import Path
 
-from grpc_tools import protoc
-
 from app.config import REPO_ROOT
 
 
@@ -13,6 +11,15 @@ def load_stubs():
     generated = output_dir / "ai_service_pb2.py"
 
     if not generated.exists() or generated.stat().st_mtime < proto_file.stat().st_mtime:
+        # Lazy import: chỉ cần grpc_tools khi cần compile lại stubs.
+        # Tránh ImportError trong reload-subprocess (system Python không có grpcio-tools).
+        try:
+            from grpc_tools import protoc
+        except ImportError as exc:
+            raise RuntimeError(
+                "grpcio-tools chưa được cài vào môi trường hiện tại. "
+                "Chạy: pip install grpcio-tools==1.64.0"
+            ) from exc
         result = protoc.main(
             [
                 "grpc_tools.protoc",

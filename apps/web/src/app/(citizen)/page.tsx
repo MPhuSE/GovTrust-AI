@@ -37,17 +37,17 @@ export default function HomePage() {
       .finally(() => setLoadingProcedures(false));
   }, []);
 
-  const handleStart = async () => {
-    if (!query.trim()) return;
+  const handleStart = async (searchQuery?: string) => {
+    const q = (searchQuery ?? query).trim();
+    if (!q) return;
     setIsLoading(true);
     setError(null);
     try {
-      const result = (await proceduresApi.identify(query)) as unknown as {
-        procedureId?: string;
-        procedure?: Procedure;
+      const result = (await proceduresApi.identify(q)) as unknown as {
+        procedureCode?: string;
       };
-      if (result.procedureId) {
-        const session = (await sessionsApi.create(result.procedureId)) as unknown as {
+      if (result.procedureCode) {
+        const session = (await sessionsApi.create(result.procedureCode)) as unknown as {
           _id: string;
         };
         router.push(`/upload/${session._id}`);
@@ -141,8 +141,8 @@ export default function HomePage() {
                   onKeyDown={(e) => e.key === 'Enter' && handleStart()}
                 />
               </div>
-              <Button 
-                onClick={handleStart} 
+              <Button
+                onClick={() => handleStart()}
                 disabled={isLoading || !query.trim()}
                 className="h-auto py-4 px-8 rounded-xl text-base font-semibold w-full sm:w-auto"
               >
@@ -169,8 +169,12 @@ export default function HomePage() {
               {quickSuggestions.map((s) => (
                 <button
                   key={s}
-                  className="bg-white/50 backdrop-blur-sm hover:bg-white text-navy/70 text-sm font-medium px-4 py-1.5 rounded-full border border-navy/10 hover:border-teal-200 hover:text-teal-700 shadow-sm transition-all duration-200"
-                  onClick={() => setQuery(s)}
+                  className="bg-white/50 backdrop-blur-sm hover:bg-white text-navy/70 text-sm font-medium px-4 py-1.5 rounded-full border border-navy/10 hover:border-teal-200 hover:text-teal-700 shadow-sm transition-all duration-200 disabled:opacity-50"
+                  disabled={isLoading}
+                  onClick={() => {
+                    setQuery(s);
+                    handleStart(s);
+                  }}
                 >
                   {s}
                 </button>

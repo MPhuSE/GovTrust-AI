@@ -3,8 +3,12 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
-interface User {
-  _id?: string;
+/**
+ * User shape returned by POST /auth/login → buildToken():
+ *   { access_token, user: { id, username, fullName, role } }
+ */
+export interface User {
+  id: string;
   username: string;
   fullName: string;
   role: 'CITIZEN' | 'OFFICER' | 'ADMIN';

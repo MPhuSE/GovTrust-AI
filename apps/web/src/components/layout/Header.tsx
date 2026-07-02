@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, HelpCircle, User, Menu, X } from 'lucide-react';
 
 interface HeaderProps {
@@ -14,6 +14,15 @@ interface HeaderProps {
 export function Header({ variant = 'citizen', userName, userRole }: HeaderProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Đọc user từ localStorage để hiện avatar
+  const [localUser, setLocalUser] = useState<{ fullName?: string; kycStatus?: string } | null>(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('govtrust_user');
+      if (raw) setLocalUser(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
 
   const citizenNav = [
     { href: '/', label: 'Trang chủ' },
@@ -89,14 +98,19 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
               <HelpCircle className="w-5 h-5" />
             </button>
 
-            {/* User Avatar */}
-            {userName ? (
+            {/* User Avatar — link đến /profile nếu đã đăng nhập */}
+            {(userName || localUser) ? (
               <Link
-                href="/settings"
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 text-emerald-700 font-bold text-sm hover:shadow-md transition-all duration-300 ml-1"
-                aria-label={`Tài khoản: ${userName}`}
+                href="/profile"
+                className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 text-emerald-700 font-bold text-sm hover:shadow-md transition-all duration-300 ml-1"
+                aria-label="Hồ sơ cá nhân"
+                title="Hồ sơ cá nhân"
               >
-                {userName.charAt(0).toUpperCase()}
+                {(userName || localUser?.fullName || '?').charAt(0).toUpperCase()}
+                {/* Dot xanh nếu đã KYC */}
+                {(localUser?.kycStatus === 'VERIFIED') && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" title="Đã xác minh danh tính" />
+                )}
               </Link>
             ) : (
               <Link

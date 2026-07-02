@@ -2,15 +2,19 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Post,
   UploadedFiles,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiConsumes, ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto } from './auth.dto';
 import { EkycFiles } from './ekyc-verification.service';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -55,5 +59,13 @@ export class AuthController {
   @ApiOperation({ summary: 'Đăng nhập' })
   login(@Body() body: LoginDto) {
     return this.authService.login(body);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Hồ sơ cá nhân — thông tin eKYC đã xác minh (CCCD masked)' })
+  getProfile(@CurrentUser() user: { userId: string }) {
+    return this.authService.getProfile(user.userId);
   }
 }

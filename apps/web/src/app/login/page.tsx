@@ -21,7 +21,7 @@ export default function LoginPage() {
     try {
       const result = (await authApi.login(username, password)) as unknown as {
         access_token: string;
-        user: { role: string };
+        user: { id: string; username: string; fullName: string; role: string };
       };
       if (typeof window !== 'undefined') {
         localStorage.setItem('govtrust_token', result.access_token);
