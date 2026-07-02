@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authApi } from '@/lib/api-client';
+import { CitizenLayout } from '@/components/layout/CitizenLayout';
 
 type Step = 'info' | 'front' | 'back' | 'selfie' | 'verifying' | 'done';
 
@@ -81,7 +82,7 @@ const CameraCapture = ({
           <img
             src={preview.url}
             alt="Ảnh vừa chụp"
-            className="max-w-full max-h-full object-contain rounded-xl"
+            className="max-w-full max-h-full object-contain rounded"
           />
         </div>
         <div className="bg-black px-6 pt-4 pb-10 border-t border-gray-800">
@@ -91,7 +92,7 @@ const CameraCapture = ({
           <div className="flex gap-3">
             <button
               onClick={() => setPreview(null)}
-              className="flex-1 py-3.5 rounded-xl border border-gray-600 text-white font-bold text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-3.5 rounded border border-gray-600 text-white font-bold text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -101,7 +102,7 @@ const CameraCapture = ({
             </button>
             <button
               onClick={() => onConfirm(preview.file)}
-              className="flex-[2] py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-lg"
+              className="flex-[2] py-3.5 rounded bg-gray-500 hover:bg-teal-600 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-lg"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -132,15 +133,15 @@ const CameraCapture = ({
               <div className="absolute inset-0 bg-black/50" />
               <div className="relative z-20">
                 {stepType === 'cccd' ? (
-                  <div className="w-[85vw] max-w-[600px] aspect-[8.5/5.4] rounded-xl border-2 border-emerald-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] bg-transparent relative flex items-center justify-center">
+                  <div className="w-[85vw] max-w-[600px] aspect-[8.5/5.4] rounded border-2 border-teal-600 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] bg-transparent relative flex items-center justify-center">
                     <span className="text-white/60 font-bold tracking-widest text-sm uppercase opacity-50 absolute">Đưa CCCD vào khung hình</span>
-                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-400 rounded-tl-lg" />
-                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-400 rounded-tr-lg" />
-                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-400 rounded-bl-lg" />
-                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-400 rounded-br-lg" />
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-teal-600 rounded-tl-lg" />
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-teal-600 rounded-tr-lg" />
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-teal-600 rounded-bl-lg" />
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-teal-600 rounded-br-lg" />
                   </div>
                 ) : (
-                  <div className="w-[65vw] max-w-[350px] aspect-[3/4] rounded-[50%] border-2 border-emerald-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] bg-transparent relative flex items-center justify-center">
+                  <div className="w-[65vw] max-w-[350px] aspect-[3/4] rounded-[50%] border-2 border-teal-600 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] bg-transparent relative flex items-center justify-center">
                     <span className="text-white/60 font-bold tracking-widest text-sm uppercase opacity-50 absolute top-1/3">Khuôn mặt</span>
                   </div>
                 )}
@@ -157,7 +158,7 @@ const CameraCapture = ({
         <button
           onClick={handleCapture}
           disabled={!!camError}
-          className="w-20 h-20 bg-emerald-500 rounded-full border-[6px] border-white active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center shadow-xl"
+          className="w-20 h-20 bg-gray-500 rounded-full border-[6px] border-white active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center shadow-xl"
         >
           <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -272,7 +273,7 @@ export default function RegisterPage() {
         return (
           <div key={s} className="flex items-center gap-1">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold transition-all duration-300 ${
-              isPast ? 'bg-emerald-500 text-white' : isActive ? 'bg-[#0A192F] text-white ring-4 ring-[#0A192F]/10' : 'bg-gray-100 text-gray-400'
+              isPast ? 'bg-gray-500 text-white' : isActive ? 'bg-teal-700 text-white ring-4 ring-[#0A192F]/10' : 'bg-gray-100 text-gray-400'
             }`}>
               {isPast ? '✓' : meta.num}
             </div>
@@ -288,7 +289,7 @@ export default function RegisterPage() {
     <div className="space-y-5">
       <div className="text-center">
         <div className="text-4xl mb-3">{icon}</div>
-        <h2 className="text-xl font-extrabold text-[#0A192F]">{STEP_META[fieldKey].title}</h2>
+        <h2 className="text-xl font-extrabold text-teal-700">{STEP_META[fieldKey].title}</h2>
         <p className="text-sm text-gray-500 font-medium mt-1">{STEP_META[fieldKey].desc}</p>
       </div>
 
@@ -299,9 +300,9 @@ export default function RegisterPage() {
             <img
               src={previews[fieldKey]}
               alt={fieldKey}
-              className="w-full max-h-64 object-contain rounded-2xl border border-emerald-200 bg-gray-50"
+              className="w-full max-h-64 object-contain rounded-md border border-teal-600 bg-gray-50"
             />
-            <div className="absolute top-3 left-3 bg-emerald-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+            <div className="absolute top-3 left-3 bg-gray-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
@@ -321,7 +322,7 @@ export default function RegisterPage() {
             </button>
           </div>
           <p className="text-xs text-center text-gray-400 font-medium">
-            Ảnh rõ nét? Bấm <span className="text-[#0A192F] font-bold">Tiếp tục</span> — hoặc bấm ✕ để chọn lại.
+            Ảnh rõ nét? Bấm <span className="text-teal-700 font-bold">Tiếp tục</span> — hoặc bấm ✕ để chọn lại.
           </p>
         </div>
       ) : (
@@ -329,10 +330,10 @@ export default function RegisterPage() {
           {/* Mở camera */}
           <button
             onClick={() => { setActiveCameraField(fieldKey); setIsCameraOpen(true); }}
-            className="flex flex-col items-center justify-center gap-3 p-6 rounded-2xl border-2 border-emerald-100 bg-emerald-50 hover:bg-emerald-100/50 hover:border-emerald-300 transition-all text-emerald-800"
+            className="flex flex-col items-center justify-center gap-3 p-6 rounded-md border-2 border-teal-600 bg-gray-50 hover:bg-emerald-100/50 hover:border-teal-600 transition-all text-emerald-800"
           >
             <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm">
-              <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -344,7 +345,7 @@ export default function RegisterPage() {
           </button>
 
           {/* Upload file */}
-          <label className="flex flex-col items-center justify-center gap-3 p-6 rounded-2xl border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/30 transition-all text-gray-700 cursor-pointer">
+          <label className="flex flex-col items-center justify-center gap-3 p-6 rounded-md border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/30 transition-all text-gray-700 cursor-pointer">
             <input
               ref={fileRef}
               type="file"
@@ -368,7 +369,7 @@ export default function RegisterPage() {
       <div className="flex gap-3">
         <button
           onClick={() => setStep(fieldKey === 'front' ? 'info' : fieldKey === 'back' ? 'front' : 'back')}
-          className="flex-1 py-3.5 rounded-xl border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-colors"
+          className="flex-1 py-3.5 rounded border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-colors"
         >
           ← Quay lại
         </button>
@@ -377,7 +378,7 @@ export default function RegisterPage() {
           <button
             onClick={handleSubmitEkyc}
             disabled={!files.front || !files.back || !files.selfie || isSubmitting}
-            className="flex-[2] py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm transition-colors disabled:opacity-40 shadow-md"
+            className="flex-[2] py-3.5 rounded bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm transition-colors disabled:opacity-40 shadow-md"
           >
             Xác minh & Đăng ký
           </button>
@@ -385,7 +386,7 @@ export default function RegisterPage() {
           <button
             onClick={() => setStep(fieldKey === 'front' ? 'back' : 'selfie')}
             disabled={!files[fieldKey]}
-            className="flex-[2] py-3.5 rounded-xl bg-[#0A192F] hover:bg-[#112240] text-white font-bold text-sm transition-colors disabled:opacity-40 shadow-md"
+            className="flex-[2] py-3.5 rounded bg-teal-700 hover:bg-teal-800 text-white font-bold text-sm transition-colors disabled:opacity-40 shadow-md"
           >
             Tiếp tục →
           </button>
@@ -399,8 +400,8 @@ export default function RegisterPage() {
     return (
       <Shell>
         <div className="text-center py-12">
-          <div className="w-20 h-20 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mx-auto mb-6" />
-          <h2 className="text-xl font-extrabold text-[#0A192F] mb-2">Đang xác minh danh tính...</h2>
+          <div className="w-20 h-20 border-4 border-teal-600 border-t-emerald-600 rounded-full animate-spin mx-auto mb-6" />
+          <h2 className="text-xl font-extrabold text-teal-700 mb-2">Đang xác minh danh tính...</h2>
           <p className="text-sm text-gray-500 font-medium">AI đang đối chiếu CCCD và khuôn mặt. Vui lòng chờ trong giây lát.</p>
         </div>
       </Shell>
@@ -414,17 +415,17 @@ export default function RegisterPage() {
       <Shell>
         <div className="text-center mb-6">
           <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="w-8 h-8 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-2xl font-extrabold text-[#0A192F] mb-1">Đăng ký thành công!</h2>
+          <h2 className="text-2xl font-extrabold text-teal-700 mb-1">Đăng ký thành công!</h2>
           <p className="text-sm text-gray-500 font-medium">Danh tính đã được xác minh qua eKYC</p>
         </div>
 
         {/* Thông tin CCCD đã lưu vào profile */}
-        <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 mb-4 space-y-2.5 text-sm">
-          <h3 className="font-bold text-[#0A192F] text-base mb-3 flex items-center gap-2">
+        <div className="bg-gray-50 rounded-md border border-gray-100 p-5 mb-4 space-y-2.5 text-sm">
+          <h3 className="font-bold text-teal-700 text-base mb-3 flex items-center gap-2">
             <span className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs">✓</span>
             Thông tin đã lưu vào hồ sơ cá nhân
           </h3>
@@ -442,13 +443,13 @@ export default function RegisterPage() {
             return (
               <div key={label} className="flex justify-between items-center">
                 <span className="text-gray-500 font-medium">{label}</span>
-                <span className="font-bold text-[#0A192F]">{f.value}</span>
+                <span className="font-bold text-teal-700">{f.value}</span>
               </div>
             );
           })}
           <div className="pt-2 border-t border-gray-200 flex justify-between items-center mt-3">
             <span className="text-gray-500 font-medium">Đối chiếu khuôn mặt</span>
-            <span className={`font-extrabold ${ekycResult.faceMatch ? 'text-emerald-600' : 'text-red-500'}`}>
+            <span className={`font-extrabold ${ekycResult.faceMatch ? 'text-teal-600' : 'text-red-500'}`}>
               {ekycResult.faceMatch
                 ? `✓ Khớp (${Math.round(ekycResult.faceMatchProb * 100)}%)`
                 : '✗ Không khớp'}
@@ -457,14 +458,14 @@ export default function RegisterPage() {
         </div>
 
         {ekycResult.warnings?.length > 0 && (
-          <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-4 text-xs text-amber-700 font-medium space-y-1">
+          <div className="bg-amber-50 border border-amber-100 rounded p-3 mb-4 text-xs text-amber-700 font-medium space-y-1">
             {ekycResult.warnings.map((w, i) => <p key={i}>⚠ {w}</p>)}
           </div>
         )}
 
         <button
           onClick={() => router.push('/')}
-          className="w-full py-4 rounded-xl bg-[#0A192F] hover:bg-[#112240] text-white font-bold transition-all shadow-md"
+          className="w-full py-4 rounded bg-teal-700 hover:bg-teal-800 text-white font-bold transition-all shadow-md"
         >
           Bắt đầu sử dụng →
         </button>
@@ -489,14 +490,14 @@ export default function RegisterPage() {
         {step === 'info' && (
           <form onSubmit={handleInfoSubmit} className="space-y-5">
             <div className="text-center mb-2">
-              <h2 className="text-xl font-extrabold text-[#0A192F]">Tạo tài khoản công dân</h2>
+              <h2 className="text-xl font-extrabold text-teal-700">Tạo tài khoản công dân</h2>
               <p className="text-sm text-gray-500 font-medium mt-1">Xác minh danh tính bằng CCCD gắn chip</p>
             </div>
             <Field id="username" label="Tên đăng nhập" placeholder="Ví dụ: 012345678912" value={form.username} onChange={v => setForm(p => ({ ...p, username: v }))} autoComplete="username" />
             <Field id="fullName" label="Họ và Tên" placeholder="NGUYEN VAN A" value={form.fullName} onChange={v => setForm(p => ({ ...p, fullName: v }))} />
             <Field id="password" label="Mật khẩu" placeholder="••••••••" type="password" value={form.password} onChange={v => setForm(p => ({ ...p, password: v }))} autoComplete="new-password" hint="Tối thiểu 6 ký tự" />
             <Field id="confirmPassword" label="Xác nhận mật khẩu" placeholder="••••••••" type="password" value={form.confirmPassword} onChange={v => setForm(p => ({ ...p, confirmPassword: v }))} autoComplete="new-password" />
-            <button type="submit" className="w-full py-4 rounded-xl bg-[#0A192F] hover:bg-[#112240] text-white font-bold transition-all shadow-md mt-2">
+            <button type="submit" className="w-full py-4 rounded bg-teal-700 hover:bg-teal-800 text-white font-bold transition-all shadow-md mt-2">
               Tiếp tục chụp CCCD →
             </button>
           </form>
@@ -507,7 +508,7 @@ export default function RegisterPage() {
         {step === 'selfie' && <PhotoStep fieldKey="selfie" icon="🤳" accept="image/*" />}
 
         {error && (
-          <div className="mt-4 bg-red-50/80 border border-red-100 rounded-xl p-4 text-red-600 text-sm font-medium flex items-center gap-3">
+          <div className="mt-4 bg-red-50/80 border border-red-100 rounded p-4 text-red-600 text-sm font-medium flex items-center gap-3">
             <span className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center shrink-0 text-xs">✕</span>
             {error}
           </div>
@@ -516,7 +517,7 @@ export default function RegisterPage() {
         <div className="mt-6 text-center">
           <p className="text-sm font-medium text-gray-500">
             Đã có tài khoản?{' '}
-            <Link href="/login" className="text-emerald-600 font-bold hover:underline">Đăng nhập</Link>
+            <Link href="/login" className="text-teal-600 font-bold hover:underline">Đăng nhập</Link>
           </p>
         </div>
       </Shell>
@@ -527,26 +528,23 @@ export default function RegisterPage() {
 // ── Shell ──────────────────────────────────────────────────────────────────
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#FBFBFA] flex items-center justify-center px-4 py-12 relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[70%] rounded-full bg-emerald-400/5 blur-[120px]" />
-        <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[60%] rounded-full bg-cyan-400/5 blur-[120px]" />
-      </div>
-      <div className="w-full max-w-md relative z-10 animate-scale-in">
+    <CitizenLayout>
+      <div className="bg-gray-50 flex items-center justify-center px-4 py-12 relative overflow-hidden">
+        <div className="w-full max-w-md relative z-10 animate-scale-in">
         <div className="text-center mb-6">
-          <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <span className="text-[#0A192F] font-extrabold text-xl">G</span>
+          <div className="w-14 h-14 bg-teal-600 border border-gold-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm relative overflow-hidden">
+            <span className="text-gold-500 font-extrabold text-2xl">★</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-[#0A192F] tracking-tight">
-            Cổng Dịch Vụ Công{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-cyan-500">AI</span>
+          <h1 className="text-2xl font-extrabold text-teal-700 tracking-tight">
+            Cổng Dịch Vụ Công <span className="text-teal-700">AI</span>
           </h1>
         </div>
-        <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-8">
+        <div className="bg-white rounded-md shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-8">
           {children}
         </div>
       </div>
     </div>
+    </CitizenLayout>
   );
 }
 
@@ -567,7 +565,7 @@ function Field({ id, label, hint, ...props }: {
         placeholder={props.placeholder}
         autoComplete={props.autoComplete}
         required
-        className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none text-gray-900 placeholder-gray-400 font-medium"
+        className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all outline-none text-gray-900 placeholder-gray-400 font-medium"
       />
       {hint && <p className="text-xs text-gray-400 mt-1.5 font-medium">{hint}</p>}
     </div>

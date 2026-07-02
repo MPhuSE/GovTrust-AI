@@ -103,6 +103,15 @@ export class SessionsService {
     return session;
   }
 
+  async findAllByUser(userId: string) {
+    const sessions = await this.sessionModel
+      .find({ userId: new Types.ObjectId(userId) })
+      .populate('procedureId', 'code name department')
+      .sort({ createdAt: -1 })
+      .lean();
+    return sessions;
+  }
+
   /**
    * View công khai cho GET /sessions/:id (không có auth guard):
    * mask PII trong ocrData/crossCheck, không lộ đường dẫn file trên server.

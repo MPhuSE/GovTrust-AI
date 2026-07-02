@@ -87,6 +87,9 @@ export const proceduresApi = {
 // ─── Sessions ──────────────────────────────────────────
 // Controller: @Controller('sessions')
 export const sessionsApi = {
+  /** GET /sessions/history — requires JWT */
+  history: () => apiClient.get('/sessions/history'),
+
   /** POST /sessions — { procedureId } — requires JWT */
   create: (procedureId: string) => apiClient.post('/sessions', { procedureId }),
 

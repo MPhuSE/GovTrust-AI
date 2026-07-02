@@ -1,43 +1,65 @@
 import Link from 'next/link';
 
 export function Footer() {
-  const currentYear = new Date().getFullYear();
-
   return (
-    <footer className="bg-white mt-auto relative" role="contentinfo">
-      {/* Subtle top gradient border */}
-      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          {/* Copyright & Branding */}
-          <div className="flex flex-col items-center md:items-start gap-2">
-            <div className="flex items-center gap-2">
-              <span className="w-6 h-6 bg-gradient-to-br from-[#0A192F] to-emerald-700 rounded flex items-center justify-center shadow-sm border border-emerald-800/20">
-                <span className="text-white text-[10px] font-bold">G</span>
-              </span>
-              <span className="font-bold text-[#0A192F] text-sm tracking-tight">GovTrust AI</span>
-            </div>
-            <p className="text-sm text-gray-500 text-center md:text-left max-w-sm leading-relaxed font-medium">
-              © {currentYear} Hệ thống Phục vụ Công dân ứng dụng Trí tuệ Nhân tạo — Chính phủ Việt Nam
+    <footer className="bg-white border-t-[4px] border-teal-600 py-12">
+      <div className="w-full px-4 md:px-8 xl:px-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          
+          <div className="lg:col-span-2">
+            <h3 className="text-xl font-bold text-teal-700 uppercase mb-4">HỆ THỐNG GOVTRUST AI</h3>
+            <p className="text-gray-700 font-medium mb-2">
+              Cơ quan chủ quản: Văn phòng Chính phủ
+            </p>
+            <p className="text-gray-700 font-medium mb-2">
+              Bản quyền thuộc về: Bộ Thông tin và Truyền thông
+            </p>
+            <p className="text-gray-700 font-medium">
+              Phát triển bởi đội ngũ GovTrust AI
             </p>
           </div>
 
-          {/* Links */}
-          <nav className="flex flex-wrap items-center justify-center md:justify-end gap-x-6 gap-y-3" aria-label="Liên kết phụ">
-            <Link href="/privacy" className="text-sm font-semibold text-gray-500 hover:text-emerald-600 transition-colors">
-              Chính sách bảo mật
-            </Link>
-            <Link href="/terms" className="text-sm font-semibold text-gray-500 hover:text-emerald-600 transition-colors">
-              Điều khoản sử dụng
-            </Link>
-            <Link href="/support" className="text-sm font-semibold text-gray-500 hover:text-emerald-600 transition-colors">
-              Liên hệ hỗ trợ
-            </Link>
-            <Link href="/guide" className="text-sm font-semibold text-gray-500 hover:text-emerald-600 transition-colors">
-              Hướng dẫn sử dụng
-            </Link>
-          </nav>
+          <div>
+            <h4 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-200 pb-2">Liên hệ</h4>
+            <div className="space-y-3">
+              <p className="text-gray-700 font-medium flex items-center gap-2">
+                <span className="font-bold">Tổng đài:</span> <span className="text-teal-600 font-bold text-lg">1800 1096</span>
+              </p>
+              <p className="text-gray-700 font-medium flex items-center gap-2">
+                <span className="font-bold">Email:</span> <a href="mailto:support@govtrust.ai" className="text-teal-600 hover:underline">support@govtrust.ai</a>
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-200 pb-2">Chính sách & Quy định</h4>
+            <ul className="space-y-3">
+              <li>
+                <Link href="/privacy" className="text-gray-700 font-medium hover:text-teal-600 hover:underline">
+                  Chính sách bảo mật
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="text-gray-700 font-medium hover:text-teal-600 hover:underline">
+                  Điều khoản sử dụng
+                </Link>
+              </li>
+              <li>
+                <Link href="/guide" className="text-gray-700 font-medium hover:text-teal-600 hover:underline">
+                  Hướng dẫn sử dụng
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-12 pt-6 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-gray-500 font-medium text-sm">
+            © {new Date().getFullYear()} GovTrust AI. All rights reserved.
+          </p>
+          <div className="flex gap-4">
+            <span className="text-gray-500 text-sm font-medium">Hệ thống đang hoạt động ổn định</span>
+          </div>
         </div>
       </div>
     </footer>

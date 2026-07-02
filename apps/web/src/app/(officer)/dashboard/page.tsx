@@ -116,14 +116,14 @@ export default function DashboardPage() {
                 Tổng quan dữ liệu hoạt động hệ thống AI thời gian thực
               </p>
             </div>
-            <div className="bg-gray-50/80 p-1.5 rounded-xl border border-gray-100 backdrop-blur-sm shadow-sm inline-flex">
+            <div className="bg-gray-50/80 p-1.5 rounded border border-gray-100 -sm shadow-sm inline-flex">
               <FilterBar days={days} onChange={setDays} />
             </div>
           </div>
         </div>
 
         {/* Privacy notice */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-3.5 mb-8 text-sm text-blue-800 flex items-center gap-3 shadow-sm">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded p-3.5 mb-8 text-sm text-blue-800 flex items-center gap-3 shadow-sm">
           <div className="bg-blue-100/50 p-1.5 rounded-lg shrink-0">
             <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

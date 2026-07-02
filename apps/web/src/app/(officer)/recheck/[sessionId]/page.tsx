@@ -90,8 +90,8 @@ export default function RecheckPage() {
     return (
       <OfficerLayout>
         <div className="p-8 max-w-5xl mx-auto">
-          <LoadingSkeleton variant="score" className="rounded-2xl" />
-          <LoadingSkeleton variant="card" className="mt-6 rounded-2xl" />
+          <LoadingSkeleton variant="score" className="rounded-md" />
+          <LoadingSkeleton variant="card" className="mt-6 rounded-md" />
         </div>
       </OfficerLayout>
     );
@@ -156,7 +156,7 @@ export default function RecheckPage() {
                   />
                   <div className="flex-1 w-full">
                     <h3 className="font-bold text-navy text-lg mb-4">Kết quả AI đánh giá</h3>
-                    <div className="space-y-1 bg-navy/5 p-4 rounded-xl border border-navy/10">
+                    <div className="space-y-1 bg-navy/5 p-4 rounded border border-navy/10">
                       {session?.breakdown.map((b) => (
                         <div key={b.ruleId} className="flex items-center justify-between text-sm py-2 border-b border-navy/5 last:border-0 gap-4">
                           <span className="text-navy/80 font-medium">{b.detail}</span>
@@ -187,7 +187,7 @@ export default function RecheckPage() {
                       {session.crossCheckResults.map((r, i) => (
                         <div
                           key={i}
-                          className={`flex items-start gap-3 text-sm p-4 rounded-xl border ${
+                          className={`flex items-start gap-3 text-sm p-4 rounded border ${
                             r.status === 'MATCH'
                               ? 'bg-teal-50/50 border-teal-100 text-teal-900'
                               : r.status === 'MISMATCH'
@@ -258,7 +258,7 @@ export default function RecheckPage() {
                     ].map((opt) => (
                       <label
                         key={opt.value}
-                        className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
+                        className={`flex items-center gap-4 p-4 rounded border cursor-pointer transition-all duration-200 ${
                           decision === opt.value
                             ? 'border-teal-500 bg-teal-50/30 shadow-sm'
                             : 'border-navy/10 hover:border-navy/30 hover:bg-navy/5'
@@ -278,7 +278,7 @@ export default function RecheckPage() {
                     <textarea
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
-                      className="w-full px-4 py-3 bg-ivory/50 border border-navy/10 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none text-navy font-medium resize-none placeholder-navy/30"
+                      className="w-full px-4 py-3 bg-ivory/50 border border-navy/10 rounded focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none text-navy font-medium resize-none placeholder-navy/30"
                       rows={4}
                       placeholder="Nhập ghi chú hoặc lý do (nếu cần bổ sung/tái kiểm)..."
                     />
@@ -304,7 +304,7 @@ export default function RecheckPage() {
                 </CardContent>
               </Card>
 
-              <div className="bg-teal-50/50 rounded-xl p-4 border border-teal-100 flex gap-3 shadow-sm">
+              <div className="bg-teal-50/50 rounded p-4 border border-teal-100 flex gap-3 shadow-sm">
                 <Lightbulb className="w-5 h-5 text-teal-600 shrink-0" />
                 <p className="text-xs font-medium text-teal-900 leading-relaxed">
                   <strong>Ghi chú:</strong> Kết quả từ AI mang tính chất hỗ trợ và phân loại tự động. Quyết định phê duyệt cuối cùng phụ thuộc hoàn toàn vào Cán bộ nghiệp vụ.

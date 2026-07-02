@@ -18,6 +18,14 @@ export class SessionsController {
     return this.sessionsService.create(body.procedureId, user?.userId);
   }
 
+  @Get('history')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy danh sách phiên của người dùng (Lịch sử nộp hồ sơ)' })
+  findHistory(@CurrentUser() user: { userId: string }) {
+    return this.sessionsService.findAllByUser(user.userId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Lấy trạng thái phiên (dùng cho progress bar) — PII đã được mask' })
   findOne(@Param('id') id: string) {

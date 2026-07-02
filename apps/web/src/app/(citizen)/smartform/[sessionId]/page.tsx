@@ -95,8 +95,8 @@ export default function SmartFormPage() {
     return (
       <CitizenLayout>
         <div className="max-w-2xl mx-auto px-4 py-8">
-          <LoadingSkeleton variant="card" className="rounded-2xl" />
-          <LoadingSkeleton variant="card" className="mt-6 rounded-2xl" />
+          <LoadingSkeleton variant="card" className="rounded-md" />
+          <LoadingSkeleton variant="card" className="mt-6 rounded-md" />
         </div>
       </CitizenLayout>
     );
@@ -111,14 +111,14 @@ export default function SmartFormPage() {
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden border border-gray-200/50">
-                <div className="h-full bg-[#0A192F] rounded-full" style={{ width: '80%' }} />
+                <div className="h-full bg-teal-700 rounded-full" style={{ width: '80%' }} />
               </div>
             </div>
-            <span className="text-sm text-[#0A192F] font-bold ml-4">80% Hoàn thành</span>
+            <span className="text-sm text-teal-700 font-bold ml-4">80% Hoàn thành</span>
           </div>
         </div>
 
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0A192F] mb-3 tracking-tight">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-teal-700 mb-3 tracking-tight">
           Kiểm tra thông tin hồ sơ
         </h1>
         <p className="text-gray-500 text-base font-medium mb-10 leading-relaxed">
@@ -127,18 +127,18 @@ export default function SmartFormPage() {
 
         {/* Auto-filled Section */}
         {formData?.autoFilledFields && formData.autoFilledFields.length > 0 && (
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100 shadow-[0_4px_20px_rgb(0,0,0,0.02)] mb-8">
+          <div className="bg-white rounded-md p-6 sm:p-8 border border-gray-100 shadow-[0_4px_20px_rgb(0,0,0,0.02)] mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-[#0A192F] flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+              <h2 className="text-lg font-bold text-teal-700 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center shrink-0">
                   <span className="text-emerald-700">👤</span>
                 </div>
                 Dữ liệu trích xuất tự động
               </h2>
-              <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-100 flex items-center gap-1.5 shrink-0 w-max">
+              <span className="px-3 py-1.5 bg-gray-50 text-emerald-700 text-xs font-bold rounded-full border border-teal-600 flex items-center gap-1.5 shrink-0 w-max">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-500"></span>
                 </span>
                 AI Đã xác thực
               </span>
@@ -154,10 +154,10 @@ export default function SmartFormPage() {
                       value={formValues[field.key] || field.value}
                       onChange={(e) => handleFieldChange(field.key, e.target.value)}
                       disabled={!field.editable}
-                      className="w-full px-4 py-3 bg-[#FBFBFA] border border-gray-200 rounded-xl focus:outline-none text-gray-900 font-medium pr-10"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded focus:outline-none text-gray-900 font-medium pr-10"
                       readOnly={!field.editable}
                     />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500">
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-teal-600">
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
@@ -171,8 +171,8 @@ export default function SmartFormPage() {
 
         {/* Manual Section */}
         {formData?.manualFields && formData.manualFields.length > 0 && (
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100 shadow-[0_4px_20px_rgb(0,0,0,0.02)] mb-8">
-            <h2 className="text-lg font-bold text-[#0A192F] flex items-center gap-3 mb-6 pb-6 border-b border-gray-100">
+          <div className="bg-white rounded-md p-6 sm:p-8 border border-gray-100 shadow-[0_4px_20px_rgb(0,0,0,0.02)] mb-8">
+            <h2 className="text-lg font-bold text-teal-700 flex items-center gap-3 mb-6 pb-6 border-b border-gray-100">
               <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center shrink-0 border border-gray-200">
                 <span className="text-gray-500">✏️</span>
               </div>
@@ -191,7 +191,7 @@ export default function SmartFormPage() {
                     value={formValues[field.key] || ''}
                     onChange={(e) => handleFieldChange(field.key, e.target.value)}
                     placeholder={`Nhập ${field.label.toLowerCase()}...`}
-                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none transition-all text-gray-900 font-medium placeholder-gray-400"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 focus:outline-none transition-all text-gray-900 font-medium placeholder-gray-400"
                     required={field.required}
                   />
                   {field.hint && <p className="text-sm font-medium text-gray-500 mt-2">{field.hint}</p>}
@@ -204,13 +204,13 @@ export default function SmartFormPage() {
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-4 mt-10">
           <button 
-            className="px-6 py-4 rounded-xl font-bold border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all flex-1 text-center"
+            className="px-6 py-4 rounded font-bold border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all flex-1 text-center"
             onClick={() => router.back()}
           >
             Quay lại
           </button>
           <button 
-            className="px-6 py-4 rounded-xl font-bold bg-[#0A192F] text-white hover:bg-[#112240] transition-all flex-[2] text-center shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+            className="px-6 py-4 rounded font-bold bg-teal-700 text-white hover:bg-teal-800 transition-all flex-[2] text-center shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
             onClick={handleContinue}
             disabled={isSaving}
           >

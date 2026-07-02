@@ -10,31 +10,31 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        navy: {
-          DEFAULT: '#082441',
-          50: '#eaeff5',
-          100: '#c5d3e3',
-          500: '#255081',
-          900: '#082441',
+        navy: { // Mapped to Dark Gray for text
+          DEFAULT: '#1e293b',
+          50: '#f8fafc',
+          100: '#f1f5f9',
+          500: '#64748b',
+          900: '#0f172a',
         },
-        ivory: {
-          DEFAULT: '#F9F7F2',
+        ivory: { // Mapped to Flat White/Light Gray for backgrounds
+          DEFAULT: '#f9fafb',
           50: '#ffffff',
-          100: '#F9F7F2',
-          500: '#d1cbb8',
-          900: '#75705e',
+          100: '#f3f4f6',
+          500: '#9ca3af',
+          900: '#111827',
         },
-        gold: {
-          DEFAULT: '#C8A161',
-          100: '#f7f1e6',
-          500: '#C8A161',
-          900: '#695129',
+        gold: { // Mapped to National Yellow
+          DEFAULT: '#f59e0b',
+          100: '#fef3c7',
+          500: '#f59e0b',
+          900: '#78350f',
         },
-        teal: {
-          DEFAULT: '#0D7A91',
-          100: '#e0f5f9',
-          500: '#0D7A91',
-          900: '#053945',
+        teal: { // Mapped to National Red
+          DEFAULT: '#dc2626',
+          100: '#fee2e2',
+          500: '#ef4444',
+          900: '#7f1d1d',
         },
       },
       fontFamily: {
