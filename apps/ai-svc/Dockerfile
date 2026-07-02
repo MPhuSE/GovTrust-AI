@@ -1,12 +1,24 @@
 FROM python:3.11-slim
 
-WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
-COPY requirements.txt .
+WORKDIR /app/apps/ai-svc
+
+COPY apps/ai-svc/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app/ ./app/
+COPY packages/proto /app/packages/proto
+COPY data /app/data
+COPY apps/ai-svc/app ./app
 
-EXPOSE 8000
+# Fail build sớm nếu shared proto không generate được cho Python.
+RUN python -c "from app.proto.compiler import load_stubs; load_stubs()"
+
+EXPOSE 8000 50051
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

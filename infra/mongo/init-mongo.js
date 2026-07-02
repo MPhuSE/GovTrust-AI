@@ -85,4 +85,41 @@ db.procedures.insertOne({
   isActive: true,
 });
 
+// --- Catalog loại giấy tờ (document_types — OI-6, dùng chung) ---
+db.document_types.insertMany([
+  {
+    code: 'CCCD',
+    name: 'Căn cước công dân',
+    category: 'NHAN_THAN',
+    issuingAuthority: 'Bộ Công an',
+    hasPortrait: true,
+    pagesRequired: 2,
+    fields: [
+      { key: 'soCCCD', label: 'Số CCCD', dataType: 'id_number', regex: '^\\d{12}$', required: true, isIdentity: true },
+      { key: 'hoTen', label: 'Họ và tên', dataType: 'string', required: true, isIdentity: true },
+      { key: 'ngaySinh', label: 'Ngày sinh', dataType: 'date', format: 'dd/mm/yyyy', required: true, isIdentity: true },
+      { key: 'ngayHetHan', label: 'Ngày hết hạn', dataType: 'date', format: 'dd/mm/yyyy', required: false, isIdentity: false },
+    ],
+    validity: { hasExpiry: true, expiryField: 'ngayHetHan' },
+    aliasCodes: ['CMND'],
+    isActive: true,
+  },
+  {
+    code: 'GIAY_CHUNG_SINH',
+    name: 'Giấy chứng sinh',
+    category: 'HO_TICH',
+    issuingAuthority: 'Cơ sở y tế',
+    hasPortrait: false,
+    pagesRequired: 1,
+    fields: [
+      { key: 'hoTenCon', label: 'Họ tên con', dataType: 'string', required: true, isIdentity: true },
+      { key: 'hoTenMe', label: 'Họ tên mẹ', dataType: 'string', required: true, isIdentity: true },
+      { key: 'ngaySinh', label: 'Ngày sinh', dataType: 'date', format: 'dd/mm/yyyy', required: true, isIdentity: false },
+    ],
+    validity: { hasExpiry: false },
+    aliasCodes: [],
+    isActive: true,
+  },
+]);
+
 print('MongoDB seed data loaded successfully.');

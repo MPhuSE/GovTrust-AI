@@ -19,7 +19,7 @@
 7. [Data Models & Database Schema](#7-data-models--database-schema)
 8. [Frontend — Citizen App & Dashboard](#8-frontend--citizen-app--dashboard)
 9. [Backend — NestJS API Orchestrator](#9-backend--nestjs-api-orchestrator)
-10. [AI Gateway — FastAPI](#10-ai-gateway--fastapi)
+10. [ai-svc — FastAPI](#10-ai-svc--fastapi)
 11. [Rule Engine & Score Engine](#11-rule-engine--score-engine)
 12. [LawGuard — RAG Pipeline](#12-lawguard--rag-pipeline)
 13. [Bảo mật & Xử lý dữ liệu](#13-bảo-mật--xử-lý-dữ-liệu)
@@ -56,7 +56,7 @@
 1. **AI không ra quyết định hành chính** — chỉ cảnh báo, gợi ý, tham khảo. Quyết định thuộc người dân/cán bộ.
 2. **Dữ liệu xử lý theo phiên** — không lưu giấy tờ gốc dài hạn, xóa file sau khi kiểm tra.
 3. **Rule-based cho scoring** — tránh LLM phán quyết để dễ audit, dễ giải thích.
-4. **Database per Service** — NestJS sở hữu MongoDB, FastAPI sở hữu Vector DB. Không truy cập chéo.
+4. **Database per Service** — core-svc sở hữu MongoDB `govtrust_business`, ai-svc sở hữu Qdrant `legal_chunks`. Không truy cập chéo DB — chỉ qua gRPC/queue.
 5. **Mọi cảnh báo pháp lý phải kèm nguồn** — citation, confidence score, disclaimer.
 
 ---
@@ -67,93 +67,110 @@
 
 ```
 govtrust-ai/
+├── web/                              # Next.js — Citizen App + InsightMap Dashboard (@govtrust/web, ở repo root)
+│   ├── src/
+│   │   ├── app/                      # App Router (Next.js 14+)
+│   │   │   ├── (citizen)/            # Route group: Người dân
+│   │   │   │   ├── page.tsx          # Trang chủ — chọn thủ tục
+│   │   │   │   ├── upload/           # Upload giấy tờ
+│   │   │   │   ├── result/           # Kết quả Score + cảnh báo
+│   │   │   │   ├── smartform/        # Form tự điền
+│   │   │   │   └── confirm/          # Xác nhận hồ sơ
+│   │   │   ├── (officer)/            # Route group: Cán bộ một cửa
+│   │   │   │   ├── recheck/          # Gov Re-Check
+│   │   │   │   ├── priority/         # Priority Ranking
+│   │   │   │   └── dashboard/        # InsightMap Dashboard
+│   │   │   ├── login/                # Đăng nhập (RBAC)
+│   │   │   └── layout.tsx
+│   │   ├── components/
+│   │   │   ├── ui/                   # Button, Input, Card, Modal, Progress...
+│   │   │   ├── upload/               # UploadZone, FilePreview, ImageQuality
+│   │   │   ├── ocr/                  # FieldTable, ConfidenceBadge
+│   │   │   ├── score/                # ScoreCard, ScoreBreakdown, WarningList
+│   │   │   ├── smartform/            # FormPreview, FieldMapper, MissingAlert
+│   │   │   ├── lawguard/             # CitationCard, ConfidenceBar, Disclaimer
+│   │   │   ├── dashboard/            # HeatMap, TopErrors, TrendChart, FilterBar
+│   │   │   └── chatbot/              # HoSoBot widget
+│   │   ├── hooks/                    # useSession, useUpload, usePipeline...
+│   │   ├── lib/                      # API client, utils, constants
+│   │   └── styles/                   # globals.css, design tokens
+│   ├── public/
+│   ├── next.config.ts
+│   ├── package.json
+│   └── tsconfig.json
+│
 ├── apps/
-│   ├── web/                          # Next.js — Citizen App + InsightMap Dashboard
+│   ├── api-gateway/                  # NestJS — Edge gateway (@govtrust/api-gateway, :8080)
 │   │   ├── src/
-│   │   │   ├── app/                  # App Router (Next.js 14+)
-│   │   │   │   ├── (citizen)/        # Route group: Người dân
-│   │   │   │   │   ├── page.tsx      # Trang chủ — chọn thủ tục
-│   │   │   │   │   ├── upload/       # Upload giấy tờ
-│   │   │   │   │   ├── result/       # Kết quả Score + cảnh báo
-│   │   │   │   │   ├── smartform/    # Form tự điền
-│   │   │   │   │   └── confirm/      # Xác nhận hồ sơ
-│   │   │   │   ├── (officer)/        # Route group: Cán bộ một cửa
-│   │   │   │   │   ├── recheck/      # Gov Re-Check
-│   │   │   │   │   ├── priority/     # Priority Ranking
-│   │   │   │   │   └── dashboard/    # InsightMap Dashboard
-│   │   │   │   ├── login/            # Đăng nhập (RBAC)
-│   │   │   │   └── layout.tsx
-│   │   │   ├── components/
-│   │   │   │   ├── ui/               # Button, Input, Card, Modal, Progress...
-│   │   │   │   ├── upload/           # UploadZone, FilePreview, ImageQuality
-│   │   │   │   ├── ocr/              # FieldTable, ConfidenceBadge
-│   │   │   │   ├── score/            # ScoreCard, ScoreBreakdown, WarningList
-│   │   │   │   ├── smartform/        # FormPreview, FieldMapper, MissingAlert
-│   │   │   │   ├── lawguard/         # CitationCard, ConfidenceBar, Disclaimer
-│   │   │   │   ├── dashboard/        # HeatMap, TopErrors, TrendChart, FilterBar
-│   │   │   │   └── chatbot/          # HoSoBot widget
-│   │   │   ├── hooks/                # useSession, useUpload, usePipeline...
-│   │   │   ├── lib/                  # API client, utils, constants
-│   │   │   └── styles/               # globals.css, design tokens
-│   │   ├── public/
-│   │   ├── next.config.ts
+│   │   │   ├── modules/
+│   │   │   │   ├── auth-verify/      # auth-verify.middleware.ts — verify JWT, gắn header user
+│   │   │   │   └── proxy/            # proxy.middleware.ts — route → core-svc
+│   │   │   ├── health.controller.ts
+│   │   │   ├── app.module.ts
+│   │   │   └── main.ts
+│   │   ├── Dockerfile
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   │
-│   ├── api/                          # NestJS — API Orchestrator
+│   ├── core-svc/                     # NestJS — Business + Orchestrator (@govtrust/core-svc, :4000)
 │   │   ├── src/
 │   │   │   ├── modules/
-│   │   │   │   ├── auth/             # JWT + RBAC (citizen / officer / admin)
+│   │   │   │   ├── auth/             # JWT + RBAC (citizen / officer / admin) — cấp JWT
 │   │   │   │   ├── procedures/       # CRUD thủ tục, template, checklist
+│   │   │   │   ├── document-types/   # Catalog giấy tờ dùng chung (OI-6)
 │   │   │   │   ├── documents/        # Upload, lưu session, quản lý file
-│   │   │   │   ├── scoring/          # Gọi Rule Engine, trả score
 │   │   │   │   ├── sessions/         # Quản lý phiên kiểm tra hồ sơ
+│   │   │   │   ├── scoring/          # CrossCheck + Score (gọi packages/rule-engine)
 │   │   │   │   ├── smartform/        # Map dữ liệu OCR → form fields
 │   │   │   │   ├── recheck/          # Gov Re-Check cho cán bộ
 │   │   │   │   ├── priority/         # Priority Ranking
 │   │   │   │   └── insights/         # InsightMap — aggregate log ẩn danh
-│   │   │   ├── common/
-│   │   │   │   ├── guards/           # AuthGuard, RolesGuard
-│   │   │   │   ├── interceptors/     # Logging, Transform
-│   │   │   │   ├── filters/          # Exception filters
-│   │   │   │   └── decorators/       # @Roles, @CurrentUser
-│   │   │   ├── config/               # Env validation, app config
-│   │   │   ├── queue/                # BullMQ producers
+│   │   │   ├── database/schemas/     # mongoose: document-type, insight-log, job, procedure, session, user
+│   │   │   ├── queue/                # BullMQ: ai-tasks.consumer.ts, ai-tasks.queue.ts, queue.module.ts
+│   │   │   ├── grpc/                 # gRPC client → ai-svc: ai-grpc.module.ts, grpc.constants.ts
+│   │   │   ├── common/               # guards, interceptors, filters, decorators
+│   │   │   ├── app.module.ts
 │   │   │   └── main.ts
 │   │   ├── test/
+│   │   ├── Dockerfile
 │   │   ├── nest-cli.json
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   │
-│   └── ai-gateway/                   # FastAPI — AI Gateway
+│   └── ai-svc/                       # FastAPI/Python — AI service (@govtrust/ai-svc, REST :8000 + gRPC :50051)
 │       ├── app/
 │       │   ├── api/
-│       │   │   ├── routes/
-│       │   │   │   ├── ocr.py        # Endpoint gọi VNPT OCR
-│       │   │   │   ├── crosscheck.py # Endpoint đối chiếu chéo
-│       │   │   │   ├── lawguard.py   # Endpoint RAG/LawGuard
-│       │   │   │   ├── embeddings.py # Tạo embeddings cho legal chunks
-│       │   │   │   └── health.py     # Health check
-│       │   │   └── deps.py           # Dependencies injection
+│       │   │   └── routes/
+│       │   │       ├── ocr.py        # Endpoint OCR (VNPT eKYC + mock fallback)
+│       │   │       ├── hosobot.py    # Endpoint HoSoBot
+│       │   │       ├── lawguard.py   # Endpoint RAG/LawGuard
+│       │   │       ├── embeddings.py # Tạo embeddings cho legal chunks
+│       │   │       └── health.py     # Health check
 │       │   ├── services/
-│       │   │   ├── vnpt_ocr.py       # Client gọi VNPT SmartReader/eKYC OCR
-│       │   │   ├── vnpt_ekyc.py      # Client gọi VNPT eKYC (Liveness, Compare Face)
-│       │   │   ├── vnpt_smartbot.py   # Client gọi VNPT SmartBot
-│       │   │   ├── vnpt_smartvoice.py # Client gọi VNPT SmartVoice
-│       │   │   ├── ocr_normalizer.py # Chuẩn hóa output OCR
-│       │   │   ├── crosscheck.py     # Logic đối chiếu chéo
-│       │   │   ├── rag_engine.py     # RAG retrieval + generation
-│       │   │   └── embeddings.py     # Embedding service
-│       │   ├── models/               # Pydantic schemas
-│       │   ├── workers/              # Celery/RQ workers cho tác vụ nặng
+│       │   │   ├── ocr.py            # OcrService — VNPT eKYC call + mock fallback
+│       │   │   ├── hosobot.py        # HoSoBot — VNPT SmartBot + keyword fallback
+│       │   │   ├── rag.py            # RAGEngine — retrieval + generation
+│       │   │   ├── hybrid_search.py  # Qdrant dense + BM25 sparse
+│       │   │   ├── llm.py            # LLM client
+│       │   │   └── embedding.py      # Embedding service
+│       │   ├── text/
+│       │   │   └── vietnamese.py     # Chuẩn hoá/tokenize tiếng Việt
+│       │   ├── proto/
+│       │   │   └── compiler.py       # Gen Python gRPC stubs từ shared proto
+│       │   ├── models/
+│       │   │   └── schemas.py        # Pydantic request/response
 │       │   ├── config.py             # Settings từ env
-│       │   └── main.py
+│       │   ├── container.py          # DI container
+│       │   ├── grpc_server.py        # AIService gRPC server cho core-svc
+│       │   └── main.py               # lifespan REST + gRPC
 │       ├── tests/
-│       ├── requirements.txt
-│       └── Dockerfile
+│       ├── Dockerfile
+│       └── requirements.txt
 │
 ├── packages/
-│   └── rule-engine/                  # TypeScript — CrossCheck + Score Engine
+│   ├── proto/                        # Shared gRPC contract — ai_service.proto (package govtrust.ai)
+│   │   └── ai_service.proto
+│   └── rule-engine/                  # TypeScript — CrossCheck + Score Engine (@govtrust/rule-engine)
 │       ├── src/
 │       │   ├── rules/
 │       │   │   ├── missing-document.rule.ts
@@ -165,15 +182,13 @@ govtrust-ai/
 │       │   │   └── procedure-weights.json  # Trọng số theo từng thủ tục
 │       │   ├── validators/
 │       │   │   ├── date.validator.ts
-│       │   │   ├── name.validator.ts
-│       │   │   └── address.validator.ts
+│       │   │   └── name.validator.ts
 │       │   ├── engine.ts             # Core scoring engine
 │       │   ├── crosscheck.ts         # CrossCheck logic
+│       │   ├── types.ts
 │       │   └── index.ts
 │       ├── __tests__/
-│       │   ├── rules/
-│       │   ├── engine.test.ts
-│       │   └── crosscheck.test.ts
+│       │   └── engine.test.ts
 │       ├── package.json
 │       └── tsconfig.json
 │
@@ -212,17 +227,15 @@ govtrust-ai/
 │       └── ...
 │
 ├── infra/
-│   ├── docker-compose.yml            # Toàn bộ stack
+│   ├── docker-compose.yml            # Toàn bộ stack: web, api-gateway, core-svc, ai-svc, mongo, redis, qdrant
 │   ├── docker-compose.dev.yml        # Dev overrides
-│   ├── nginx/
-│   │   └── nginx.conf
 │   ├── redis/
 │   ├── mongo/
 │   │   └── init-mongo.js             # Seed data
 │   └── .env.example                  # Template biến môi trường
 │
 ├── scripts/
-│   ├── setup.sh                      # Script cài đặt 1 lệnh
+│   ├── setup.sh                      # 1 lệnh: pnpm workspace + venv apps/ai-svc/.venv + gen gRPC stubs + build rule-engine
 │   ├── seed-data.sh                  # Import dữ liệu mẫu
 │   ├── run-tests.sh                  # Chạy toàn bộ test suite
 │   └── demo.sh                       # Script chạy demo ≥ 3 lần
@@ -249,21 +262,23 @@ pnpm init
 # 2. Tạo workspace config
 cat > pnpm-workspace.yaml << 'EOF'
 packages:
+  - "web"
   - "apps/*"
   - "packages/*"
 EOF
 
-# 3. Khởi tạo Next.js app
-cd apps
+# 3. Khởi tạo Next.js app (ở repo root)
 npx -y create-next-app@latest web --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --use-pnpm
 
-# 4. Khởi tạo NestJS API
-npx -y @nestjs/cli new api --package-manager pnpm --skip-git
+# 4. Khởi tạo 2 NestJS service: api-gateway (edge) + core-svc (business)
+cd apps
+npx -y @nestjs/cli new api-gateway --package-manager pnpm --skip-git
+npx -y @nestjs/cli new core-svc --package-manager pnpm --skip-git
 
-# 5. Khởi tạo FastAPI (Python)
-mkdir -p ai-gateway/app && cd ai-gateway
-python -m venv venv
-pip install fastapi uvicorn python-dotenv httpx redis celery pymongo qdrant-client fastembed sentence-transformers
+# 5. Khởi tạo ai-svc (FastAPI/Python)
+mkdir -p ai-svc/app && cd ai-svc
+python -m venv .venv
+pip install fastapi uvicorn python-dotenv httpx redis grpcio grpcio-tools pymongo qdrant-client fastembed sentence-transformers
 
 # 6. Khởi tạo Rule Engine package
 cd ../../packages
@@ -276,7 +291,7 @@ pnpm add -D typescript jest @types/jest ts-jest
 
 ## 2. Tech Stack & Dependencies
 
-### Frontend — `apps/web`
+### Frontend — `web`
 
 | Category | Technology | Version | Lý do chọn |
 | --- | --- | --- | --- |
@@ -290,28 +305,32 @@ pnpm add -D typescript jest @types/jest ts-jest
 | Form | React Hook Form + Zod | latest | SmartForm validation |
 | Icons | Lucide React | latest | Consistent iconography |
 
-### Backend — `apps/api`
+### Backend — `apps/core-svc`
 
 | Category | Technology | Version | Lý do chọn |
 | --- | --- | --- | --- |
 | Framework | NestJS | 10.x | Modular, TypeScript-first, enterprise-grade |
-| Database | MongoDB + Mongoose | latest | Flexible schema cho procedures, sessions |
-| Queue | BullMQ + Redis | latest | Async job queue cho AI tasks |
-| Auth | @nestjs/jwt + @nestjs/passport | latest | JWT + RBAC |
+| Database | MongoDB + Mongoose | latest | Flexible schema cho procedures, sessions (`govtrust_business`) |
+| Queue | BullMQ + Redis | latest | Async job queue cho AI tasks nặng |
+| gRPC | @grpc/grpc-js + ts-proto | latest | Client gọi ai-svc cho tác vụ nhanh (proto chung) |
+| Auth | @nestjs/jwt + @nestjs/passport | latest | JWT + RBAC (core-svc cấp JWT) |
 | Validation | class-validator + class-transformer | latest | DTO validation |
 | Docs | @nestjs/swagger | latest | OpenAPI auto-gen |
 | File Upload | Multer | latest | Handle multipart uploads |
 | Testing | Jest | latest | Unit + integration tests |
 
-### AI Gateway — `apps/ai-gateway`
+> **Edge — `apps/api-gateway`** dùng cùng stack NestJS, nhưng mỏng: chỉ verify JWT (`auth-verify.middleware.ts`), RBAC, rate-limit, CORS và proxy request (`proxy.middleware.ts`) sang core-svc. Không chạm DB.
+
+### ai-svc — `apps/ai-svc`
 
 | Category | Technology | Version | Lý do chọn |
 | --- | --- | --- | --- |
 | Framework | FastAPI | 0.110+ | Async, high performance, auto docs |
+| RPC | grpcio + grpcio-tools | latest | gRPC server `AIService` cho core-svc gọi nội bộ |
 | HTTP Client | httpx | latest | Async HTTP cho VNPT APIs |
 | Vector DB | Qdrant | latest | Embedding storage cho LawGuard (collection `legal_chunks`, OI-1) |
 | Embeddings | sentence-transformers | latest | Vietnamese text embeddings |
-| Task Queue | Celery / RQ | latest | Heavy AI tasks |
+| Hybrid search | Qdrant dense + BM25 sparse | latest | LawGuard retrieval (`hybrid_search.py`) |
 | Schema | Pydantic v2 | latest | Data validation |
 | Testing | pytest + httpx | latest | Async test support |
 
@@ -320,10 +339,10 @@ pnpm add -D typescript jest @types/jest ts-jest
 | Category | Technology | Lý do chọn |
 | --- | --- | --- |
 | Container | Docker + Docker Compose | 1-lệnh deployment |
-| Reverse Proxy | Nginx | Route traffic, SSL |
+| Edge gateway | api-gateway (NestJS) | Public edge: verify JWT, RBAC, rate-limit, CORS, route → core-svc |
 | Cache/Queue | Redis | BullMQ backend + caching |
-| Database | MongoDB | Nghiệp vụ data |
-| Vector DB | Qdrant | LawGuard embeddings |
+| Database | MongoDB | Nghiệp vụ data (`govtrust_business`) |
+| Vector DB | Qdrant | LawGuard embeddings (`legal_chunks`) |
 
 ---
 
@@ -347,23 +366,30 @@ pnpm add -D typescript jest @types/jest ts-jest
 
 # --- General ---
 NODE_ENV=development
-APP_PORT=3000
+
+# --- api-gateway (edge, public) ---
+GATEWAY_PORT=8080
+CORE_SVC_URL=http://localhost:4000
+WEB_ORIGIN=http://localhost:3000
+
+# --- core-svc (business + orchestrator) ---
 API_PORT=4000
-AI_GATEWAY_PORT=8000
+MONGO_URI=mongodb://localhost:27017/govtrust_business
+MONGO_DB_NAME=govtrust_business
 
-# --- MongoDB ---
-MONGO_URI=mongodb://localhost:27017/govtrust
-MONGO_DB_NAME=govtrust
+# --- ai-svc (REST + gRPC) ---
+AI_SVC_PORT=8000
+AI_SVC_GRPC_URL=localhost:50051       # core-svc gọi gRPC vào ai-svc
 
-# --- Redis ---
+# --- Redis (BullMQ tác vụ nặng) ---
 REDIS_HOST=localhost
 REDIS_PORT=6379
 
-# --- JWT Auth ---
+# --- JWT Auth (core-svc cấp JWT, api-gateway verify) ---
 JWT_SECRET=your-jwt-secret-here
 JWT_EXPIRATION=24h
 
-# --- VNPT API Keys (BẮT BUỘC - do BTC cung cấp) ---
+# --- VNPT API Keys (BẮT BUỘC - do BTC cung cấp; để trống = mock OCR fallback) ---
 VNPT_EKYC_BASE_URL=https://api.vnpt-ekyc.vn
 VNPT_EKYC_TOKEN_ID=your-token-id
 VNPT_EKYC_TOKEN_KEY=your-token-key
@@ -378,15 +404,31 @@ VNPT_SMARTBOT_API_KEY=your-api-key
 VNPT_SMARTVOICE_BASE_URL=https://api.smartvoice.vnpt.vn
 VNPT_SMARTVOICE_API_KEY=your-api-key
 
-# --- Vector DB ---
-VECTOR_DB_TYPE=chroma
-CHROMA_HOST=localhost
-CHROMA_PORT=8100
+# --- Vector DB (Qdrant, KHÔNG dùng Chroma) ---
+QDRANT_URL=http://localhost:6333
+QDRANT_COLLECTION=legal_chunks
+QDRANT_VECTOR_SIZE=768
+LEGAL_CHUNKS_DIR=./data/legal-sources/chunks
 
-# --- File Storage ---
+# --- Embedding & LLM ---
+EMBEDDING_PROVIDER=local
+EMBEDDING_API_URL=
+EMBEDDING_API_KEY=
+EMBEDDING_MODEL=
+EMBEDDING_DIMENSIONS=768
+LLM_API_URL=
+LLM_API_KEY=
+LLM_MODEL=
+
+# --- File Storage / Session ---
 UPLOAD_DIR=./uploads
 FILE_TTL_MINUTES=30
 MAX_FILE_SIZE_MB=10
+SESSION_TTL_HOURS=24
+
+# --- web (Next.js) ---
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_APP_NAME=GovTrust AI
 ```
 
 ### Chạy toàn bộ stack bằng 1 lệnh
@@ -409,40 +451,60 @@ version: '3.9'
 services:
   # --- Frontend ---
   web:
-    build: ../apps/web
+    build: ../web                         # context = repo-root/web
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://api:4000
+      - NEXT_PUBLIC_API_URL=http://api-gateway:8080
     depends_on:
-      - api
+      - api-gateway
 
-  # --- Backend API ---
-  api:
-    build: ../apps/api
+  # --- Edge gateway (public) ---
+  api-gateway:
+    build:
+      context: ..                         # context = repo root
+      dockerfile: apps/api-gateway/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - GATEWAY_PORT=8080
+      - CORE_SVC_URL=http://core-svc:4000
+    depends_on:
+      - core-svc
+
+  # --- Business + orchestrator ---
+  core-svc:
+    build:
+      context: ..
+      dockerfile: apps/core-svc/Dockerfile
     ports:
       - "4000:4000"
     environment:
-      - MONGO_URI=mongodb://mongo:27017/govtrust
+      - API_PORT=4000
+      - MONGO_URI=mongodb://mongo:27017/govtrust_business
       - REDIS_HOST=redis
-      - AI_GATEWAY_URL=http://ai-gateway:8000
+      - AI_SVC_GRPC_URL=ai-svc:50051       # gRPC tác vụ nhanh
     depends_on:
       - mongo
       - redis
-      - ai-gateway
+      - ai-svc
 
-  # --- AI Gateway ---
-  ai-gateway:
-    build: ../apps/ai-gateway
+  # --- ai-svc (REST + gRPC) ---
+  ai-svc:
+    build:
+      context: ..
+      dockerfile: apps/ai-svc/Dockerfile
     ports:
-      - "8000:8000"
+      - "8000:8000"     # REST + Swagger
+      - "50051:50051"   # gRPC AIService
     environment:
-      - CHROMA_HOST=chroma
+      - AI_SVC_PORT=8000
+      - QDRANT_URL=http://qdrant:6333
       - REDIS_HOST=redis
     env_file:
       - ../.env
     depends_on:
-      - chroma
+      - qdrant
       - redis
 
   # --- Infrastructure ---
@@ -467,16 +529,6 @@ services:
     volumes:
       - qdrant-data:/qdrant/storage
 
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-    depends_on:
-      - web
-      - api
-
 volumes:
   mongo-data:
   qdrant-data:
@@ -490,35 +542,43 @@ volumes:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                          CITIZEN APP (Next.js)                         │
+│                          CITIZEN APP (Next.js — web)                   │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
 │  │ Chọn thủ │→ │ Upload   │→ │ Kết quả  │→ │SmartForm │→ │Xác nhận │ │
 │  │   tục    │  │ giấy tờ  │  │Score+Warn│  │ tự điền  │  │ hồ sơ   │ │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └─────────┘ │
 └────────────────────────────┬────────────────────────────────────────────┘
-                             │ REST API
+                             │ HTTP/REST
                              ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    NestJS API ORCHESTRATOR (:4000)                     │
+│                  api-gateway (NestJS, edge, :8080)                     │
+│         verify JWT · RBAC · rate-limit · CORS · proxy → core-svc       │
+└────────────────────────────┬────────────────────────────────────────────┘
+                             │ HTTP/REST
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                  core-svc (NestJS, business + orchestrator, :4000)     │
 │                                                                       │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐             │
 │  │   Auth   │  │Procedures│  │Documents │  │ Sessions │              │
-│  │   RBAC   │  │ Template │  │  Upload  │  │ Manager  │              │
+│  │RBAC+JWT  │  │ Template │  │  Upload  │  │ Manager  │              │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘              │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐             │
 │  │ Scoring  │  │SmartForm │  │ ReCheck  │  │ Insights │              │
-│  │  Module  │  │  Module  │  │  Module  │  │  Module  │              │
+│  │CrossCheck│  │  Module  │  │  Module  │  │  Module  │              │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘              │
 │                    │                                                   │
 │          ┌────────┼────────┐                                          │
-│          ▼ sync   ▼ async  ▼                                          │
-│       REST API  BullMQ   MongoDB                                      │
+│          ▼ gRPC   ▼ BullMQ ▼                                          │
+│       (nhanh)  (nặng/async) MongoDB (govtrust_business)               │
 └─────────┬─────────┬────────┬──────────────────────────────────────────┘
           │         │        │
           ▼         ▼        │
 ┌──────────────────────┐     │
-│  FastAPI AI GATEWAY  │     │
-│      (:8000)         │     │
+│       ai-svc         │     │
+│  FastAPI + gRPC      │     │
+│  (REST :8000 /       │     │
+│   gRPC :50051)       │     │
 │                      │     │
 │  ┌────────────────┐  │     │
 │  │  VNPT API      │  │     │
@@ -530,12 +590,12 @@ volumes:
 │  │  │SmartVoice│  │  │     │
 │  │  └──────────┘  │  │     │
 │  ├────────────────┤  │     │
-│  │ OCR Normalizer │  │     │
-│  │ CrossCheck     │  │     │
-│  │ RAG Engine     │  │     │
+│  │ OCR (ocr.py)   │  │     │
+│  │ HoSoBot        │  │     │
+│  │ RAG + Hybrid   │  │     │
 │  │ LawGuard       │  │     │
 │  ├────────────────┤  │     │
-│  │  Vector DB     │←─│─────│── Qdrant
+│  │  Qdrant        │←─│─────│── legal_chunks
 │  │  (Embeddings)  │  │     │
 │  └────────────────┘  │     │
 └──────────────────────┘     │
@@ -548,17 +608,20 @@ volumes:
 │  └─────────┘  └─────────┘
 ```
 
+> **CrossCheck nằm ở core-svc** (module `scoring`, gọi `packages/rule-engine`) — KHÔNG ở ai-svc.
+
 ### Giao tiếp giữa các service
 
 | Từ → Đến | Giao thức | Khi nào dùng | Ví dụ |
 | --- | --- | --- | --- |
-| Web → API | REST (HTTP) | Mọi request từ frontend | Upload file, lấy score |
-| API → AI Gateway | REST (HTTP) | Tác vụ nhanh, đồng bộ | Health check, CrossCheck nhẹ |
-| API → AI Gateway | BullMQ (Redis) | Tác vụ AI nặng, bất đồng bộ | OCR, RAG/LawGuard, Embeddings |
-| AI Gateway → VNPT | REST (HTTPS) | Gọi API thật của VNPT | OCR, eKYC, SmartBot, SmartVoice |
-| API → MongoDB | Mongoose driver | Lưu session, metadata, logs | CRUD nghiệp vụ |
-| AI Gateway → Vector DB | Qdrant client | Lưu/truy vấn embeddings | LawGuard retrieval |
-| API ↔ Redis | BullMQ + ioredis | Queue + cache | Job queue, session cache |
+| web → api-gateway | HTTP/REST | Mọi request từ frontend | Upload file, lấy score |
+| api-gateway → core-svc | HTTP/REST | Mọi request (sau khi verify JWT) | Proxy toàn bộ REST API nghiệp vụ |
+| core-svc → ai-svc | **gRPC** | Tác vụ nhanh, đồng bộ | ExtractOCR 1 giấy, IdentifyProcedure, query RAG |
+| core-svc → ai-svc | **BullMQ (Redis)** | Tác vụ AI nặng, bất đồng bộ | LawGuard RAG đầy đủ, batch OCR, sinh InsightMap |
+| ai-svc → VNPT | HTTPS REST | Gọi API thật của VNPT | OCR, eKYC, SmartBot, SmartVoice |
+| core-svc → MongoDB | Mongoose driver | Lưu session, metadata, logs | CRUD nghiệp vụ (`govtrust_business`) |
+| ai-svc → Qdrant | Qdrant client | Lưu/truy vấn embeddings | LawGuard retrieval (`legal_chunks`) |
+| core-svc ↔ Redis | BullMQ + ioredis | Queue + cache | Job queue, session cache |
 
 ---
 
@@ -620,7 +683,7 @@ volumes:
 
 ```typescript
 // POST /api/documents/{documentId}/ocr
-// Gọi nội bộ → AI Gateway → VNPT SmartReader/eKYC OCR
+// Gọi nội bộ → core-svc --gRPC--> ai-svc → VNPT SmartReader/eKYC OCR
 
 // Response
 {
@@ -816,10 +879,10 @@ volumes:
 | 8 | **VNPT SmartVoice — TTS/STT** | Accessibility | TÙY CHỌN | Frontend/UX |
 | 9 | **VNPT SmartUX** | UX Metrics | NÊN CÓ | Frontend/UX |
 
-### Mẫu VNPT API Client (Python — AI Gateway)
+### Mẫu VNPT API Client (Python — ai-svc)
 
 ```python
-# apps/ai-gateway/app/services/vnpt_ocr.py
+# apps/ai-svc/app/services/ocr.py
 
 import httpx
 from app.config import settings
@@ -886,35 +949,31 @@ class VNPTOCRClient:
 
 
 # Sử dụng trong route:
-# apps/ai-gateway/app/api/routes/ocr.py
+# apps/ai-svc/app/api/routes/ocr.py
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from app.services.vnpt_ocr import VNPTOCRClient
-from app.services.ocr_normalizer import normalize_ocr_result
+from app.services.ocr import OcrService
 import base64
 
 router = APIRouter(prefix="/ocr", tags=["OCR"])
-vnpt_client = VNPTOCRClient()
+ocr_service = OcrService()
 
 @router.post("/extract")
 async def extract_document(file: UploadFile = File(...), doc_type: str = "CCCD"):
-    """Bóc tách thông tin từ giấy tờ qua VNPT eKYC OCR."""
+    """Bóc tách thông tin từ giấy tờ qua VNPT eKYC OCR (có mock fallback nếu thiếu VNPT_EKYC_*)."""
     try:
         contents = await file.read()
         image_b64 = base64.b64encode(contents).decode("utf-8")
 
-        # Gọi VNPT API thật
-        raw_result = await vnpt_client.ocr_id_card(image_b64, doc_type)
-
-        # Chuẩn hóa output
-        normalized = normalize_ocr_result(raw_result, doc_type)
+        # OcrService tự gọi VNPT eKYC; nếu chưa cấu hình key → trả mock fallback
+        result = await ocr_service.extract(image_b64, doc_type)
 
         return {
-            "provider": "VNPT_EKYC",
-            "extractedFields": normalized["fields"],
-            "confidence": normalized["avg_confidence"],
-            "rawResponse": raw_result,
-            "processingTimeMs": normalized["processing_time"]
+            "provider": result["provider"],          # "VNPT_EKYC" | "MOCK"
+            "extractedFields": result["fields"],
+            "confidence": result["avg_confidence"],
+            "rawResponse": result["raw"],
+            "processingTimeMs": result["processing_time"]
         }
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=502, detail=f"VNPT API error: {e.response.text}")
@@ -925,7 +984,7 @@ async def extract_document(file: UploadFile = File(...), doc_type: str = "CCCD")
 ### Mẫu VNPT SmartBot Client
 
 ```python
-# apps/ai-gateway/app/services/vnpt_smartbot.py
+# apps/ai-svc/app/services/hosobot.py
 
 import httpx
 from app.config import settings
@@ -986,7 +1045,7 @@ class VNPTSmartBotClient:
 
 ## 7. Data Models & Database Schema
 
-### MongoDB Collections (NestJS sở hữu)
+### MongoDB Collections (core-svc sở hữu)
 
 > Đồng bộ với `DATABASE_DESIGN.md` v2.1 — **6 collections**: `users`, `document_types`, `procedures`, `sessions`, `jobs`, `insight_logs`.
 
@@ -1143,7 +1202,7 @@ interface User {
 }
 ```
 
-### Vector DB Collections (FastAPI sở hữu)
+### Vector DB Collections (ai-svc sở hữu)
 
 > Đồng bộ OI-1: dùng **Qdrant** (không phải ChromaDB), collection **`legal_chunks`**, vector **768**, distance **Cosine**.
 
@@ -1274,7 +1333,7 @@ export class AppModule {}
 | POST | `/sessions` | Sessions | Tạo phiên kiểm tra mới |
 | GET | `/sessions/:id` | Sessions | Lấy trạng thái phiên |
 | POST | `/documents/upload` | Documents | Upload giấy tờ |
-| POST | `/documents/:id/ocr` | Documents | Trigger OCR (→ AI Gateway) |
+| POST | `/documents/:id/ocr` | Documents | Trigger OCR (→ ai-svc qua gRPC) |
 | POST | `/sessions/:id/crosscheck` | Scoring | Trigger CrossCheck |
 | POST | `/sessions/:id/score` | Scoring | Trigger Score Engine |
 | POST | `/sessions/:id/lawguard` | Scoring | Trigger LawGuard |
@@ -1320,7 +1379,7 @@ export class DocumentsService {
     const doc = await this.docModel.findById(documentId);
     if (!doc) throw new NotFoundException('Document not found');
 
-    // Đẩy job vào BullMQ → AI Gateway xử lý
+    // Đẩy job vào BullMQ → consumer của core-svc gọi ai-svc xử lý (tác vụ nặng)
     const job = await this.aiQueue.add('ocr-extract', {
       documentId: doc._id,
       filePath: doc.filePath,
@@ -1337,38 +1396,50 @@ export class DocumentsService {
 
 ---
 
-## 10. AI Gateway — FastAPI
+## 10. ai-svc — FastAPI
 
-### Cấu trúc FastAPI
+### Cấu trúc FastAPI + gRPC
+
+> ai-svc chạy **đồng thời** REST (Swagger nội bộ, :8000) và **gRPC server `AIService`** (:50051) cho core-svc gọi vào — cả hai cùng khởi động trong `main.py` (lifespan). gRPC stubs được sinh từ shared proto qua `app/proto/compiler.py`.
 
 ```python
-# apps/ai-gateway/app/main.py
+# apps/ai-svc/app/main.py
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.api.routes import ocr, crosscheck, lawguard, embeddings, health
+from app.api.routes import ocr, hosobot, lawguard, embeddings, health
+from app.grpc_server import start_grpc_server, stop_grpc_server
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Khởi động gRPC server (AIService) song song với REST
+    grpc_server = await start_grpc_server()
+    yield
+    await stop_grpc_server(grpc_server)
 
 app = FastAPI(
-    title="GovTrust AI Gateway",
-    description="AI Gateway xử lý OCR, CrossCheck, LawGuard",
-    version="1.0.0"
+    title="GovTrust ai-svc",
+    description="AI service: OCR, HoSoBot, LawGuard/hybrid RAG, Embedding",
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.include_router(health.router)
 app.include_router(ocr.router, prefix="/api/v1")
-app.include_router(crosscheck.router, prefix="/api/v1")
+app.include_router(hosobot.router, prefix="/api/v1")
 app.include_router(lawguard.router, prefix="/api/v1")
 app.include_router(embeddings.router, prefix="/api/v1")
 ```
 
-### OCR Normalizer
+### Chuẩn hoá OCR
 
 ```python
-# apps/ai-gateway/app/services/ocr_normalizer.py
+# apps/ai-svc/app/services/ocr.py — OcrService chuẩn hoá output
 
 def normalize_ocr_result(raw_result: dict, doc_type: str) -> dict:
     """
     Chuẩn hóa output từ VNPT OCR API thành format thống nhất.
     Vì VNPT trả field name khác nhau cho CCCD vs Hộ chiếu vs Giấy khai sinh,
-    module này map tất cả về cùng schema.
+    hàm này map tất cả về cùng schema. (Nếu thiếu VNPT_EKYC_* → OcrService trả mock.)
     """
     field_mapping = {
         "CCCD": {
@@ -1409,13 +1480,13 @@ def normalize_ocr_result(raw_result: dict, doc_type: str) -> dict:
 
 ### LawGuard RAG Engine
 
-> Đồng bộ OI-1 + code thật: dùng **Qdrant** collection `legal_chunks`, qua `LegalSearchService`
-> (`app/vector_db/search.py`) — hỗ trợ hybrid (dense + sparse BM25) + rerank, filter theo `category`/`status`.
+> Đồng bộ OI-1 + code thật: dùng **Qdrant** collection `legal_chunks`, qua hybrid search
+> (`app/services/hybrid_search.py`) — dense (sentence-transformers) + sparse BM25, filter theo `category`/`status`.
 
 ```python
-# apps/ai-gateway/app/services/rag_engine.py
+# apps/ai-svc/app/services/rag.py
 
-from app.vector_db.search import LegalSearchService
+from app.services.hybrid_search import HybridSearch
 
 class RAGEngine:
     """
@@ -1424,16 +1495,16 @@ class RAGEngine:
     """
 
     def __init__(self):
-        # LegalSearchService tự khởi tạo Qdrant client + embedder + reranker theo config
-        self.search_service = LegalSearchService()
+        # HybridSearch tự khởi tạo Qdrant client + embedder + BM25 theo config
+        self.search = HybridSearch()
 
     async def retrieve(self, query: str, category: str | None = None, top_k: int = 5) -> list[dict]:
-        """Truy xuất top-k chunk luật liên quan (đã rerank nếu bật)."""
-        results = self.search_service.search(query, category=category, top_k=top_k)
+        """Truy xuất top-k chunk luật liên quan (dense + BM25)."""
+        results = self.search.search(query, category=category, top_k=top_k)
         return [
             {
                 "content": r.text,
-                "relevance_score": r.score,    # rerank [0,1] nếu bật, không thì cosine/fusion
+                "relevance_score": r.score,    # điểm fusion dense + sparse
                 "source": {
                     "title": r.title,
                     "article": r.article,
@@ -1455,9 +1526,9 @@ class RAGEngine:
                 alert = {
                     "type": "REFERENCE" if best["relevance_score"] > 0.7 else "WARNING",
                     "checklistItem": item["id"],
-                    "message": f"Căn cứ: {best['metadata']['source_title']}, "
-                               f"{best['metadata']['article']}",
-                    "legalSource": best["metadata"],
+                    "message": f"Căn cứ: {best['source']['title']}, "
+                               f"{best['source']['article']}",
+                    "legalSource": best["source"],
                     "confidence": round(best["relevance_score"], 2),
                     "needsVerification": best["relevance_score"] < 0.7
                 }
@@ -1668,10 +1739,10 @@ async cleanupExpiredFiles() {
 | Loại test | Thư mục | Công cụ | Mục tiêu |
 | --- | --- | --- | --- |
 | Unit test | `packages/rule-engine/__tests__/` | Jest | Mỗi rule đúng logic, score đúng công thức |
-| Unit test | `apps/api/test/` | Jest | Mỗi service/controller đúng behavior |
-| Unit test | `apps/ai-gateway/tests/` | pytest | OCR normalizer, RAG retrieval |
+| Unit test | `apps/core-svc/test/` | Jest | Mỗi service/controller đúng behavior |
+| Unit test | `apps/ai-svc/tests/` | pytest | OCR service, RAG retrieval, hybrid search |
 | Integration test | `tests/integration/` | Jest + Supertest | API endpoint end-to-end |
-| Contract test | `tests/contract/` | Jest | API contract giữa NestJS ↔ FastAPI |
+| Contract test | `tests/contract/` | Jest | Contract gRPC giữa core-svc ↔ ai-svc (proto chung) |
 | RAG evaluation | `tests/rag-evaluation/` | pytest + RAGAS | Precision, Recall, Faithfulness |
 | Demo cases | `tests/demo-cases/` | Custom script | 20 hồ sơ mẫu chạy ≥ 3 lần ổn định |
 
@@ -1709,9 +1780,9 @@ for i in 1 2 3; do
   echo "--- Lần chạy $i/3 ---"
 
   # Chạy toàn bộ 20 demo cases
-  result=$(pnpm --filter rule-engine test 2>&1)
-  api_result=$(cd apps/api && pnpm test:e2e 2>&1)
-  ai_result=$(cd apps/ai-gateway && python -m pytest tests/ -v 2>&1)
+  result=$(pnpm --filter @govtrust/rule-engine test 2>&1)
+  api_result=$(cd apps/core-svc && pnpm test:e2e 2>&1)
+  ai_result=$(cd apps/ai-svc && python -m pytest tests/ -v 2>&1)
 
   if echo "$result $api_result $ai_result" | grep -q "FAIL"; then
     echo "❌ Lần $i: CÓ LỖI"
@@ -1758,9 +1829,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - run: pnpm install
-      - run: pnpm --filter rule-engine test
+      - run: pnpm --filter @govtrust/rule-engine test
 
-  test-api:
+  test-core-svc:
     runs-on: ubuntu-latest
     services:
       mongo:
@@ -1775,22 +1846,22 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - run: pnpm install
-      - run: pnpm --filter api test
+      - run: pnpm --filter @govtrust/core-svc test
         env:
-          MONGO_URI: mongodb://localhost:27017/govtrust-test
+          MONGO_URI: mongodb://localhost:27017/govtrust_business-test
           REDIS_HOST: localhost
 
-  test-ai-gateway:
+  test-ai-svc:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
-      - run: pip install -r apps/ai-gateway/requirements.txt
-      - run: cd apps/ai-gateway && python -m pytest tests/ -v
+      - run: pip install -r apps/ai-svc/requirements.txt
+      - run: cd apps/ai-svc && python -m pytest tests/ -v
 
   build-docker:
-    needs: [test-rule-engine, test-api, test-ai-gateway]
+    needs: [test-rule-engine, test-core-svc, test-ai-svc]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -1820,7 +1891,7 @@ jobs:
 | --- | --- | --- | --- | --- |
 | **Tech Lead** | Kiến trúc + DevOps | Repo setup, Docker, CI/CD, infra | Day 1-2 | Monorepo chạy, Docker Compose |
 | **Backend Dev** | NestJS API | Auth, Sessions, Procedures, Scoring, Insights modules | Day 1-5 | Toàn bộ REST API |
-| **AI Lead** | FastAPI + VNPT API | Tích hợp VNPT OCR/eKYC, OCR Normalizer, CrossCheck, RAG | Day 1-4 | AI Gateway hoạt động, gọi VNPT thật |
+| **AI Lead** | ai-svc + VNPT API | Tích hợp VNPT OCR/eKYC, OCR service, HoSoBot, RAG | Day 1-4 | ai-svc hoạt động, gọi VNPT thật |
 | **Frontend Dev 1** | Citizen App | Upload, Result, SmartForm, Confirm, HoSoBot | Day 2-5 | Luồng người dân E2E |
 | **Frontend Dev 2** | Officer Dashboard | ReCheck, Priority, InsightMap charts, RBAC UI | Day 3-5 | Dashboard cán bộ |
 | **Rule Engine Dev** | Score + CrossCheck | 5 rules, weights, validators, unit tests | Day 2-3 | Rule Engine + 100% test pass |
@@ -1844,7 +1915,7 @@ main              ← Chỉ merge khi stable, dùng cho demo
   └── develop     ← Integration branch
        ├── feat/web-upload          ← Frontend features
        ├── feat/api-scoring         ← Backend features
-       ├── feat/ai-vnpt-ocr        ← AI Gateway features
+       ├── feat/ai-vnpt-ocr        ← ai-svc features
        ├── feat/rule-engine         ← Rule Engine
        ├── fix/ocr-normalizer       ← Bug fixes
        └── docs/bao-cao            ← Tài liệu
@@ -1879,7 +1950,7 @@ chore: cập nhật docker-compose
 | Loại | Convention | Ví dụ |
 | --- | --- | --- |
 | File TypeScript | camelCase | `scoreEngine.ts`, `uploadZone.tsx` |
-| File Python | snake_case | `vnpt_ocr.py`, `rag_engine.py` |
+| File Python | snake_case | `ocr.py`, `hybrid_search.py` |
 | Component React | PascalCase | `ScoreCard.tsx`, `UploadZone.tsx` |
 | API endpoint | kebab-case | `/api/sessions/:id/cross-check` |
 | Database field | camelCase | `sessionId`, `procedureId` |
@@ -1900,7 +1971,7 @@ chore: cập nhật docker-compose
 - [ ] VNPT eKYC OCR API gọi thành công
 - [ ] VNPT SmartReader API gọi thành công
 - [ ] VNPT SmartBot API gọi thành công (cho HoSoBot)
-- [ ] OCR Normalizer chuẩn hóa output đúng
+- [ ] OCR service chuẩn hóa output đúng (có mock fallback)
 - [ ] CrossCheck phát hiện mismatch/missing/expired
 - [ ] Score Engine chấm điểm 0-100 đúng logic
 - [ ] LawGuard RAG truy xuất văn bản pháp luật + citation
@@ -1915,7 +1986,7 @@ chore: cập nhật docker-compose
 
 - [ ] Unit test Rule Engine: 100% pass
 - [ ] Unit test API services: pass
-- [ ] Unit test AI Gateway: pass
+- [ ] Unit test ai-svc: pass
 - [ ] Integration test luồng chính: pass
 - [ ] 20 demo cases: pass
 - [ ] Script demo.sh chạy ≥ 3 lần ổn định: pass

@@ -19,7 +19,7 @@ export function useAuth() {
   const login = async (username: string, password: string) => {
     setState(s => ({ ...s, isLoading: true, error: null }));
     try {
-      const result = await authApi.login(username, password) as { access_token: string; user: AuthState['user'] };
+      const result = (await authApi.login(username, password)) as any as { access_token: string; user: AuthState['user'] };
       if (typeof window !== 'undefined') {
         localStorage.setItem('govtrust_token', result.access_token);
       }

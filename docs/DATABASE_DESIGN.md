@@ -17,25 +17,27 @@ GovTrust AI áp dụng **Polyglot Persistence** (chọn DB theo đặc thù dữ
 
 | Store | Chủ sở hữu | Vai trò | Mất thì sao? |
 |---|---|---|---|
-| **MongoDB** `govtrust_business` | NestJS | **Nguồn sự thật**: users, document_types, procedures, sessions (+aiResult), jobs, insight_logs | Hệ thống dừng — đây là chân lý |
-| **Qdrant** `legal_chunks` | FastAPI | Chỉ mục ngữ nghĩa văn bản pháp luật (vector + payload) | Rebuild từ nguồn luật; LawGuard tạm degrade |
+| **MongoDB** `govtrust_business` | core-svc | **Nguồn sự thật**: users, document_types, procedures, sessions (+aiResult), jobs, insight_logs | Hệ thống dừng — đây là chân lý |
+| **Qdrant** `legal_chunks` | ai-svc | Chỉ mục ngữ nghĩa văn bản pháp luật (vector + payload) | Rebuild từ nguồn luật; LawGuard tạm degrade |
 | **Redis** | Shared qua API | Tăng tốc + vận chuyển job (BullMQ queue, cache, pipeline status) | **Fallback xuống MongoDB**, chạy degraded |
-| **Object Storage** (Local/S3) | NestJS | File ảnh gốc (CCCD, giấy khai sinh) — **tạm**, auto-delete | Ảnh mất sau phiên (đúng thiết kế zero-retention) |
+| **Object Storage** (Local/S3) | core-svc | File ảnh gốc (CCCD, giấy khai sinh) — **tạm**, auto-delete | Ảnh mất sau phiên (đúng thiết kế zero-retention) |
 
-**Nguyên tắc Database per Service:** NestJS **không** truy cập Qdrant; FastAPI **không** truy cập MongoDB. Trao đổi qua REST nội bộ + Redis Queue theo `sessionId`.
+**Nguyên tắc Database per Service:** core-svc **không** truy cập Qdrant; ai-svc **không** truy cập MongoDB. Trao đổi qua **gRPC** (tác vụ nhanh) + **Redis Queue/BullMQ** (tác vụ nặng) theo `sessionId`.
 
 ```
 Upload ảnh → Object Storage (tạm)
                 │ fileUrl
                 ▼
-NestJS ghi session (MongoDB, status=AI_PROCESSING)
+core-svc ghi session (MongoDB, status=AI_PROCESSING)
    │  insert job (jobs, state=PENDING)  ← chân lý của hàng đợi
    │  enqueue BullMQ (Redis)            → state=ENQUEUED
    ▼
-FastAPI worker: OCR → CrossCheck → LawGuard(query Qdrant) → Score
-   │ trả kết quả đã chuẩn hóa (REST/job result)
+BullMQ consumer (core-svc) gọi ai-svc qua gRPC: ExtractOCR → ghi ocrData vào session
    ▼
-NestJS GHI aiResult vào session (MongoDB)  ◄── chỉ lúc này mới "chính thức"
+core-svc: CrossCheck + Score (rule-engine, MongoDB) ; LawGuard gọi ai-svc gRPC (query Qdrant)
+   │ ghi aiResult vào session
+   ▼
+core-svc GHI aiResult vào session (MongoDB)  ◄── chỉ lúc này mới "chính thức"
    │ trước khi session bị TTL xóa
    ▼
 rút metadata ẩn danh → insight_logs (MongoDB, vĩnh viễn, KHÔNG PII)
@@ -313,9 +315,9 @@ DB `govtrust_business`. 6 collections: `users`, `document_types`, `procedures`, 
 **Index:** `{ state: 1, updatedAt: 1 }` (cho reconciler quét PENDING/PROCESSING quá hạn), `{ sessionId: 1 }`, `{ expiresAt: 1 }` TTL.
 
 **Vòng đời (Outbox pattern):**
-1. NestJS `insert(job, state=PENDING)` vào MongoDB — **chân lý**.
-2. NestJS enqueue BullMQ (Redis) → `update(state=ENQUEUED)`.
-3. FastAPI worker nhận → `PROCESSING` → ghi `aiResult` vào `sessions` → `DONE`.
+1. core-svc `insert(job, state=PENDING)` vào MongoDB — **chân lý**.
+2. core-svc enqueue BullMQ (Redis) → `update(state=ENQUEUED)`.
+3. BullMQ consumer (core-svc) nhận → `PROCESSING` → gọi ai-svc qua gRPC → ghi `aiResult` vào `sessions` → `DONE`.
 
 ### 2.6. Collection: `insight_logs` (Kho dữ liệu cho InsightMap)
 *Chỉ metadata phi định danh. Tách khỏi `sessions` để lưu lâu dài. **Collection duy nhất sống vĩnh viễn cùng users/procedures.***
@@ -504,17 +506,18 @@ erDiagram
 ## 7. Vận hành / Chạy thử
 
 ```bash
-# 1. Khởi động data layer (MongoDB + Qdrant + Redis)
-docker compose -f infra/docker-compose.yml up -d
+# 1. Khởi động toàn stack (web, api-gateway, core-svc, ai-svc + MongoDB/Qdrant/Redis)
+docker compose -f infra/docker-compose.yml up --build
 
-# 2. Seed thủ tục MVP + tạo index (idempotent)
-cd apps/api && ts-node src/database/seeds/seed.ts
+# 2. Seed Mongo: tự động chạy khi MongoDB khởi tạo lần đầu qua infra/mongo/init-mongo.js
+#    (users mẫu, document_types, procedures MVP)
 
-# 3. Tạo collection Qdrant + payload index + ingest văn bản luật
-cd apps/ai-gateway && python -m app.vector_db.qdrant_setup
+# 3. Ingest văn bản luật vào Qdrant: ai-svc tự nạp khi khởi động —
+#    đọc chunks từ LEGAL_CHUNKS_DIR (mặc định ./data/legal-sources/chunks),
+#    tạo collection legal_chunks + payload index nếu chưa có (app/services/hybrid_search.py)
 ```
 
-Schema NestJS: `apps/api/src/database/schemas/`. Biến môi trường: xem `.env.example` (`SESSION_TTL_HOURS`, `MONGO_URI`, `QDRANT_URL`, `REDIS_URL`).
+Schema core-svc: `apps/core-svc/src/database/schemas/`. Biến môi trường: xem `.env.example` (`SESSION_TTL_HOURS`, `MONGO_URI`, `QDRANT_URL`, `REDIS_HOST`/`REDIS_PORT`).
 
 ---
 

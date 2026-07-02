@@ -1,0 +1,5 @@
+project-includes = ["app", "tests"]
+project-excludes = ["**/__pycache__", "app/proto/*_pb2*.py"]
+search-path = ["."]
+python-interpreter-path = ".venv/bin/python3"
+ignore-errors-in-generated-code = true

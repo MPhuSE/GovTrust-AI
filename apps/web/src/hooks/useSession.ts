@@ -32,7 +32,7 @@ export function useSession() {
   const createSession = useCallback(async (procedureId: string) => {
     setLoading(true);
     try {
-      const session = await sessionsApi.create(procedureId) as { _id: string };
+      const session = (await sessionsApi.create(procedureId)) as any as { _id: string };
       setState(s => ({ ...s, sessionId: session._id, currentStep: 'upload', isLoading: false }));
       return session._id;
     } catch (e) {
@@ -51,7 +51,7 @@ export function useSession() {
       const scoreResult = await scoringApi.score(sessionId);
 
       setState(s => ({ ...s, currentStep: 'lawguard', scoreResult }));
-      const lawguardResult = await scoringApi.lawguard(sessionId) as { alerts: unknown[] };
+      const lawguardResult = (await scoringApi.lawguard(sessionId)) as any as { alerts: unknown[] };
 
       setState(s => ({ ...s, currentStep: 'smartform', lawguardAlerts: lawguardResult.alerts }));
       const formResult = await smartformApi.generate(sessionId);

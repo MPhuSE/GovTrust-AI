@@ -38,26 +38,31 @@ export class DocumentsService {
     };
   }
 
-  async triggerOcr(sessionId: string, documentTypeCode: string) {
+  async triggerOcr(sessionId: string, documentTypeCode: string, checklistId?: string) {
     const session = await this.sessionModel.findById(sessionId);
     if (!session) throw new NotFoundException('Phiên không tồn tại');
 
     const doc = session.documents.find(d => d.docTypeId === documentTypeCode);
     if (!doc) throw new NotFoundException('Giấy tờ chưa được upload');
 
-    // Ghi job outbox vào MongoDB trước
+    // checklistId = slot trong procedure.checklist mà giấy này điền vào.
+    // Mặc định = documentTypeCode nếu FE không truyền (ocrData key dùng cho CrossCheck).
+    const key = checklistId ?? documentTypeCode;
+
+    // Ghi job outbox vào MongoDB trước (Outbox pattern — Redis chết không mất job)
     const job = await this.jobModel.create({
       sessionId: new Types.ObjectId(sessionId),
       type: JobType.OCR,
       state: JobState.PENDING,
-      payload: { fileUrl: doc.fileUrl, documentTypeCode },
+      payload: { fileUrl: doc.fileUrl, documentTypeCode, checklistId: key },
       expiresAt: new Date(Date.now() + 86400000),
     });
 
     // Enqueue BullMQ
     await this.aiQueue.add(AiJobName.OCR_EXTRACT, {
-      jobId: job._id,
+      jobId: String(job._id),
       sessionId,
+      checklistId: key,
       fileUrl: doc.fileUrl,
       documentTypeCode,
     });

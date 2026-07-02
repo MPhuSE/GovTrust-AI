@@ -72,6 +72,10 @@ export class Session {
 
   @Prop({ type: Date, index: true })
   expiresAt: Date;
+
+  // timestamps: true tự thêm 2 field này lúc runtime — khai báo để TS biết.
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const SessionSchema = SchemaFactory.createForClass(Session);

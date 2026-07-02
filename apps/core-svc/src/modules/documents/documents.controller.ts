@@ -20,11 +20,12 @@ export class DocumentsController {
   }
 
   @Post(':sessionId/ocr/:documentTypeCode')
-  @ApiOperation({ summary: 'Trigger OCR cho giấy tờ (Bước 3) — gọi VNPT API' })
+  @ApiOperation({ summary: 'Trigger OCR cho giấy tờ (Bước 3) — gọi VNPT API qua ai-svc' })
   triggerOcr(
     @Param('sessionId') sessionId: string,
     @Param('documentTypeCode') documentTypeCode: string,
+    @Body() body?: { checklistId?: string },
   ) {
-    return this.documentsService.triggerOcr(sessionId, documentTypeCode);
+    return this.documentsService.triggerOcr(sessionId, documentTypeCode, body?.checklistId);
   }
 }

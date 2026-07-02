@@ -2,11 +2,7 @@
   "name": "@govtrust/proto",
   "version": "1.0.0",
   "private": true,
-  "scripts": {
-    "gen:ts": "protoc --plugin=protoc-gen-ts_proto=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./generated --ts_proto_opt=nestJs=true *.proto",
-    "gen:py": "python -m grpc_tools.protoc -I. --python_out=../../apps/ai-svc/app/proto --grpc_python_out=../../apps/ai-svc/app/proto *.proto"
-  },
-  "devDependencies": {
-    "ts-proto": "^2.0.0"
-  }
+  "description": "Shared gRPC contract (libs/shared-proto) — core-svc ↔ ai-svc. Nạp runtime qua @grpc/proto-loader, không cần codegen.",
+  "main": "index.js",
+  "files": ["*.proto"]
 }

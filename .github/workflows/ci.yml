@@ -43,14 +43,15 @@ jobs:
           REDIS_HOST: localhost
           JWT_SECRET: test-secret
 
-  ai-gateway:
+  ai-svc:
     name: FastAPI Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
-      - run: pip install -r apps/ai-gateway/requirements.txt
-      - run: python -m pytest apps/ai-gateway/tests/ -v
+      - run: pip install -r apps/ai-svc/requirements-dev.txt
+      - run: python -m pytest apps/ai-svc/tests/ -v
         env:
           QDRANT_URL: http://localhost:6333
+      - run: cd apps/ai-svc && pyrefly check

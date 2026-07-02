@@ -12,6 +12,8 @@ __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+apps/ai-svc/app/proto/*_pb2.py
+apps/ai-svc/app/proto/*_pb2_grpc.py
 
 # Environment
 .env

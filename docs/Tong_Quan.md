@@ -109,20 +109,22 @@
 
 | Thành phần repo | Vai trò | File/thư mục nên có | Nội dung cần giải thích trong báo cáo |
 | --- | --- | --- | --- |
-| `apps/web` | Citizen App + dashboard InsightMap | pages/app, components, upload, result, smartform, dashboard | Giao diện người dân và cơ quan; luồng UX; trạng thái loading/progress |
-| `apps/api` | NestJS API Orchestrator | procedures, documents, scoring, sessions, insights modules | Quản lý session, metadata, điều phối pipeline, phân quyền dashboard |
-| `apps/ai-gateway` | FastAPI AI Gateway | ocr_normalizer, rag, lawguard, embeddings, workers | Xử lý tác vụ AI nặng, RAG, chuẩn hóa kết quả OCR, trả kết quả về NestJS |
-| `packages/rule-engine` | CrossCheck + Score Engine | rules, weights, validators, test cases | Vì sao dùng rule-based để audit được, tránh LLM phán quyết khó kiểm soát |
+| `web` | Citizen App + dashboard InsightMap | src/app, components, upload, result, smartform, dashboard | Giao diện người dân và cơ quan; luồng UX; trạng thái loading/progress |
+| `apps/api-gateway` | NestJS — Edge công khai | auth-verify (verify JWT), proxy (route → core-svc), health | Tầng biên: verify JWT, RBAC, rate-limit, CORS, định tuyến request |
+| `apps/core-svc` | NestJS — Business + Orchestrator | auth, procedures, document-types, documents, sessions, scoring, smartform, recheck, priority, insights | Sở hữu MongoDB; cấp JWT; điều phối pipeline; gọi ai-svc qua gRPC + BullMQ |
+| `apps/ai-svc` | FastAPI/Python — AI service | services: ocr, hosobot, rag, hybrid_search, embedding, llm; grpc_server | Sở hữu Qdrant; OCR (VNPT eKYC + mock fallback), HoSoBot, LawGuard/hybrid RAG, embedding |
+| `packages/rule-engine` | CrossCheck + Score Engine (TS thuần) | rules, weights, validators, __tests__ | Vì sao dùng rule-based để audit được, tránh LLM phán quyết khó kiểm soát |
+| `packages/proto` | Shared gRPC contract | ai_service.proto (package govtrust.ai) | Hợp đồng gRPC dùng chung giữa core-svc và ai-svc, tránh lệch version |
 | `data/procedures` | Template thủ tục | procedure.json, checklist, formFields, legalSourceIds | Cách mở rộng thêm thủ tục mới bằng template thay vì sửa code lõi |
 | `data/legal-sources` | Nguồn luật công khai | chunks, metadata, embeddings | Nguồn, ngày truy cập, versioning, căn cứ cho LawGuard |
 | `tests` | Bộ kiểm thử | unit, integration, contract, rag-evaluation, demo-cases | Bảng test case: hồ sơ đủ, thiếu, sai thông tin, hết hạn, ảnh mờ, yêu cầu chưa rõ căn cứ |
-| `infra` | Triển khai | docker-compose, redis, vector-db, nginx, env.example | Cách chạy local/public demo, queue, cache, database per service |
+| `infra` | Triển khai | docker-compose, redis, qdrant, env.example | Cách chạy local/public demo, queue, cache, database per service |
 
 ---
 
 ## 3. Kiến trúc & Pipeline kỹ thuật
 
-**Mục tiêu:** chứng minh giải pháp có nền tảng kỹ thuật rõ ràng — Frontend, Backend Orchestrator, AI Gateway, Redis Queue, DB, Vector DB, Tích hợp trực tiếp API VNPT.
+**Mục tiêu:** chứng minh giải pháp có nền tảng kỹ thuật rõ ràng — kiến trúc 4 service (web, api-gateway, core-svc, ai-svc), gRPC + Redis Queue/BullMQ, MongoDB, Qdrant, tích hợp trực tiếp API VNPT.
 
 ### 3.1. Pipeline kỹ thuật chi tiết (11 bước)
 
@@ -142,14 +144,16 @@
 
 ### 3.2. Kiến trúc hệ thống (tham chiếu)
 
-- **Citizen App:** Next.js — giao diện người dân (chọn thủ tục, upload, xem score, xem form tự điền).
-- **AI Gateway (Microservices):** NestJS (session, API nghiệp vụ, phân quyền, metadata) + FastAPI (RAG, embedding, chuẩn hóa OCR, LawGuard); giao tiếp qua REST nội bộ (đồng bộ, tác vụ nhanh) và Redis Queue/BullMQ (bất đồng bộ, tác vụ AI nặng).
-- **Document AI:** Tích hợp VNPT SmartReader/eKYC OCR + CrossCheck.
-- **Decision Layer:** Score Engine + Rule Engine (audit được, tránh LLM phán quyết khó kiểm soát).
-- **Legal AI:** LawGuard + RAG trên Vector DB (Chroma/Qdrant/FAISS).
-- **Form Engine:** SmartForm.
-- **Analytics:** InsightMap Dashboard.
-- **Data Layer:** MongoDB (nghiệp vụ, do NestJS sở hữu) + Vector DB (AI, do FastAPI sở hữu) — theo nguyên tắc **Database per Service**, không truy cập chéo trực tiếp.
+- **Citizen App (web):** Next.js — giao diện người dân + dashboard cán bộ (chọn thủ tục, upload, xem score, xem form tự điền).
+- **api-gateway:** NestJS — tầng biên công khai: verify JWT, RBAC, rate-limit, CORS, định tuyến request → core-svc.
+- **core-svc:** NestJS — business + orchestrator pipeline; sở hữu MongoDB; cấp JWT. Giao tiếp với ai-svc qua **gRPC** (đồng bộ, tác vụ nhanh) và **Redis Queue/BullMQ** (bất đồng bộ, tác vụ AI nặng).
+- **ai-svc:** FastAPI/Python — sở hữu Qdrant; OCR (VNPT eKYC/SmartReader + mock fallback), HoSoBot, LawGuard/hybrid RAG, embedding; chạy đồng thời REST + gRPC server.
+- **Document AI:** ai-svc tích hợp VNPT SmartReader/eKYC OCR; CrossCheck nằm ở core-svc (module scoring, dùng `packages/rule-engine`).
+- **Decision Layer:** Score Engine + Rule Engine trong core-svc (audit được, tránh LLM phán quyết khó kiểm soát).
+- **Legal AI:** LawGuard + hybrid RAG (Qdrant dense + BM25) trên collection `legal_chunks`.
+- **Form Engine:** SmartForm (module core-svc).
+- **Analytics:** InsightMap — module trong core-svc, dùng collection `insight_logs`.
+- **Data Layer:** MongoDB (nghiệp vụ, core-svc sở hữu) + Qdrant (AI, ai-svc sở hữu) — theo nguyên tắc **Database per Service**, không truy cập chéo trực tiếp.
 
 ---
 
