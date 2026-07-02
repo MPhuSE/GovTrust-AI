@@ -97,21 +97,39 @@ export default function DashboardPage() {
   return (
     <OfficerLayout>
       <div className="p-6 sm:p-8 animate-fade-in">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Bảng điều khiển InsightMap</h1>
-            <p className="text-sm text-gray-500">Tổng quan dữ liệu hoạt động hệ thống AI</p>
+        {/* Premium Header */}
+        <div className="bg-white border-b border-gray-200 px-6 py-8 sm:px-10 mb-8 -mx-6 sm:-mx-8 -mt-6 sm:-mt-8 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] relative overflow-hidden">
+          {/* Subtle gradient background element */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400/10 rounded-full blur-[80px] -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="absolute bottom-0 left-10 w-64 h-64 bg-purple-400/10 rounded-full blur-[60px] -mb-20 pointer-events-none"></div>
+          
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 tracking-tight">
+                Bảng điều khiển InsightMap
+              </h1>
+              <p className="text-sm text-gray-500 mt-1.5 font-medium flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                </span>
+                Tổng quan dữ liệu hoạt động hệ thống AI thời gian thực
+              </p>
+            </div>
+            <div className="bg-gray-50/80 p-1.5 rounded-xl border border-gray-100 backdrop-blur-sm shadow-sm inline-flex">
+              <FilterBar days={days} onChange={setDays} />
+            </div>
           </div>
-          <FilterBar days={days} onChange={setDays} />
         </div>
 
         {/* Privacy notice */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6 text-sm text-blue-700 flex items-center gap-2">
-          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Dữ liệu ẩn danh — chỉ phản ánh loại lỗi, thủ tục và thời điểm. Không chứa thông tin cá nhân.
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-3.5 mb-8 text-sm text-blue-800 flex items-center gap-3 shadow-sm">
+          <div className="bg-blue-100/50 p-1.5 rounded-lg shrink-0">
+            <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <span className="font-medium">Dữ liệu ẩn danh</span> — chỉ phản ánh loại lỗi, thủ tục và thời điểm. Không chứa thông tin định danh cá nhân.
         </div>
 
         {/* Stat Cards */}

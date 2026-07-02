@@ -18,10 +18,10 @@ interface QueueItem {
 }
 
 const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
-  AI_DONE: { label: 'AI đã kiểm', cls: 'badge-info' },
-  CONFIRMED: { label: 'Đã xác nhận', cls: 'badge-success' },
-  RECHECKED: { label: 'Đã tái kiểm', cls: 'badge-success' },
-  PENDING: { label: 'Đang xử lý', cls: 'badge-warning' },
+  AI_DONE: { label: 'AI đã duyệt', cls: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+  CONFIRMED: { label: 'Đã xác nhận', cls: 'bg-blue-50 text-blue-700 border-blue-100' },
+  RECHECKED: { label: 'Đã tái kiểm', cls: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
+  PENDING: { label: 'Đang xử lý', cls: 'bg-amber-50 text-amber-700 border-amber-100' },
 };
 
 export default function QueuePage() {
@@ -50,101 +50,117 @@ export default function QueuePage() {
 
   return (
     <OfficerLayout>
-      <div className="p-6 sm:p-8 animate-fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="p-6 sm:p-10 max-w-7xl mx-auto animate-fade-in">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Danh sách hồ sơ</h1>
-            <p className="text-sm text-gray-500">Hồ sơ xếp theo mức ưu tiên và SLA</p>
+            <h1 className="text-3xl font-extrabold text-[#0A192F] mb-2 tracking-tight">Hàng đợi xử lý hồ sơ</h1>
+            <p className="text-sm font-medium text-gray-500">Tự động phân loại và ưu tiên hóa bởi GovTrust AI</p>
           </div>
 
           {/* Filters */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 bg-white p-1.5 rounded-xl border border-gray-100 shadow-sm w-max">
             {['ALL', 'A', 'B', 'C', 'D'].map((p) => (
               <button
                 key={p}
                 onClick={() => setFilterPriority(p)}
-                className={`px-3 py-1.5 text-sm rounded-lg border font-medium transition-colors ${
+                className={`px-4 py-2 text-sm rounded-lg font-bold transition-all duration-300 ${
                   filterPriority === p
-                    ? 'bg-blue-700 text-white border-blue-700'
-                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                    ? 'bg-[#0A192F] text-white shadow-md'
+                    : 'bg-transparent text-gray-500 hover:text-[#0A192F] hover:bg-gray-50'
                 }`}
               >
-                {p === 'ALL' ? 'Tất cả' : `Ưu tiên ${p}`}
+                {p === 'ALL' ? 'Tất cả' : `Nhóm ${p}`}
               </button>
             ))}
           </div>
         </div>
 
         {isLoading ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {[1, 2, 3, 4].map((i) => (
-              <LoadingSkeleton key={i} variant="table-row" />
+              <LoadingSkeleton key={i} variant="table-row" className="rounded-2xl" />
             ))}
           </div>
         ) : (
-          <div className="card overflow-hidden p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Mã HS</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Thủ tục</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">Công dân</th>
-                  <th className="text-center px-4 py-3 font-semibold text-gray-600">Điểm</th>
-                  <th className="text-center px-4 py-3 font-semibold text-gray-600">Ưu tiên</th>
-                  <th className="text-center px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Trạng thái</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-600"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((item) => {
-                  const statusConfig = STATUS_LABELS[item.status] || { label: item.status, cls: 'badge' };
-                  return (
-                    <tr
-                      key={item._id}
-                      className="border-b border-gray-100 hover:bg-blue-50/50 transition-colors cursor-pointer"
-                      onClick={() => router.push(`/recheck/${item._id}`)}
-                    >
-                      <td className="px-4 py-3 font-mono-num text-gray-500 text-xs">
-                        #{item._id.slice(-6)}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{item.procedureName}</td>
-                      <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">
-                        {item.citizenName || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`font-bold tabular-nums ${
-                            item.score >= 80
-                              ? 'text-green-600'
-                              : item.score >= 60
-                              ? 'text-yellow-600'
-                              : 'text-red-600'
-                          }`}
-                        >
-                          {item.score}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <PriorityBadge level={item.priority} />
-                      </td>
-                      <td className="px-4 py-3 text-center hidden md:table-cell">
-                        <span className={statusConfig.cls}>{statusConfig.label}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                          Xem →
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {filtered.length === 0 && (
-              <div className="text-center py-12 text-gray-500">
-                <p className="text-sm">Không có hồ sơ nào phù hợp bộ lọc.</p>
-              </div>
-            )}
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="bg-[#FBFBFA] border-b border-gray-100">
+                    <th className="px-6 py-5 font-bold text-gray-500 uppercase tracking-wider text-xs">Mã HS</th>
+                    <th className="px-6 py-5 font-bold text-gray-500 uppercase tracking-wider text-xs">Thủ tục</th>
+                    <th className="px-6 py-5 font-bold text-gray-500 uppercase tracking-wider text-xs hidden sm:table-cell">Công dân</th>
+                    <th className="px-6 py-5 font-bold text-gray-500 uppercase tracking-wider text-xs text-center">Điểm AI</th>
+                    <th className="px-6 py-5 font-bold text-gray-500 uppercase tracking-wider text-xs text-center">Mức độ</th>
+                    <th className="px-6 py-5 font-bold text-gray-500 uppercase tracking-wider text-xs text-center hidden md:table-cell">Trạng thái</th>
+                    <th className="px-6 py-5 font-bold text-gray-500 uppercase tracking-wider text-xs text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {filtered.map((item) => {
+                    const statusConfig = STATUS_LABELS[item.status] || { label: item.status, cls: 'bg-gray-100 text-gray-600' };
+                    return (
+                      <tr
+                        key={item._id}
+                        className="hover:bg-emerald-50/30 transition-colors cursor-pointer group"
+                        onClick={() => router.push(`/recheck/${item._id}`)}
+                      >
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-gray-500 bg-gray-50 px-2.5 py-1 rounded-md border border-gray-100">
+                            #{item._id.slice(-6).toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 font-bold text-[#0A192F]">{item.procedureName}</td>
+                        <td className="px-6 py-4 text-gray-600 font-medium hidden sm:table-cell">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
+                              {item.citizenName?.charAt(0) || '?'}
+                            </div>
+                            {item.citizenName || '—'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span
+                            className={`font-extrabold inline-block tabular-nums ${
+                              item.score >= 80
+                                ? 'text-emerald-600'
+                                : item.score >= 60
+                                ? 'text-amber-500'
+                                : 'text-red-500'
+                            }`}
+                          >
+                            {item.score}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <PriorityBadge level={item.priority} />
+                        </td>
+                        <td className="px-6 py-4 text-center hidden md:table-cell">
+                          <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${statusConfig.cls}`}>
+                            {statusConfig.label}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-50 text-gray-400 group-hover:bg-[#0A192F] group-hover:text-white transition-all">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {filtered.length === 0 && (
+                <div className="text-center py-20">
+                  <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl opacity-50">📂</span>
+                  </div>
+                  <p className="text-gray-500 font-medium">Không có hồ sơ nào phù hợp bộ lọc hiện tại.</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

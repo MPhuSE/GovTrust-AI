@@ -30,6 +30,8 @@ export class ProxyMiddleware implements NestMiddleware {
   }
 
   use(req: Request, res: Response, next: NextFunction) {
+    // NestJS strips the path when using forRoutes('*'), so we restore it for the proxy
+    req.url = req.originalUrl;
     return this.handler(req, res, next);
   }
 }

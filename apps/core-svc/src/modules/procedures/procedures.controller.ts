@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Param, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { ProceduresService } from './procedures.service';
+import { IdentifyDto } from './dto/identify.dto';
 
 @ApiTags('Procedures')
 @Controller('procedures')
@@ -21,7 +22,7 @@ export class ProceduresController {
 
   @Post('identify')
   @ApiOperation({ summary: 'HoSoBot — nhận diện thủ tục từ câu hỏi tự nhiên (Bước 1)' })
-  identify(@Body() body: { userQuery: string }) {
+  identify(@Body() body: IdentifyDto) {
     return this.proceduresService.identify(body.userQuery);
   }
 }

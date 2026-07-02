@@ -22,6 +22,8 @@ export class AuthVerifyMiddleware {
     '/auth/register',
     '/procedures',       // GET danh sách/chi tiết thủ tục — public
     '/document-types',
+    '/api/docs',         // Swagger UI
+    '/api/docs-json',    // Swagger JSON
   ];
 
   constructor(jwt: JwtService, config: ConfigService) {
@@ -31,9 +33,9 @@ export class AuthVerifyMiddleware {
   private _jwt: JwtService;
 
   use = (req: Request, res: Response, next: NextFunction): void => {
-    const path = req.path;
+    const path = req.originalUrl.split('?')[0];
 
-    if (this.PUBLIC_PREFIXES.some(p => path === p || path.startsWith(p + '/') || path.startsWith(p + '?'))) {
+    if (this.PUBLIC_PREFIXES.some(p => path === p || path.startsWith(p + '/'))) {
       return next();
     }
 

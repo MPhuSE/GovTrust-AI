@@ -21,7 +21,7 @@ export class PriorityService {
 
     const ranked = sessions.map(s => {
       const procedure = s.procedureId as unknown as ProcedureDocument;
-      const score = (s.aiResult?.score as { total?: number })?.total ?? 0;
+      const score = (s.aiResult?.score as { score?: number })?.score ?? 0;
       const slaDeadline = this.calcSlaDeadline(s, procedure);
       const daysLeft = Math.max(0, (slaDeadline.getTime() - Date.now()) / 86400000);
       const level = this.calcPriority(score, daysLeft, procedure.priorityConfig?.baseUrgency ?? 'MEDIUM');

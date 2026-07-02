@@ -7,6 +7,11 @@ import { OfficerLayout } from '@/components/layout/OfficerLayout';
 import { ScoreCircle } from '@/components/ui/ScoreCircle';
 import { LawCitation } from '@/components/ui/LawCitation';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { motion } from 'framer-motion';
+import { ChevronLeft, CheckCircle2, AlertTriangle, Search, Flag, Lightbulb } from 'lucide-react';
 
 interface RecheckSession {
   _id: string;
@@ -38,15 +43,7 @@ export default function RecheckPage() {
     sessionsApi
       .get(sessionId)
       .then((data: unknown) => {
-        const s = data as {
-          procedure?: { name: string };
-          aiResult?: {
-            score?: { score: number; grade: string; breakdown: unknown[] };
-            crossCheck?: { results: unknown[] };
-            lawGuardAlerts?: unknown[];
-          };
-          recheckResult?: { riskFlags?: string[] };
-        };
+        const s = data as any;
 
         setSession({
           _id: sessionId,
@@ -76,12 +73,25 @@ export default function RecheckPage() {
     }
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
+  };
+
   if (isLoading) {
     return (
       <OfficerLayout>
-        <div className="p-8">
-          <LoadingSkeleton variant="score" />
-          <LoadingSkeleton variant="card" className="mt-6" />
+        <div className="p-8 max-w-5xl mx-auto">
+          <LoadingSkeleton variant="score" className="rounded-2xl" />
+          <LoadingSkeleton variant="card" className="mt-6 rounded-2xl" />
         </div>
       </OfficerLayout>
     );
@@ -90,17 +100,19 @@ export default function RecheckPage() {
   if (submitted) {
     return (
       <OfficerLayout>
-        <div className="p-8 max-w-2xl mx-auto text-center animate-scale-in">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold mb-3">Tái kiểm hoàn tất</h1>
-          <p className="text-gray-500 mb-6">Kết quả tái kiểm đã được ghi nhận vào hệ thống.</p>
-          <button className="btn-primary" onClick={() => router.push('/queue')}>
-            ← Quay lại danh sách
-          </button>
+        <div className="p-8 max-w-2xl mx-auto text-center flex flex-col items-center justify-center min-h-[60vh]">
+          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-24 h-24 bg-teal-50 rounded-full flex items-center justify-center mb-6 shadow-sm border border-teal-100">
+            <CheckCircle2 className="w-12 h-12 text-teal-600" />
+          </motion.div>
+          <motion.h1 initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="text-3xl font-extrabold text-navy mb-4">Tái kiểm hoàn tất</motion.h1>
+          <motion.p initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="text-navy/60 font-medium mb-8 max-w-md mx-auto">
+            Kết quả tái kiểm và quyết định của cán bộ đã được ghi nhận vào hệ thống thành công.
+          </motion.p>
+          <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }}>
+            <Button onClick={() => router.push('/queue')} size="lg" className="w-full sm:w-auto">
+              <ChevronLeft className="w-5 h-5 mr-2" /> Quay lại danh sách
+            </Button>
+          </motion.div>
         </div>
       </OfficerLayout>
     );
@@ -108,149 +120,199 @@ export default function RecheckPage() {
 
   return (
     <OfficerLayout>
-      <div className="p-6 sm:p-8 max-w-4xl animate-fade-in">
-        {/* Header */}
-        <button onClick={() => router.push('/queue')} className="text-sm text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Quay lại danh sách
-        </button>
+      <div className="p-6 sm:p-10 max-w-7xl mx-auto bg-ivory/20 min-h-screen">
+        <motion.div initial="hidden" animate="show" variants={containerVariants}>
+          
+          <motion.button 
+            variants={itemVariants}
+            onClick={() => router.push('/queue')} 
+            className="text-sm font-semibold text-navy/50 hover:text-navy mb-6 flex items-center gap-1.5 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Quay lại danh sách
+          </motion.button>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Gov Re-Check</h1>
-        <p className="text-gray-500 text-sm mb-6">
-          Tái kiểm hồ sơ: {session?.procedureName} — Mã #{sessionId.slice(-6)}
-        </p>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: AI Results */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Score */}
-            <div className="card flex items-center gap-6">
-              <ScoreCircle
-                score={session?.score || 0}
-                grade={(session?.grade || 'D') as 'A' | 'B' | 'C' | 'D'}
-                size={120}
-              />
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 mb-2">Kết quả AI kiểm tra</h3>
-                {session?.breakdown.map((b) => (
-                  <div key={b.ruleId} className="flex items-center justify-between text-sm py-1 border-b border-gray-100 last:border-0">
-                    <span className="text-gray-600">{b.detail}</span>
-                    <span className="text-red-600 font-semibold">{b.impact}</span>
-                  </div>
-                ))}
-              </div>
+          <motion.div variants={itemVariants} className="mb-8">
+            <h1 className="text-3xl font-extrabold text-navy mb-3 tracking-tight">
+              Tái kiểm hồ sơ <span className="text-teal-600">AI</span>
+            </h1>
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="font-mono bg-white shadow-sm px-3 py-1 text-sm">#{sessionId.slice(-6).toUpperCase()}</Badge>
+              <span className="text-navy/70 font-medium text-lg">{session?.procedureName}</span>
             </div>
+          </motion.div>
 
-            {/* CrossCheck */}
-            {session?.crossCheckResults && session.crossCheckResults.length > 0 && (
-              <div className="card">
-                <h3 className="font-semibold text-gray-900 mb-3">Đối chiếu chéo</h3>
-                <div className="space-y-2">
-                  {session.crossCheckResults.map((r, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-center gap-2 text-sm p-2 rounded-lg ${
-                        r.status === 'MATCH'
-                          ? 'bg-green-50 text-green-700'
-                          : r.status === 'MISMATCH'
-                          ? 'bg-red-50 text-red-700'
-                          : 'bg-yellow-50 text-yellow-700'
-                      }`}
-                    >
-                      <span>{r.status === 'MATCH' ? '✅' : r.status === 'MISMATCH' ? '❌' : '⚠️'}</span>
-                      <span>{r.detail || r.field}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left: AI Results */}
+            <motion.div variants={itemVariants} className="lg:col-span-2 space-y-6">
+              
+              {/* Score Card */}
+              <Card className="border-navy/10 shadow-sm bg-white">
+                <CardContent className="p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-8">
+                  <ScoreCircle
+                    score={session?.score || 0}
+                    grade={(session?.grade || 'D') as 'A' | 'B' | 'C' | 'D'}
+                    size={140}
+                  />
+                  <div className="flex-1 w-full">
+                    <h3 className="font-bold text-navy text-lg mb-4">Kết quả AI đánh giá</h3>
+                    <div className="space-y-1 bg-navy/5 p-4 rounded-xl border border-navy/10">
+                      {session?.breakdown.map((b) => (
+                        <div key={b.ruleId} className="flex items-center justify-between text-sm py-2 border-b border-navy/5 last:border-0 gap-4">
+                          <span className="text-navy/80 font-medium">{b.detail}</span>
+                          <Badge variant="destructive" animate={false} className="shrink-0 font-mono">-{b.impact}đ</Badge>
+                        </div>
+                      ))}
+                      {(!session?.breakdown || session.breakdown.length === 0) && (
+                        <p className="text-sm text-teal-700 font-medium text-center py-2">Không có điểm trừ nào. Hồ sơ hoàn hảo.</p>
+                      )}
                     </div>
-                  ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* CrossCheck Card */}
+              {session?.crossCheckResults && session.crossCheckResults.length > 0 && (
+                <Card className="border-navy/10 shadow-sm bg-white">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg text-navy">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                        <Search className="w-4 h-4 text-blue-600" />
+                      </div>
+                      Đối chiếu chéo tự động
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {session.crossCheckResults.map((r, i) => (
+                        <div
+                          key={i}
+                          className={`flex items-start gap-3 text-sm p-4 rounded-xl border ${
+                            r.status === 'MATCH'
+                              ? 'bg-teal-50/50 border-teal-100 text-teal-900'
+                              : r.status === 'MISMATCH'
+                              ? 'bg-red-50/50 border-red-100 text-red-900'
+                              : 'bg-amber-50/50 border-amber-100 text-amber-900'
+                          }`}
+                        >
+                          <span className="mt-0.5 shrink-0">
+                            {r.status === 'MATCH' ? <CheckCircle2 className="w-5 h-5 text-teal-600" /> : r.status === 'MISMATCH' ? <AlertTriangle className="w-5 h-5 text-red-600" /> : <AlertTriangle className="w-5 h-5 text-amber-600" />}
+                          </span>
+                          <span className="font-semibold leading-relaxed">{r.detail || r.field}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Risk Flags Card */}
+              {session?.riskFlags && session.riskFlags.length > 0 && (
+                <Card className="border-red-200 shadow-sm bg-white relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg text-red-700">
+                      <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center">
+                        <Flag className="w-4 h-4 text-red-600" />
+                      </div>
+                      Cảnh báo rủi ro (Nghiệp vụ)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-3 pl-2">
+                      {session.riskFlags.map((flag, i) => (
+                        <li key={i} className="text-sm font-semibold text-navy flex items-start gap-3">
+                          <span className="text-red-500 mt-1">•</span> <span className="leading-relaxed">{flag}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* LawGuard Card */}
+              {session?.lawGuardAlerts && session.lawGuardAlerts.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-bold text-navy text-lg px-2">Căn cứ pháp lý áp dụng</h3>
+                  {session.lawGuardAlerts.map((alert, i) =>
+                    alert.legalSource ? (
+                      <LawCitation key={i} source={alert.legalSource} confidence={alert.confidence} content={alert.message} />
+                    ) : null,
+                  )}
                 </div>
-              </div>
-            )}
+              )}
+            </motion.div>
 
-            {/* Risk Flags */}
-            {session?.riskFlags && session.riskFlags.length > 0 && (
-              <div className="card border-red-200 bg-red-50">
-                <h3 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
-                  🚩 Cảnh báo rủi ro
-                </h3>
-                <ul className="space-y-1">
-                  {session.riskFlags.map((flag, i) => (
-                    <li key={i} className="text-sm text-red-700 flex items-center gap-2">
-                      <span>•</span> {flag}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {/* Right: Decision */}
+            <motion.div variants={itemVariants} className="space-y-6">
+              <Card className="border-navy/10 shadow-sm bg-white sticky top-24">
+                <CardHeader className="border-b border-navy/5 pb-4 mb-4">
+                  <CardTitle className="text-lg text-navy">Quyết định của cán bộ</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-3">
+                    {[
+                      { value: 'PASS', label: 'Đủ điều kiện, xử lý ngay', icon: <CheckCircle2 className="w-5 h-5 text-teal-600" /> },
+                      { value: 'NEED_MORE', label: 'Yêu cầu bổ sung', icon: <AlertTriangle className="w-5 h-5 text-amber-500" /> },
+                      { value: 'NEED_REVIEW', label: 'Cần tái kiểm tra chéo', icon: <Search className="w-5 h-5 text-blue-500" /> },
+                    ].map((opt) => (
+                      <label
+                        key={opt.value}
+                        className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
+                          decision === opt.value
+                            ? 'border-teal-500 bg-teal-50/30 shadow-sm'
+                            : 'border-navy/10 hover:border-navy/30 hover:bg-navy/5'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${decision === opt.value ? 'border-teal-600' : 'border-navy/30'}`}>
+                          {decision === opt.value && <motion.div layoutId="decision-dot" className="w-2.5 h-2.5 bg-teal-600 rounded-full"></motion.div>}
+                        </div>
+                        <span className="shrink-0">{opt.icon}</span>
+                        <span className={`font-bold text-sm ${decision === opt.value ? 'text-navy' : 'text-navy/70'}`}>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
 
-            {/* LawGuard */}
-            {session?.lawGuardAlerts.map((alert, i) =>
-              alert.legalSource ? (
-                <LawCitation key={i} source={alert.legalSource} confidence={alert.confidence} content={alert.message} />
-              ) : null,
-            )}
-          </div>
-
-          {/* Right: Decision */}
-          <div className="space-y-4">
-            <div className="card">
-              <h3 className="font-semibold text-gray-900 mb-4">Quyết định của cán bộ</h3>
-
-              <div className="space-y-3">
-                {[
-                  { value: 'PASS', label: 'Đủ điều kiện', icon: '✅' },
-                  { value: 'NEED_MORE', label: 'Cần bổ sung', icon: '⚠️' },
-                  { value: 'NEED_REVIEW', label: 'Cần kiểm kỹ', icon: '🔍' },
-                ].map((opt) => (
-                  <label
-                    key={opt.value}
-                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      decision === opt.value
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="decision"
-                      value={opt.value}
-                      checked={decision === opt.value}
-                      onChange={(e) => setDecision(e.target.value)}
-                      className="w-4 h-4 text-blue-600"
+                  <div>
+                    <label className="block text-sm font-bold text-navy mb-2">Ghi chú nghiệp vụ</label>
+                    <textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      className="w-full px-4 py-3 bg-ivory/50 border border-navy/10 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none text-navy font-medium resize-none placeholder-navy/30"
+                      rows={4}
+                      placeholder="Nhập ghi chú hoặc lý do (nếu cần bổ sung/tái kiểm)..."
                     />
-                    <span className="text-base">{opt.icon}</span>
-                    <span className="font-medium text-sm text-gray-900">{opt.label}</span>
-                  </label>
-                ))}
+                  </div>
+
+                  <Button
+                    className="w-full py-6 text-base shadow-md"
+                    disabled={!decision || isSubmitting}
+                    onClick={handleSubmit}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <svg className="w-5 h-5 animate-spin text-white mr-2" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Đang xử lý...
+                      </>
+                    ) : (
+                      'Xác nhận quyết định'
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <div className="bg-teal-50/50 rounded-xl p-4 border border-teal-100 flex gap-3 shadow-sm">
+                <Lightbulb className="w-5 h-5 text-teal-600 shrink-0" />
+                <p className="text-xs font-medium text-teal-900 leading-relaxed">
+                  <strong>Ghi chú:</strong> Kết quả từ AI mang tính chất hỗ trợ và phân loại tự động. Quyết định phê duyệt cuối cùng phụ thuộc hoàn toàn vào Cán bộ nghiệp vụ.
+                </p>
               </div>
-
-              <div className="mt-4">
-                <label className="input-label">Ghi chú</label>
-                <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  className="input-field resize-none"
-                  rows={4}
-                  placeholder="Ghi chú cho hồ sơ này..."
-                />
-              </div>
-
-              <button
-                className="btn-primary w-full mt-4"
-                disabled={!decision || isSubmitting}
-                onClick={handleSubmit}
-              >
-                {isSubmitting ? 'Đang xử lý...' : 'Xác nhận tái kiểm'}
-              </button>
-            </div>
-
-            <div className="info-box">
-              <p className="text-xs">
-                <strong>Lưu ý:</strong> Kết quả AI chỉ mang tính tham khảo. Quyết định cuối cùng thuộc cán bộ có thẩm quyền.
-              </p>
-            </div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </OfficerLayout>
   );

@@ -23,15 +23,15 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
 
   const officerNav = [
     { href: '/dashboard', label: 'Bảng điều khiển' },
-    { href: '/queue', label: 'Kiểm tra lại' },
-    { href: '/history', label: 'Hồ sơ đã nộp' },
+    { href: '/queue', label: 'Kiểm duyệt' },
+    { href: '/history', label: 'Lịch sử' },
   ];
 
   const navItems = variant === 'officer' ? officerNav : citizenNav;
 
   return (
     <header 
-      className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-gray-200/50 transition-all duration-300"
+      className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100 transition-all duration-300"
       role="banner"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -40,13 +40,13 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
           <Link
             href={variant === 'officer' ? '/dashboard' : '/'}
             className="flex items-center gap-3 shrink-0 group"
-            aria-label="Trang chủ Cổng Dịch Vụ Công AI"
+            aria-label="Trang chủ GovTrust AI"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:shadow-blue-500/40 transition-all duration-300 group-hover:scale-105">
-              <span className="text-white font-bold text-lg tracking-wider">G</span>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0A192F] to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-500/10 group-hover:shadow-emerald-500/30 transition-all duration-300 group-hover:scale-105 border border-emerald-800/20">
+              <span className="text-white font-extrabold text-lg tracking-wider">G</span>
             </div>
-            <span className="text-gray-900 font-bold text-lg sm:text-xl hidden sm:inline tracking-tight">
-              Cổng Dịch Vụ Công <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">AI</span>
+            <span className="text-[#0A192F] font-extrabold text-lg sm:text-xl hidden sm:inline tracking-tight">
+              GovTrust <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-cyan-500">AI</span>
             </span>
           </Link>
 
@@ -58,10 +58,10 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  className={`px-4 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${
                     isActive
-                      ? 'text-blue-700 bg-blue-50 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'text-emerald-700 bg-emerald-50 border border-emerald-100/50 shadow-sm'
+                      : 'text-gray-500 hover:text-[#0A192F] hover:bg-gray-50 border border-transparent'
                   }`}
                   aria-current={isActive ? 'page' : undefined}
                 >
@@ -72,10 +72,10 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
           </nav>
 
           {/* Right side */}
-          <div className="flex items-center gap-1 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Notifications */}
             <button
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-900"
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500 hover:text-[#0A192F]"
               aria-label="Thông báo"
             >
               <Bell className="w-5 h-5" />
@@ -83,7 +83,7 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
 
             {/* Help */}
             <button
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-900 hidden sm:flex"
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500 hover:text-[#0A192F] hidden sm:flex"
               aria-label="Hướng dẫn sử dụng"
             >
               <HelpCircle className="w-5 h-5" />
@@ -93,7 +93,7 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
             {userName ? (
               <Link
                 href="/settings"
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 text-blue-700 font-semibold text-sm hover:shadow-md transition-all duration-200 ml-1"
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 text-emerald-700 font-bold text-sm hover:shadow-md transition-all duration-300 ml-1"
                 aria-label={`Tài khoản: ${userName}`}
               >
                 {userName.charAt(0).toUpperCase()}
@@ -101,7 +101,7 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
             ) : (
               <Link
                 href="/login"
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors text-gray-600 hover:text-gray-900 ml-1"
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 hover:bg-emerald-50 border border-gray-200 hover:border-emerald-200 transition-all text-gray-600 hover:text-emerald-700 ml-1 shadow-sm"
                 aria-label="Đăng nhập"
               >
                 <User className="w-5 h-5" />
@@ -131,10 +131,10 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`block px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                  className={`block px-4 py-3 rounded-xl text-base font-semibold transition-colors ${
                     isActive
-                      ? 'text-blue-700 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'text-emerald-700 bg-emerald-50 border border-emerald-100'
+                      : 'text-gray-500 hover:text-[#0A192F] hover:bg-gray-50 border border-transparent'
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
                   aria-current={isActive ? 'page' : undefined}

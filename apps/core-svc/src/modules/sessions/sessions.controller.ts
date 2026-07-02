@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SessionsService } from './sessions.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CreateSessionDto } from './dto/create-session.dto';
 
 @ApiTags('Sessions')
 @Controller('sessions')
@@ -11,7 +12,7 @@ export class SessionsController {
 
   @Post()
   @ApiOperation({ summary: 'Tạo phiên kiểm tra hồ sơ mới' })
-  create(@Body() body: { procedureId: string }, @CurrentUser() user?: { userId: string }) {
+  create(@Body() body: CreateSessionDto, @CurrentUser() user?: { userId: string }) {
     return this.sessionsService.create(body.procedureId, user?.userId);
   }
 

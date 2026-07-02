@@ -17,7 +17,9 @@ export class MissingDocumentRule {
 
     const impactPerDoc = ctx.procedure.scoringRules.penalties.missingRequired;
     const impact = impactPerDoc * missing.length;
-    const severity: Severity = missing.length >= 2 ? 'CRITICAL' : 'HIGH';
+    // Thiếu bất kỳ giấy tờ BẮT BUỘC nào → hồ sơ không đầy đủ → không thể nộp.
+    // CRITICAL để ScoreEngine đặt canSubmit=false, bất kể điểm số còn lại.
+    const severity: Severity = 'CRITICAL';
 
     return {
       ruleId: this.id,

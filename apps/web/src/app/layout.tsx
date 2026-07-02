@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="vi" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <head>
         <meta httpEquiv="X-Content-Type-Options" content="nosniff" />
-        <meta httpEquiv="X-Frame-Options" content="DENY" />
+
         <meta name="referrer" content="strict-origin-when-cross-origin" />
       </head>
       <body className={`${inter.className} bg-gray-50 min-h-screen antialiased`}>

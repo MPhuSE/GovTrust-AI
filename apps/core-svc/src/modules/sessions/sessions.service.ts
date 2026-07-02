@@ -68,9 +68,13 @@ export class SessionsService {
     const finalScore = scoreObj?.score ?? scoreObj?.total ?? 0;
     if (!finalScore) return;
 
+    // rule-engine CrossCheckResult: checks[].status ('MISMATCH'|'MISSING'...) + missingDocuments[]
     const crossCheck = session.aiResult?.crossCheck as {
-      mismatches?: unknown[]; missing?: unknown[];
+      checks?: Array<{ status?: string }>;
+      missingDocuments?: unknown[];
     } | undefined;
+    const mismatchCount = (crossCheck?.checks ?? []).filter(c => c.status === 'MISMATCH').length;
+    const missingCount = (crossCheck?.missingDocuments ?? []).length;
 
     const procedureId = session.procedureId.toString();
     const sessionId = (session._id as Types.ObjectId).toString();
@@ -89,7 +93,7 @@ export class SessionsService {
       }
     };
 
-    if (crossCheck?.mismatches?.length) await emit(ErrorType.INFO_MISMATCH, 'HIGH');
-    if (crossCheck?.missing?.length) await emit(ErrorType.MISSING_DOC, 'HIGH');
+    if (mismatchCount) await emit(ErrorType.INFO_MISMATCH, 'HIGH');
+    if (missingCount) await emit(ErrorType.MISSING_DOC, 'HIGH');
   }
 }

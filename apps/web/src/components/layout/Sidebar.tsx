@@ -20,8 +20,8 @@ const citizenMenu = [
 
 const officerMenu = [
   { href: '/dashboard', label: 'Bảng điều khiển', icon: 'chart', primary: true },
-  { href: '/queue', label: 'Kiểm tra lại', icon: 'check' },
-  { href: '/history', label: 'Hồ sơ đã nộp', icon: 'folder' },
+  { href: '/queue', label: 'Kiểm duyệt', icon: 'check' },
+  { href: '/history', label: 'Lịch sử duyệt', icon: 'folder' },
   { href: '/notifications', label: 'Thông báo', icon: 'bell' },
   { href: '/settings', label: 'Cài đặt', icon: 'settings' },
 ];
@@ -57,26 +57,26 @@ export function Sidebar({ variant, userName, userLevel }: SidebarProps) {
   const menuItems = variant === 'officer' ? officerMenu : citizenMenu;
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full" role="navigation" aria-label="Menu bên">
+    <aside className="w-64 bg-white/95 backdrop-blur-xl border-r border-gray-100 flex flex-col h-full" role="navigation" aria-label="Menu bên">
       {/* User Profile */}
-      <div className="p-5 border-b border-gray-100">
+      <div className="p-5 border-b border-gray-50 bg-gray-50/50">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+          <div className="w-12 h-12 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center shadow-sm">
             {variant === 'officer' ? (
-              <div className="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-[#0A192F] rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-xs">G</span>
               </div>
             ) : (
-              <span className="text-blue-700 font-bold text-lg">
+              <span className="text-emerald-700 font-bold text-lg">
                 {userName ? userName.charAt(0).toUpperCase() : '?'}
               </span>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900 text-sm truncate">
+            <p className="font-bold text-[#0A192F] text-sm truncate">
               {userName ? `Chào ${userName}!` : 'Chào bạn!'}
             </p>
-            <p className="text-xs text-gray-500 truncate">
+            <p className="text-xs text-emerald-600 font-medium truncate">
               {userLevel || (variant === 'officer' ? 'Cán bộ chuyên trách' : 'Xác thực cấp độ 2')}
             </p>
           </div>
@@ -84,7 +84,7 @@ export function Sidebar({ variant, userName, userLevel }: SidebarProps) {
       </div>
 
       {/* Menu Items */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar">
         {menuItems.map((item) => {
           const isActive = pathname === item.href ||
             (item.href !== '/' && pathname.startsWith(item.href));
@@ -94,9 +94,9 @@ export function Sidebar({ variant, userName, userLevel }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold bg-blue-700 text-white hover:bg-blue-800 transition-colors mb-2"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold bg-[#0A192F] text-white hover:bg-[#112240] transition-all shadow-md mb-3"
               >
-                <MenuIcon name={item.icon} className="w-5 h-5" />
+                <MenuIcon name={item.icon} className="w-5 h-5 opacity-80" />
                 {item.label}
               </Link>
             );
@@ -106,10 +106,10 @@ export function Sidebar({ variant, userName, userLevel }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
                 isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-100/50 shadow-sm'
+                  : 'text-gray-500 hover:bg-gray-50 hover:text-[#0A192F] border border-transparent'
               }`}
               aria-current={isActive ? 'page' : undefined}
             >
@@ -121,10 +121,10 @@ export function Sidebar({ variant, userName, userLevel }: SidebarProps) {
       </nav>
 
       {/* Logout */}
-      <div className="p-3 border-t border-gray-100">
+      <div className="p-3 border-t border-gray-100 bg-gray-50/50">
         <Link
           href="/login"
-          className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-100 border border-transparent transition-all"
         >
           <MenuIcon name="logout" className="w-5 h-5" />
           Đăng xuất
