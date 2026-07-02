@@ -22,8 +22,8 @@ export default function DashboardPage() {
     setIsLoading(true);
     Promise.all([insightsApi.dashboard(days), insightsApi.trend(days)])
       .then(([dash, trendData]) => {
-        setData(dash as DashboardData);
-        setTrend(trendData as unknown[]);
+        setData(dash as any as DashboardData);
+        setTrend(trendData as any as unknown[]);
       })
       .finally(() => setIsLoading(false));
   }, [days]);

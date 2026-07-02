@@ -16,9 +16,9 @@ export default function HomePage() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await proceduresApi.identify(query) as { procedureId?: string };
+      const result = (await proceduresApi.identify(query)) as any as { procedureId?: string };
       if (result.procedureId) {
-        const session = await sessionsApi.create(result.procedureId) as { _id: string };
+        const session = (await sessionsApi.create(result.procedureId)) as any as { _id: string };
         router.push(`/upload/${session._id}`);
       }
     } catch (e) {
