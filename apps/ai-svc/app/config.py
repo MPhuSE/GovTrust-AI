@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     AI_SVC_GRPC_URL: str = "0.0.0.0:50051"
 
     QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_API_KEY: str = ""
     QDRANT_COLLECTION: str = "legal_chunks"
     QDRANT_VECTOR_NAME: str = "dense"
     QDRANT_VECTOR_SIZE: int = 768

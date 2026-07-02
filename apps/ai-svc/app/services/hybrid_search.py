@@ -67,7 +67,11 @@ class HybridLegalSearch:
     def __init__(self, settings: Settings, embeddings: EmbeddingService):
         self.settings = settings
         self.embeddings = embeddings
-        self.client = QdrantClient(url=settings.QDRANT_URL, timeout=10)
+        self.client = QdrantClient(
+            url=settings.QDRANT_URL,
+            api_key=settings.QDRANT_API_KEY or None,
+            timeout=10,
+        )
         self.documents: list[LegalChunk] = []
         self.by_id: dict[str, LegalChunk] = {}
         self.tokenized_documents: list[list[str]] = []
