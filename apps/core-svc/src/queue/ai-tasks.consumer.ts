@@ -8,8 +8,12 @@ import { readFile } from 'fs/promises';
 import { firstValueFrom, Observable } from 'rxjs';
 import { Session, SessionDocument } from '../database/schemas/session.schema';
 import { Job, JobDocument, JobState } from '../database/schemas/job.schema';
+import { InsightLog, InsightLogDocument } from '../database/schemas/insight-log.schema';
 import { AI_SERVICE_GRPC } from '../grpc/grpc.constants';
+import { ScoringService } from '../modules/scoring/scoring.service';
+import { SmartFormService } from '../modules/smartform/smartform.service';
 import { AI_TASKS_QUEUE, AiJobName } from './ai-tasks.queue';
+import { PipelineEventsGateway } from './pipeline-events.gateway';
 
 interface OcrGrpcResponse {
   checklistId: string;
@@ -18,6 +22,12 @@ interface OcrGrpcResponse {
   avgConfidence: number;
   liveness: boolean;
   processingTimeMs: number;
+  imageQuality?: {
+    isBlurry?: boolean;
+    brightness?: number;
+    resolution?: string;
+    ocrConfidence?: number;
+  };
 }
 interface AiServiceGrpcClient {
   ExtractOCR(req: {
@@ -26,6 +36,16 @@ interface AiServiceGrpcClient {
     imageData: Buffer;
     runLiveness: boolean;
   }): Observable<OcrGrpcResponse>;
+  CheckLawGuard(req: {
+    procedureCode: string;
+    category: string;
+    checklist: Array<{ id: string; roleInProcedure: string }>;
+  }): Observable<{ alerts: unknown[]; disclaimer: string }>;
+  IngestEmbeddings(req: { chunks: EmbeddingChunk[] }): Observable<{
+    ingested: number;
+    model: string;
+    dimension: number;
+  }>;
 }
 
 interface OcrJobData {
@@ -35,6 +55,29 @@ interface OcrJobData {
   fileUrl: string;
   documentTypeCode: string;
 }
+
+interface LawGuardJobData {
+  jobId: string;
+  sessionId: string;
+  procedureCode: string;
+  category: string;
+  checklist: Array<{ id: string; roleInProcedure: string }>;
+}
+
+interface EmbeddingChunk {
+  chunkId: string;
+  text: string;
+  title: string;
+  article: string;
+  url: string;
+  sourceVersion: string;
+  category: string;
+}
+
+interface EmbeddingJobData { jobId: string; chunks: EmbeddingChunk[] }
+interface InsightReportJobData { jobId: string; days: number }
+interface SessionJobData { jobId: string; sessionId: string }
+interface SmartFormJobData extends SessionJobData { overrides?: Record<string, string> }
 
 /**
  * Consumer BullMQ cho pipeline AI (tác vụ bất đồng bộ).
@@ -50,7 +93,11 @@ export class AiTasksConsumer implements OnModuleInit {
   constructor(
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     @InjectModel(Job.name) private jobModel: Model<JobDocument>,
+    @InjectModel(InsightLog.name) private insightModel: Model<InsightLogDocument>,
     @Inject(AI_SERVICE_GRPC) private readonly aiClient: ClientGrpc,
+    private readonly events: PipelineEventsGateway,
+    private readonly scoringService: ScoringService,
+    private readonly smartFormService: SmartFormService,
   ) {}
 
   onModuleInit() {
@@ -78,6 +125,12 @@ export class AiTasksConsumer implements OnModuleInit {
             confidence: res.avgConfidence,
             fields: res.fields,
             liveness: res.liveness,
+            imageQuality: {
+              isBlurry: Boolean(res.imageQuality?.isBlurry),
+              brightness: Number(res.imageQuality?.brightness ?? 0),
+              resolution: res.imageQuality?.resolution ?? '',
+              ocrConfidence: Number(res.imageQuality?.ocrConfidence ?? res.avgConfidence),
+            },
           },
           'pipeline.steps.ocr': 'done',
           'pipeline.step': 'OCR',
@@ -88,17 +141,174 @@ export class AiTasksConsumer implements OnModuleInit {
       return { ok: true, checklistId };
     } catch (e) {
       this.logger.error(`OCR job lỗi (session ${sessionId}): ${(e as Error).message}`);
-      await this.markJob(jobId, JobState.FAILED, (e as Error).message);
-      await this.setStep(sessionId, 'ocr', 'failed');
+      const retrying = this.hasRetry(job);
+      await this.markJob(jobId, retrying ? JobState.ENQUEUED : JobState.FAILED, (e as Error).message);
+      await this.setStep(sessionId, 'ocr', retrying ? 'queued' : 'failed');
       throw e;
+    }
+  }
+
+  @Process(AiJobName.LAWGUARD)
+  async handleLawGuard(job: BullJob<LawGuardJobData>) {
+    const { jobId, sessionId, procedureCode, category, checklist } = job.data;
+    await this.markJob(jobId, JobState.PROCESSING);
+    await this.setStep(sessionId, 'lawguard', 'processing');
+
+    try {
+      const result = await firstValueFrom(
+        this.aiGrpc.CheckLawGuard({ procedureCode, category, checklist }),
+      );
+      await this.sessionModel.findByIdAndUpdate(sessionId, {
+        $set: {
+          'aiResult.lawGuardAlerts': result.alerts,
+          'aiResult.lawGuardDisclaimer': result.disclaimer,
+          'pipeline.steps.lawguard': 'done',
+          'pipeline.step': 'LAWGUARD',
+          'pipeline.updatedAt': new Date(),
+        },
+      });
+      await this.markJob(jobId, JobState.DONE);
+      return { ok: true, alerts: result.alerts.length };
+    } catch (error) {
+      this.logger.error(`LawGuard job lỗi (session ${sessionId}): ${(error as Error).message}`);
+      const retrying = this.hasRetry(job);
+      await this.markJob(jobId, retrying ? JobState.ENQUEUED : JobState.FAILED, (error as Error).message);
+      await this.setStep(sessionId, 'lawguard', retrying ? 'queued' : 'failed');
+      throw error;
+    }
+  }
+
+  @Process(AiJobName.CROSSCHECK)
+  async handleCrosscheck(job: BullJob<SessionJobData>) {
+    const { jobId, sessionId } = job.data;
+    await this.markJob(jobId, JobState.PROCESSING);
+    await this.setStep(sessionId, 'crosscheck', 'processing');
+
+    try {
+      const result = await this.scoringService.runCrosscheckNow(sessionId);
+      await this.completeJob(jobId, result as unknown as Record<string, unknown>);
+      return result;
+    } catch (error) {
+      this.logger.error(`CrossCheck job lỗi (session ${sessionId}): ${(error as Error).message}`);
+      const retrying = this.hasRetry(job);
+      await this.markJob(jobId, retrying ? JobState.ENQUEUED : JobState.FAILED, (error as Error).message);
+      await this.setStep(sessionId, 'crosscheck', retrying ? 'queued' : 'failed');
+      throw error;
+    }
+  }
+
+  @Process(AiJobName.SCORE)
+  async handleScore(job: BullJob<SessionJobData>) {
+    const { jobId, sessionId } = job.data;
+    await this.markJob(jobId, JobState.PROCESSING);
+    await this.setStep(sessionId, 'score', 'processing');
+
+    try {
+      const result = await this.scoringService.runScoreNow(sessionId);
+      await this.completeJob(jobId, result as unknown as Record<string, unknown>);
+      return result;
+    } catch (error) {
+      this.logger.error(`Score job lỗi (session ${sessionId}): ${(error as Error).message}`);
+      const retrying = this.hasRetry(job);
+      await this.markJob(jobId, retrying ? JobState.ENQUEUED : JobState.FAILED, (error as Error).message);
+      await this.setStep(sessionId, 'score', retrying ? 'queued' : 'failed');
+      throw error;
+    }
+  }
+
+  @Process(AiJobName.SMARTFORM)
+  async handleSmartForm(job: BullJob<SmartFormJobData>) {
+    const { jobId, sessionId, overrides = {} } = job.data;
+    await this.markJob(jobId, JobState.PROCESSING);
+    await this.setStep(sessionId, 'smartform', 'processing');
+
+    try {
+      const result = await this.smartFormService.runGenerateNow(sessionId, overrides);
+      await this.completeJob(jobId, result as Record<string, unknown>);
+      return result;
+    } catch (error) {
+      this.logger.error(`SmartForm job lỗi (session ${sessionId}): ${(error as Error).message}`);
+      const retrying = this.hasRetry(job);
+      await this.markJob(jobId, retrying ? JobState.ENQUEUED : JobState.FAILED, (error as Error).message);
+      await this.setStep(sessionId, 'smartform', retrying ? 'queued' : 'failed');
+      throw error;
+    }
+  }
+
+  @Process(AiJobName.EMBEDDING)
+  async handleEmbedding(job: BullJob<EmbeddingJobData>) {
+    const { jobId, chunks } = job.data;
+    await this.markJob(jobId, JobState.PROCESSING);
+    try {
+      const result = await firstValueFrom(this.aiGrpc.IngestEmbeddings({ chunks }));
+      await this.completeJob(jobId, result);
+      return result;
+    } catch (error) {
+      await this.markJob(
+        jobId,
+        this.hasRetry(job) ? JobState.ENQUEUED : JobState.FAILED,
+        (error as Error).message,
+      );
+      throw error;
+    }
+  }
+
+  @Process(AiJobName.INSIGHT_REPORT)
+  async handleInsightReport(job: BullJob<InsightReportJobData>) {
+    const { jobId, days } = job.data;
+    await this.markJob(jobId, JobState.PROCESSING);
+    try {
+      const since = new Date(Date.now() - days * 86_400_000);
+      const [topErrors, procedureStats, trend, avg] = await Promise.all([
+        this.insightModel.aggregate([
+          { $match: { createdAt: { $gte: since } } },
+          { $group: { _id: '$errorType', count: { $sum: 1 }, avgScore: { $avg: '$finalScore' } } },
+          { $sort: { count: -1 } }, { $limit: 10 },
+        ]),
+        this.insightModel.aggregate([
+          { $match: { createdAt: { $gte: since } } },
+          { $group: { _id: '$procedureId', totalSessions: { $sum: 1 }, avgScore: { $avg: '$finalScore' }, errorCount: { $sum: 1 } } },
+          { $sort: { errorCount: -1 } },
+        ]),
+        this.insightModel.aggregate([
+          { $match: { createdAt: { $gte: since } } },
+          { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 }, avgScore: { $avg: '$finalScore' } } },
+          { $sort: { _id: 1 } },
+        ]),
+        this.insightModel.aggregate([
+          { $match: { createdAt: { $gte: since } } },
+          { $group: { _id: null, value: { $avg: '$finalScore' } } },
+        ]),
+      ]);
+      const result = {
+        period: { since, until: new Date() },
+        topErrors,
+        procedureStats,
+        trend,
+        avgScore: avg[0]?.value ?? 0,
+      };
+      await this.completeJob(jobId, result);
+      return result;
+    } catch (error) {
+      await this.markJob(
+        jobId,
+        this.hasRetry(job) ? JobState.ENQUEUED : JobState.FAILED,
+        (error as Error).message,
+      );
+      throw error;
     }
   }
 
   private async markJob(jobId: string, state: JobState, lastError?: string) {
     if (!jobId) return;
+    const update = {
+      $set: { state, ...(lastError ? { lastError } : {}) },
+      ...(state === JobState.PROCESSING ? { $inc: { attempts: 1 } } : {}),
+    };
     await this.jobModel
-      .findByIdAndUpdate(jobId, { state, ...(lastError ? { lastError } : {}), $inc: { attempts: 1 } })
+      .findByIdAndUpdate(jobId, update)
       .catch(() => undefined);
+    this.events.publishJob(jobId, state);
   }
 
   private async setStep(sessionId: string, step: string, status: string) {
@@ -107,5 +317,18 @@ export class AiTasksConsumer implements OnModuleInit {
         $set: { [`pipeline.steps.${step}`]: status, 'pipeline.updatedAt': new Date() },
       })
       .catch(() => undefined);
+    this.events.publishSession(sessionId, step, status);
+  }
+
+  private hasRetry(job: BullJob) {
+    return job.attemptsMade + 1 < (job.opts.attempts ?? 1);
+  }
+
+  private async completeJob(jobId: string, result: Record<string, unknown>) {
+    await this.jobModel.findByIdAndUpdate(jobId, {
+      $set: { state: JobState.DONE, result },
+      $unset: { lastError: 1 },
+    });
+    this.events.publishJob(jobId, JobState.DONE, result);
   }
 }

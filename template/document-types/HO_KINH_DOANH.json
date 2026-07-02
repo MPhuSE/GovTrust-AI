@@ -1,0 +1,52 @@
+{
+  "code": "HO_KINH_DOANH",
+  "name": "Giấy chứng nhận đăng ký hộ kinh doanh",
+  "source": "MongoDB: govtrust_business.document_types",
+  "issuingAuthority": "Cơ quan đăng ký kinh doanh cấp xã",
+  "pagesRequired": 1,
+  "fields": [
+    {
+      "key": "tenHoKinhDoanh",
+      "label": "Tên hộ kinh doanh",
+      "dataType": "string",
+      "required": true,
+      "isIdentity": true,
+      "smartFormTargets": ["hoKinhDoanh.tenHoKinhDoanh"]
+    },
+    {
+      "key": "maSoHoKinhDoanh",
+      "label": "Mã số hộ kinh doanh",
+      "dataType": "string",
+      "required": false,
+      "isIdentity": true,
+      "smartFormTargets": ["hoKinhDoanh.maSo"]
+    },
+    {
+      "key": "hoTenChuHo",
+      "label": "Họ tên chủ hộ",
+      "dataType": "string",
+      "required": true,
+      "isIdentity": true,
+      "smartFormTargets": ["chuHo.hoTen"]
+    },
+    {
+      "key": "diaChiKinhDoanh",
+      "label": "Địa chỉ kinh doanh",
+      "dataType": "string",
+      "required": false,
+      "isIdentity": false,
+      "smartFormTargets": [
+        "hoKinhDoanh.diaChiKinhDoanh",
+        "hoKinhDoanh.diaChiHienTai"
+      ]
+    },
+    {
+      "key": "nganhNghe",
+      "label": "Ngành nghề kinh doanh",
+      "dataType": "string",
+      "required": false,
+      "isIdentity": false,
+      "smartFormTargets": ["hoKinhDoanh.nganhNghe"]
+    }
+  ]
+}

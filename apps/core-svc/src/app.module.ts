@@ -15,6 +15,7 @@ import { PriorityModule } from './modules/priority/priority.module';
 import { InsightsModule } from './modules/insights/insights.module';
 import { DocumentTypesModule } from './modules/document-types/document-types.module';
 import { QueueModule } from './queue/queue.module';
+import { JobsModule } from './modules/jobs/jobs.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { QueueModule } from './queue/queue.module';
     PriorityModule,
     InsightsModule,
     QueueModule,
+    JobsModule,
   ],
 })
 export class AppModule {}

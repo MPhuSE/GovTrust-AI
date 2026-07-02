@@ -5,7 +5,9 @@ export type ProcedureDocument = Procedure & Document;
 
 @Schema({ timestamps: true, collection: 'procedures' })
 export class Procedure {
-  @Prop({ required: true, unique: true })
+  // unique: true không khai báo ở @Prop — ProcedureSchema.index() bên dưới đã tạo unique index.
+  // Khai báo cả 2 nơi gây Mongoose duplicate-index warning.
+  @Prop({ required: true })
   code: string;
 
   @Prop({ required: true })
@@ -20,12 +22,24 @@ export class Procedure {
   @Prop()
   department: string;
 
+  @Prop({ type: Object })
+  outputTemplate?: {
+    key: string;
+    displayName: string;
+    originalFile: string;
+    version: string;
+    outputFormats: Array<'docx' | 'pdf'>;
+  };
+
   @Prop({ type: [Object], default: [] })
   checklist: Array<{
     id: string;
     documentTypeCode: string;
+    label?: string;
     acceptedCodes?: string[];
     roleInProcedure?: string;
+    inputMode?: 'UPLOAD' | 'EKYC' | 'REFERENCE';
+    allowReuseVerifiedIdentity?: boolean;
     quantity?: number;
     isRequired: boolean;
     conditionalOn?: string;
@@ -38,6 +52,7 @@ export class Procedure {
     label: string;
     required: boolean;
     sourceMap: string[];
+    defaultValue?: string;
   }>;
 
   @Prop({ type: [Object], default: [] })

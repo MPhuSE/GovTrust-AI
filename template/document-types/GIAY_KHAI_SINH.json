@@ -1,0 +1,57 @@
+{
+  "code": "GIAY_KHAI_SINH",
+  "name": "Giấy khai sinh",
+  "source": "MongoDB: govtrust_business.document_types",
+  "pagesRequired": 1,
+  "fields": [
+    {
+      "key": "hoTenCon",
+      "label": "Họ tên người được khai sinh",
+      "dataType": "string",
+      "required": true,
+      "isIdentity": true,
+      "smartFormTargets": ["tre.hoTen", "hoTich.hoTen"]
+    },
+    {
+      "key": "ngaySinhCon",
+      "label": "Ngày sinh",
+      "dataType": "date",
+      "format": "dd/mm/yyyy",
+      "required": true,
+      "isIdentity": false,
+      "smartFormTargets": ["tre.ngaySinh", "hoTich.ngaySinh"]
+    },
+    {
+      "key": "gioiTinhCon",
+      "label": "Giới tính",
+      "dataType": "string",
+      "required": false,
+      "isIdentity": false,
+      "smartFormTargets": ["tre.gioiTinh", "hoTich.gioiTinh"]
+    },
+    {
+      "key": "hoTenMe",
+      "label": "Họ tên mẹ",
+      "dataType": "string",
+      "required": false,
+      "isIdentity": false,
+      "smartFormTargets": ["me.hoTen"]
+    },
+    {
+      "key": "hoTenCha",
+      "label": "Họ tên cha",
+      "dataType": "string",
+      "required": false,
+      "isIdentity": false,
+      "smartFormTargets": ["cha.hoTen"]
+    },
+    {
+      "key": "noiDangKy",
+      "label": "Nơi đăng ký khai sinh",
+      "dataType": "string",
+      "required": false,
+      "isIdentity": false,
+      "smartFormTargets": ["hoTich.noiDangKy", "hoTich.noiDangKyCu"]
+    }
+  ]
+}

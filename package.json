@@ -10,7 +10,6 @@
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "setup": "bash scripts/setup.sh",
-    "seed": "bash scripts/seed-data.sh",
     "demo": "bash scripts/demo.sh"
   },
   "devDependencies": {

@@ -4,6 +4,7 @@ import { ProceduresController } from './procedures.controller';
 import { ProceduresService } from './procedures.service';
 import { Procedure, ProcedureSchema } from '../../database/schemas/procedure.schema';
 import { AiGrpcModule } from '../../grpc/ai-grpc.module';
+import { MvpProcedureSeeder } from './mvp-procedure.seeder';
 
 @Module({
   imports: [
@@ -11,7 +12,7 @@ import { AiGrpcModule } from '../../grpc/ai-grpc.module';
     AiGrpcModule,
   ],
   controllers: [ProceduresController],
-  providers: [ProceduresService],
+  providers: [ProceduresService, MvpProcedureSeeder],
   exports: [ProceduresService],
 })
 export class ProceduresModule {}

@@ -22,8 +22,9 @@ export class AuthVerifyMiddleware {
     '/auth/register',
     '/procedures',       // GET danh sách/chi tiết thủ tục — public
     '/document-types',
-    '/api/docs',         // Swagger UI
-    '/api/docs-json',    // Swagger JSON
+    '/api/docs',         // Swagger UI + static assets under /api/docs/
+    '/api/docs-json',    // OpenAPI JSON spec mà Swagger UI fetch
+    '/api/docs-yaml',
   ];
 
   constructor(jwt: JwtService, config: ConfigService) {
@@ -33,7 +34,9 @@ export class AuthVerifyMiddleware {
   private _jwt: JwtService;
 
   use = (req: Request, res: Response, next: NextFunction): void => {
-    const path = req.originalUrl.split('?')[0];
+    // forRoutes('*') mounts middleware trên sub-router → req.path bị rút thành "/".
+    // Chỉ originalUrl giữ path đầy đủ; cắt query string để so khớp prefix.
+    const path = (req.originalUrl || req.url).split('?')[0];
 
     if (this.PUBLIC_PREFIXES.some(p => path === p || path.startsWith(p + '/'))) {
       return next();

@@ -33,8 +33,10 @@ export class Session {
 
   @Prop({ type: [Object], default: [] })
   documents: Array<{
+    checklistId: string;
     docTypeId: string;
     fileUrl: string;
+    originalName?: string;
     uploadTime: Date;
   }>;
 
@@ -44,6 +46,7 @@ export class Session {
     crossCheck?: unknown;
     score?: unknown;
     lawGuardAlerts?: unknown[];
+    lawGuardDisclaimer?: string;
     formData?: Record<string, unknown>;
   };
 
@@ -70,7 +73,9 @@ export class Session {
   @Prop()
   officerNotes?: string;
 
-  @Prop({ type: Date, index: true })
+  // Không khai báo index: true ở đây — SessionSchema.index() bên dưới đã tạo
+  // TTL index (expireAfterSeconds: 0). Khai báo 2 lần gây Mongoose duplicate-index warning.
+  @Prop({ type: Date })
   expiresAt: Date;
 
   // timestamps: true tự thêm 2 field này lúc runtime — khai báo để TS biết.

@@ -5,6 +5,7 @@ from grpc import aio
 
 from app.container import AppContainer
 from app.proto.compiler import load_stubs
+from app.services.ocr import OcrUnavailableError, UnsupportedDocumentType
 from app.services.rag import DISCLAIMER
 
 
@@ -20,11 +21,10 @@ async def start_grpc_server(container: AppContainer) -> aio.Server:
                 result = await container.ocr.extract(
                     request.image_data,
                     request.document_type_code,
-                    request.run_liveness,
                 )
                 return pb2.OCRResponse(
                     checklist_id=request.checklist_id,
-                    provider="VNPT_EKYC" if container.ocr.configured else "MOCK",
+                    provider="VNPT_EKYC" if request.document_type_code in ("CCCD", "CMND") else "VNPT_SMARTREADER",
                     fields={
                         key: pb2.FieldValue(
                             value=str(value["value"]), confidence=float(value["confidence"])
@@ -34,7 +34,17 @@ async def start_grpc_server(container: AppContainer) -> aio.Server:
                     avg_confidence=result.avg_confidence,
                     liveness=bool(result.liveness),
                     processing_time_ms=result.processing_time_ms,
+                    image_quality=pb2.ImageQuality(
+                        is_blurry=bool(result.image_quality.get("isBlurry", False)),
+                        brightness=float(result.image_quality.get("brightness", 0)),
+                        resolution=str(result.image_quality.get("resolution", "")),
+                        ocr_confidence=float(result.image_quality.get("ocrConfidence", result.avg_confidence)),
+                    ),
                 )
+            except UnsupportedDocumentType as exc:
+                await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
+            except OcrUnavailableError as exc:
+                await context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
             except Exception as exc:
                 await context.abort(grpc.StatusCode.INTERNAL, str(exc))
 
@@ -76,6 +86,59 @@ async def start_grpc_server(container: AppContainer) -> aio.Server:
                     confidence=float(result.get("confidence", 0)),
                     message=result.get("message", ""),
                 )
+            except Exception as exc:
+                await context.abort(grpc.StatusCode.INTERNAL, str(exc))
+
+        async def ConsultSmartBot(self, request, context):
+            try:
+                result = await container.smartbot.consult(
+                    request.question,
+                    request.procedure_code,
+                    request.top_k or 5,
+                    request.procedure_context or "",
+                )
+                return pb2.SmartBotResponse(
+                    answer=result["answer"],
+                    procedure_code=result["procedureCode"],
+                    sources=[
+                        pb2.SmartBotSource(
+                            content=s["content"],
+                            relevance_score=s["relevanceScore"],
+                            title=s["source"]["title"],
+                            article=s["source"]["article"],
+                            url=s["source"]["url"],
+                            source_version=s["source"]["sourceVersion"],
+                        )
+                        for s in result["sources"]
+                    ],
+                    disclaimer=result["disclaimer"],
+                )
+            except Exception as exc:
+                await context.abort(grpc.StatusCode.INTERNAL, str(exc))
+
+        async def IngestEmbeddings(self, request, context):
+            try:
+                ingested = await container.search.ingest(
+                    [
+                        {
+                            "chunkId": item.chunk_id,
+                            "text": item.text,
+                            "title": item.title,
+                            "article": item.article,
+                            "url": item.url,
+                            "sourceVersion": item.source_version,
+                            "category": item.category,
+                        }
+                        for item in request.chunks
+                    ]
+                )
+                return pb2.EmbeddingIngestResponse(
+                    ingested=ingested,
+                    model=container.embeddings.model_name,
+                    dimension=container.embeddings.dimension,
+                )
+            except ValueError as exc:
+                await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
             except Exception as exc:
                 await context.abort(grpc.StatusCode.INTERNAL, str(exc))
 

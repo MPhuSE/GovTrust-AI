@@ -24,12 +24,14 @@ class Settings(BaseSettings):
 
     QDRANT_URL: str = "http://localhost:6333"
     QDRANT_COLLECTION: str = "legal_chunks"
+    QDRANT_VECTOR_NAME: str = "dense"
     QDRANT_VECTOR_SIZE: int = 768
+    QDRANT_INGEST_ON_STARTUP: bool = False
     LEGAL_CHUNKS_DIR: str = "data/legal-sources/chunks"
 
-    # api: OpenAI-compatible endpoint (default); local requires requirements-local.txt.
-    EMBEDDING_PROVIDER: str = "api"
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    # Must match the model used by scripts/sync-mvp-legal-qdrant.py.
+    EMBEDDING_PROVIDER: str = "local"
+    EMBEDDING_MODEL: str = "keepitreal/vietnamese-sbert"
     EMBEDDING_API_URL: str = "https://api.openai.com/v1/embeddings"
     EMBEDDING_API_KEY: str = ""
     EMBEDDING_DIMENSIONS: int | None = 768
@@ -45,18 +47,25 @@ class Settings(BaseSettings):
     LLM_MODEL: str = ""
     LLM_TIMEOUT_SECONDS: float = 45.0
 
-    VNPT_EKYC_BASE_URL: str = ""
+    # Domain chung cho mọi dịch vụ VNPT (eKYC, SmartReader, SmartBot, SmartVoice).
+    VNPT_BASE_URL: str = "https://api.idg.vnpt.vn"
+
+    # eKYC: OCR giấy tờ tùy thân (CCCD/CMND) — dùng path web /ai/v1/web/ocr/id.
     VNPT_EKYC_TOKEN_ID: str = ""
     VNPT_EKYC_TOKEN_KEY: str = ""
     VNPT_EKYC_ACCESS_TOKEN: str = ""
 
-    # SmartReader: bóc tách văn bản hành chính (giấy khai sinh...), bộ key riêng eKYC.
-    VNPT_SMARTREADER_BASE_URL: str = ""
+    # SmartReader: bóc tách văn bản hành chính (giấy khai sinh, kết hôn, hộ kinh doanh...).
     VNPT_SMARTREADER_TOKEN_ID: str = ""
     VNPT_SMARTREADER_TOKEN_KEY: str = ""
     VNPT_SMARTREADER_ACCESS_TOKEN: str = ""
 
-    VNPT_SMARTBOT_BASE_URL: str = ""
+    VNPT_SMARTBOT_BASE_URL: str = "https://assistant-stream.vnpt.vn"
+    VNPT_SMARTBOT_TOKEN_ID: str = ""
+    VNPT_SMARTBOT_TOKEN_KEY: str = ""
+    VNPT_SMARTBOT_ACCESS_TOKEN: str = ""
+    VNPT_SMARTBOT_BOT_ID: str = ""
+    # Contract cũ của HoSoBot; giữ để không làm hỏng fallback hiện tại.
     VNPT_SMARTBOT_API_KEY: str = ""
 
     @field_validator("EMBEDDING_DIMENSIONS", mode="before")

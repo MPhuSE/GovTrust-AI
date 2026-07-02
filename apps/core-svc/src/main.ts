@@ -1,16 +1,17 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ZodValidationPipe, patchNestJsSwagger } from 'nestjs-zod';
 import { AppModule } from './app.module';
+
+patchNestJsSwagger();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.enableCors({ origin: process.env.WEB_ORIGIN || 'http://localhost:3001', credentials: true });
+  app.enableCors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000' });
 
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-  );
+  app.useGlobalPipes(new ZodValidationPipe());
 
   app.enableVersioning({ type: VersioningType.URI });
 

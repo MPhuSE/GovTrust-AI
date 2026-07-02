@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException, OnModuleInit, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bull';
 import { InjectModel } from '@nestjs/mongoose';
-import { ClientGrpc } from '@nestjs/microservices';
-import { Model } from 'mongoose';
-import { Observable, firstValueFrom } from 'rxjs';
+import { Queue } from 'bull';
+import { Model, Types } from 'mongoose';
 import { Session, SessionDocument, SessionStatus } from '../../database/schemas/session.schema';
 import { Procedure, ProcedureDocument } from '../../database/schemas/procedure.schema';
+import { Job, JobDocument, JobState, JobType } from '../../database/schemas/job.schema';
 import { CrossChecker, ScoreEngine } from '@govtrust/rule-engine';
 import type {
   ProcedureTemplate,
@@ -16,7 +17,7 @@ import type {
   ImageQuality,
   FieldValue,
 } from '@govtrust/rule-engine';
-import { AI_SERVICE_GRPC } from '../../grpc/grpc.constants';
+import { AI_JOB_OPTIONS, AI_TASKS_QUEUE, AiJobName } from '../../queue/ai-tasks.queue';
 
 /** Shape của 1 giấy tờ trong session.aiResult.ocrData (ghi bởi BullMQ consumer). */
 interface OcrDataEntry {
@@ -59,29 +60,20 @@ function toTemplate(p: ProcedureDocument): ProcedureTemplate {
   };
 }
 
-export interface LegalAlert {
-  type: string; message: string; confidence: number;
-  needsVerification: boolean; sourceTitle: string; sourceArticle: string; sourceUrl: string;
-}
-interface AIServiceGrpcClient {
-  CheckLawGuard(req: { procedureCode: string; category: string; checklist: unknown[] }): Observable<{ alerts: LegalAlert[]; disclaimer: string }>;
-}
-
 @Injectable()
-export class ScoringService implements OnModuleInit {
-  private aiGrpc: AIServiceGrpcClient;
-
+export class ScoringService {
   constructor(
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     @InjectModel(Procedure.name) private procedureModel: Model<ProcedureDocument>,
-    @Inject(AI_SERVICE_GRPC) private readonly aiClient: ClientGrpc,
+    @InjectModel(Job.name) private jobModel: Model<JobDocument>,
+    @InjectQueue(AI_TASKS_QUEUE) private aiQueue: Queue,
   ) {}
 
-  onModuleInit() {
-    this.aiGrpc = this.aiClient.getService<AIServiceGrpcClient>('AIService');
+  async crosscheck(sessionId: string) {
+    return this.enqueueSessionJob(sessionId, JobType.CROSSCHECK, AiJobName.CROSSCHECK, 'crosscheck');
   }
 
-  async crosscheck(sessionId: string) {
+  async runCrosscheckNow(sessionId: string) {
     const session = await this.sessionModel.findById(sessionId).populate('procedureId');
     if (!session) throw new NotFoundException('Phiên không tồn tại');
 
@@ -99,13 +91,22 @@ export class ScoringService implements OnModuleInit {
     const crosscheckResult = checker.run(toTemplate(procedure), documents);
 
     await this.sessionModel.findByIdAndUpdate(sessionId, {
-      'aiResult.crossCheck': crosscheckResult,
+      $set: {
+        'aiResult.crossCheck': crosscheckResult,
+        'pipeline.steps.crosscheck': 'done',
+        'pipeline.step': 'CROSSCHECK',
+        'pipeline.updatedAt': new Date(),
+      },
     });
 
     return crosscheckResult;
   }
 
   async score(sessionId: string) {
+    return this.enqueueSessionJob(sessionId, JobType.SCORE, AiJobName.SCORE, 'score');
+  }
+
+  async runScoreNow(sessionId: string) {
     const session = await this.sessionModel.findById(sessionId).populate('procedureId');
     if (!session) throw new NotFoundException('Phiên không tồn tại');
 
@@ -129,8 +130,13 @@ export class ScoringService implements OnModuleInit {
     });
 
     await this.sessionModel.findByIdAndUpdate(sessionId, {
-      'aiResult.score': scoreResult,
-      status: SessionStatus.SCORED,
+      $set: {
+        'aiResult.score': scoreResult,
+        status: SessionStatus.SCORED,
+        'pipeline.steps.score': 'done',
+        'pipeline.step': 'SCORE',
+        'pipeline.updatedAt': new Date(),
+      },
     });
 
     return scoreResult;
@@ -141,17 +147,52 @@ export class ScoringService implements OnModuleInit {
     if (!session) throw new NotFoundException('Phiên không tồn tại');
 
     const procedure = session.procedureId as unknown as ProcedureDocument;
+    const payload = {
+      procedureCode: procedure.code,
+      category: procedure.category ?? '',
+      checklist: procedure.checklist.map(c => ({ id: c.id, roleInProcedure: c.roleInProcedure ?? '' })),
+    };
+    return this.enqueueSessionJob(sessionId, JobType.LAWGUARD, AiJobName.LAWGUARD, 'lawguard', payload, {
+      pipelineStep: 'LAWGUARD',
+    });
+  }
 
-    // Gọi ai-svc qua gRPC
-    const result = await firstValueFrom(
-      this.aiGrpc.CheckLawGuard({
-        procedureCode: procedure.code,
-        category: procedure.category ?? '',
-        checklist: procedure.checklist.map(c => ({ id: c.id, roleInProcedure: c.roleInProcedure ?? '' })),
-      }),
-    );
+  private async enqueueSessionJob(
+    sessionId: string,
+    type: JobType,
+    jobName: AiJobName,
+    step: string,
+    payload: Record<string, unknown> = {},
+    options: { pipelineStep?: string } = {},
+  ) {
+    const job = await this.jobModel.create({
+      sessionId: new Types.ObjectId(sessionId),
+      type,
+      state: JobState.PENDING,
+      payload,
+      expiresAt: new Date(Date.now() + 86_400_000),
+    });
 
-    await this.sessionModel.findByIdAndUpdate(sessionId, { 'aiResult.lawGuardAlerts': result.alerts });
-    return result;
+    try {
+      await this.aiQueue.add(jobName, {
+        jobId: String(job._id),
+        sessionId,
+        ...payload,
+      }, AI_JOB_OPTIONS);
+      await this.jobModel.findByIdAndUpdate(job._id, { $set: { state: JobState.ENQUEUED } });
+    } catch (error) {
+      await this.jobModel.findByIdAndUpdate(job._id, {
+        $set: { state: JobState.PENDING, lastError: `Enqueue thất bại: ${(error as Error).message}` },
+      });
+    }
+
+    await this.sessionModel.findByIdAndUpdate(sessionId, {
+      $set: {
+        [`pipeline.steps.${step}`]: 'queued',
+        'pipeline.step': options.pipelineStep ?? type,
+        'pipeline.updatedAt': new Date(),
+      },
+    });
+    return { jobId: job._id, status: 'queued' };
   }
 }

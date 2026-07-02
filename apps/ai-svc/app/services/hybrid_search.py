@@ -11,6 +11,7 @@ from qdrant_client.models import (
     FieldCondition,
     Filter,
     MatchValue,
+    NamedVector,
     PayloadSchemaType,
     PointStruct,
     VectorParams,
@@ -87,11 +88,23 @@ class HybridLegalSearch:
 
         try:
             await asyncio.to_thread(self._ensure_collection)
+            if not self.settings.QDRANT_INGEST_ON_STARTUP:
+                info = await asyncio.to_thread(
+                    self.client.get_collection,
+                    self.settings.QDRANT_COLLECTION,
+                )
+                self.dense_ready = bool(info.points_count)
+                logger.info(
+                    "Using existing Qdrant collection with %s points",
+                    info.points_count,
+                )
+                return
+
             vectors = await self.embeddings.embed([doc.text for doc in self.documents], "passage")
             points = [
                 PointStruct(
                     id=str(uuid5(NAMESPACE_URL, doc.chunk_id)),
-                    vector=vector,
+                    vector={self.settings.QDRANT_VECTOR_NAME: vector},
                     payload=doc.payload(),
                 )
                 for doc, vector in zip(self.documents, vectors)
@@ -130,6 +143,40 @@ class HybridLegalSearch:
         )
         return self._rrf(dense_ids, lexical_ids, top_k)
 
+    async def ingest(self, records: list[dict]) -> int:
+        """Embed and upsert legal chunks while keeping BM25 state in sync."""
+        documents = [LegalChunk.from_dict(record) for record in records]
+        if not documents or any(not doc.chunk_id or not doc.text for doc in documents):
+            raise ValueError("Mỗi chunk phải có chunkId và text")
+
+        await asyncio.to_thread(self._ensure_collection)
+        vectors = await self.embeddings.embed([doc.text for doc in documents], "passage")
+        points = [
+            PointStruct(
+                id=str(uuid5(NAMESPACE_URL, doc.chunk_id)),
+                vector={self.settings.QDRANT_VECTOR_NAME: vector},
+                payload=doc.payload(),
+            )
+            for doc, vector in zip(documents, vectors)
+        ]
+        await asyncio.to_thread(
+            self.client.upsert,
+            collection_name=self.settings.QDRANT_COLLECTION,
+            points=points,
+            wait=True,
+        )
+
+        merged = {doc.chunk_id: doc for doc in self.documents}
+        merged.update({doc.chunk_id: doc for doc in documents})
+        self.documents = list(merged.values())
+        self.by_id = merged
+        self.tokenized_documents = [
+            VietnameseTextProcessor.tokens(doc.text) for doc in self.documents
+        ]
+        self.bm25 = BM25Okapi(self.tokenized_documents)
+        self.dense_ready = True
+        return len(points)
+
     async def _dense_search(self, query: str, category: str | None, limit: int) -> list[str]:
         vector = await self.embeddings.embed_one(query, "query")
         query_filter = None
@@ -140,7 +187,10 @@ class HybridLegalSearch:
         results = await asyncio.to_thread(
             self.client.search,
             collection_name=self.settings.QDRANT_COLLECTION,
-            query_vector=vector,
+            query_vector=NamedVector(
+                name=self.settings.QDRANT_VECTOR_NAME,
+                vector=vector,
+            ),
             query_filter=query_filter,
             limit=limit,
             with_payload=True,
@@ -199,10 +249,12 @@ class HybridLegalSearch:
         if not self.client.collection_exists(name):
             self.client.create_collection(
                 collection_name=name,
-                vectors_config=VectorParams(
-                    size=self.settings.QDRANT_VECTOR_SIZE,
-                    distance=Distance.COSINE,
-                ),
+                vectors_config={
+                    self.settings.QDRANT_VECTOR_NAME: VectorParams(
+                        size=self.settings.QDRANT_VECTOR_SIZE,
+                        distance=Distance.COSINE,
+                    )
+                },
             )
             self.client.create_payload_index(
                 collection_name=name,
@@ -215,10 +267,12 @@ class HybridLegalSearch:
         if not directory.exists():
             return []
         documents: list[LegalChunk] = []
-        for path in sorted(directory.glob("*.json")):
+        for path in sorted(directory.rglob("*.json")):
             with path.open(encoding="utf-8") as file:
                 data = json.load(file)
-            doc = LegalChunk.from_dict(data)
-            if doc.chunk_id and doc.text:
-                documents.append(doc)
+            records = data if isinstance(data, list) else [data]
+            for record in records:
+                doc = LegalChunk.from_dict(record)
+                if doc.chunk_id and doc.text:
+                    documents.append(doc)
         return documents

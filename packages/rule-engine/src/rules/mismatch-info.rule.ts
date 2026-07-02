@@ -13,7 +13,8 @@ export class MismatchInfoRule {
 
     const highMismatches = mismatches.filter(m => m.severity === 'HIGH' || m.severity === 'CRITICAL');
     const impact = ctx.procedure.scoringRules.penalties.infoMismatch * mismatches.length;
-    const severity: Severity = highMismatches.length > 0 ? 'HIGH' : 'MEDIUM';
+    // Mismatch nghiêm trọng (vd chủ hộ trên CCCD ≠ trên giấy) → CRITICAL để chặn nộp.
+    const severity: Severity = highMismatches.length > 0 ? 'CRITICAL' : 'MEDIUM';
 
     const details = mismatches
       .map(m => `${m.field}: "${m.leftValue}" ≠ "${m.rightValue}"`)

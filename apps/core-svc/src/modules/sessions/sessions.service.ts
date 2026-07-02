@@ -4,6 +4,16 @@ import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import { Session, SessionDocument, SessionStatus } from '../../database/schemas/session.schema';
 import { InsightLog, InsightLogDocument, ErrorType } from '../../database/schemas/insight-log.schema';
+import { Procedure, ProcedureDocument } from '../../database/schemas/procedure.schema';
+import { KycStatus, User, UserDocument } from '../../database/schemas/user.schema';
+import {
+  anonymizeId,
+  maskCrossCheck,
+  maskFormData,
+  maskOcrData,
+  maskScoreResult,
+} from '../../common/utils/pii-mask.util';
+import { FileCleanupService } from './file-cleanup.service';
 
 @Injectable()
 export class SessionsService {
@@ -12,26 +22,109 @@ export class SessionsService {
   constructor(
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     @InjectModel(InsightLog.name) private insightModel: Model<InsightLogDocument>,
+    @InjectModel(Procedure.name) private procedureModel: Model<ProcedureDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly config: ConfigService,
+    private readonly fileCleanup: FileCleanupService,
   ) {}
 
-  async create(procedureId: string, userId?: string): Promise<SessionDocument> {
+  async create(procedureIdOrCode: string, userId?: string): Promise<SessionDocument> {
     const ttlHours = this.config.get<number>('SESSION_TTL_HOURS', 24);
     const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000);
 
+    // Cần cả checklist để biết vị trí CCCD nào có thể dùng lại từ eKYC.
+    const procedure = await this.resolveProcedure(procedureIdOrCode);
+    const procedureObjectId = procedure._id as Types.ObjectId;
+    const identityOcrData = userId
+      ? await this.buildVerifiedIdentityOcrData(userId, procedure)
+      : undefined;
+
     return this.sessionModel.create({
-      procedureId: new Types.ObjectId(procedureId),
+      procedureId: procedureObjectId,
       userId: userId ? new Types.ObjectId(userId) : undefined,
       status: SessionStatus.INIT,
       pipeline: { step: 'INIT', steps: {}, updatedAt: new Date() },
+      ...(identityOcrData && { aiResult: { ocrData: identityOcrData } }),
       expiresAt,
     });
   }
 
+  private async resolveProcedure(idOrCode: string): Promise<ProcedureDocument> {
+    const query = Types.ObjectId.isValid(idOrCode)
+      ? { _id: new Types.ObjectId(idOrCode), isActive: true }
+      : { code: idOrCode, isActive: true };
+    const procedure = await this.procedureModel.findOne(query);
+    if (!procedure) throw new NotFoundException(`Thủ tục "${idOrCode}" không tồn tại`);
+    return procedure;
+  }
+
+  /**
+   * Dùng hồ sơ eKYC như một nguồn giấy tờ đã xác minh.
+   * Chỉ tự gán khi checklist có đúng một vị trí CCCD; nếu có nhiều bên tham gia
+   * (vợ/chồng, mua/bán), hệ thống không đoán tài khoản thuộc vai trò nào.
+   */
+  private async buildVerifiedIdentityOcrData(
+    userId: string,
+    procedure: ProcedureDocument,
+  ): Promise<Record<string, unknown> | undefined> {
+    const cccdSlots = (procedure.checklist ?? []).filter(item =>
+      item.documentTypeCode === 'CCCD' || item.acceptedCodes?.includes('CCCD'),
+    );
+    if (cccdSlots.length !== 1) return undefined;
+
+    const user = await this.userModel.findById(userId);
+    if (!user || user.kycStatus !== KycStatus.VERIFIED) return undefined;
+
+    const fields: Record<string, { value: string; confidence: number }> = {};
+    if (user.cccdNumber) fields.soCCCD = { value: user.cccdNumber, confidence: 1 };
+    if (user.cccdFullName) fields.hoTen = { value: user.cccdFullName, confidence: 1 };
+    if (user.cccdBirthDay) fields.ngaySinh = { value: user.cccdBirthDay, confidence: 1 };
+    if (user.cccdGender) fields.gioiTinh = { value: user.cccdGender, confidence: 1 };
+    if (user.cccdNationality) fields.quocTich = { value: user.cccdNationality, confidence: 1 };
+    if (user.cccdOriginLocation) fields.queQuan = { value: user.cccdOriginLocation, confidence: 1 };
+    if (user.cccdRecentLocation) fields.noiThuongTru = { value: user.cccdRecentLocation, confidence: 1 };
+    if (user.cccdValidDate) fields.ngayHetHan = { value: user.cccdValidDate, confidence: 1 };
+    if (Object.keys(fields).length === 0) return undefined;
+
+    const slot = cccdSlots[0];
+    return {
+      [slot.id]: {
+        documentTypeCode: 'CCCD',
+        fields,
+        source: 'EKYC_PROFILE',
+        verifiedAt: user.kycVerifiedAt,
+      },
+    };
+  }
+
   async findById(id: string): Promise<SessionDocument> {
-    const session = await this.sessionModel.findById(id);
+    const session = await this.sessionModel.findById(id).populate('procedureId');
     if (!session) throw new NotFoundException('Phiên không tồn tại hoặc đã hết hạn');
     return session;
+  }
+
+  /**
+   * View công khai cho GET /sessions/:id (không có auth guard):
+   * mask PII trong ocrData/crossCheck, không lộ đường dẫn file trên server.
+   * Dữ liệu gốc trong DB không đổi — pipeline nội bộ vẫn dùng bản đầy đủ.
+   */
+  async findPublicById(id: string) {
+    const session = await this.findById(id);
+    const plain = session.toObject() as Record<string, any>;
+
+    if (plain.aiResult) {
+      plain.aiResult = {
+        ...plain.aiResult,
+        ocrData: maskOcrData(plain.aiResult.ocrData),
+        crossCheck: maskCrossCheck(plain.aiResult.crossCheck),
+        score: maskScoreResult(plain.aiResult.score),
+        formData: maskFormData(plain.aiResult.formData),
+      };
+    }
+    plain.documents = (plain.documents ?? []).map(
+      ({ fileUrl: _fileUrl, ...doc }: { fileUrl?: string }) => doc,
+    );
+    return plain;
   }
 
   async updatePipeline(sessionId: string, step: string, stepStatus: string) {
@@ -60,6 +153,10 @@ export class SessionsService {
     // Rút metadata ẩn danh → insight_logs trước khi session hết TTL
     await this.extractInsightLog(session);
 
+    // Data minimization: OCR đã xong, kết quả nằm trong aiResult —
+    // file gốc không còn cần thiết, xoá ngay sau khi người dân xác nhận.
+    await this.fileCleanup.deleteSessionFiles(session);
+
     return session;
   }
 
@@ -68,22 +165,22 @@ export class SessionsService {
     const finalScore = scoreObj?.score ?? scoreObj?.total ?? 0;
     if (!finalScore) return;
 
-    // rule-engine CrossCheckResult: checks[].status ('MISMATCH'|'MISSING'...) + missingDocuments[]
+    // Shape thật từ CrossChecker: { checks, missingDocuments, summary: { mismatches, missing } }
     const crossCheck = session.aiResult?.crossCheck as {
-      checks?: Array<{ status?: string }>;
-      missingDocuments?: unknown[];
+      summary?: { mismatches?: number; missing?: number };
     } | undefined;
-    const mismatchCount = (crossCheck?.checks ?? []).filter(c => c.status === 'MISMATCH').length;
-    const missingCount = (crossCheck?.missingDocuments ?? []).length;
+    const mismatchCount = crossCheck?.summary?.mismatches ?? 0;
+    const missingCount = crossCheck?.summary?.missing ?? 0;
 
     const procedureId = session.procedureId.toString();
-    const sessionId = (session._id as Types.ObjectId).toString();
+    // InsightMap chỉ giữ metadata ẩn danh — hash một chiều thay vì sessionId thật.
+    const anonymizedSessionId = anonymizeId((session._id as Types.ObjectId).toString());
 
     const emit = async (errorType: ErrorType, severity: string) => {
       try {
         await this.insightModel.create({
           procedureId: new Types.ObjectId(procedureId),
-          sessionId: new Types.ObjectId(sessionId),
+          anonymizedSessionId,
           errorType,
           severity,
           finalScore,
@@ -93,7 +190,7 @@ export class SessionsService {
       }
     };
 
-    if (mismatchCount) await emit(ErrorType.INFO_MISMATCH, 'HIGH');
-    if (missingCount) await emit(ErrorType.MISSING_DOC, 'HIGH');
+    if (mismatchCount > 0) await emit(ErrorType.INFO_MISMATCH, 'HIGH');
+    if (missingCount > 0) await emit(ErrorType.MISSING_DOC, 'HIGH');
   }
 }

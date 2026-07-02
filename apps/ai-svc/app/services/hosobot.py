@@ -8,16 +8,26 @@ from app.text import VietnameseTextProcessor
 
 logger = logging.getLogger(__name__)
 
+# Thứ tự QUAN TRỌNG: keyword_fallback trả match ĐẦU TIÊN, nên cụm cụ thể phải đứng
+# trước cụm chung (vd "đăng ký lại khai sinh" trước "khai sinh").
 PROCEDURE_KEYWORDS: dict[str, str] = {
-    "đăng ký khai sinh": "DK_KHAI_SINH",
-    "khai sinh": "DK_KHAI_SINH",
-    "đăng ký cư trú": "DANG_KY_CU_TRU",
-    "cư trú": "DANG_KY_CU_TRU",
-    "chứng thực": "CHUNG_THUC",
-    "căn cước": "CAP_DOI_GIAY_TO",
-    "cccd": "CAP_DOI_GIAY_TO",
-    "đăng ký kinh doanh": "HO_KINH_DOANH",
-    "hộ kinh doanh": "HO_KINH_DOANH",
+    "cấp bản sao trích lục khai sinh": "CAP_BAN_SAO_TRICH_LUC_KHAI_SINH",
+    "trích lục khai sinh": "CAP_BAN_SAO_TRICH_LUC_KHAI_SINH",
+    "bản sao khai sinh": "CAP_BAN_SAO_TRICH_LUC_KHAI_SINH",
+    "đăng ký lại khai sinh": "DK_LAI_KHAI_SINH",
+    "khai sinh": "DK_LAI_KHAI_SINH",
+    "xác nhận tình trạng hôn nhân": "XAC_NHAN_TINH_TRANG_HON_NHAN",
+    "tình trạng hôn nhân": "XAC_NHAN_TINH_TRANG_HON_NHAN",
+    "hôn nhân": "XAC_NHAN_TINH_TRANG_HON_NHAN",
+    "thành lập hộ kinh doanh": "HKD_THANH_LAP",
+    "đăng ký hộ kinh doanh": "HKD_THANH_LAP",
+    "thay đổi hộ kinh doanh": "HKD_THAY_DOI",
+    "thay đổi đăng ký kinh doanh": "HKD_THAY_DOI",
+    "cấp lại giấy chứng nhận hộ kinh doanh": "HKD_CAP_LAI",
+    "cấp lại hộ kinh doanh": "HKD_CAP_LAI",
+    "chấm dứt hộ kinh doanh": "HKD_CHAM_DUT",
+    "ngừng hộ kinh doanh": "HKD_CHAM_DUT",
+    "hộ kinh doanh": "HKD_THANH_LAP",
 }
 
 

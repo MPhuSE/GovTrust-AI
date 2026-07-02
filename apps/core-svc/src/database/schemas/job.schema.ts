@@ -9,6 +9,8 @@ export enum JobType {
   LAWGUARD = 'LAWGUARD',
   SCORE = 'SCORE',
   SMARTFORM = 'SMARTFORM',
+  EMBEDDING = 'EMBEDDING',
+  INSIGHT_REPORT = 'INSIGHT_REPORT',
 }
 
 export enum JobState {
@@ -21,8 +23,8 @@ export enum JobState {
 
 @Schema({ timestamps: true, collection: 'jobs' })
 export class Job {
-  @Prop({ type: Types.ObjectId, ref: 'Session', required: true })
-  sessionId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'Session' })
+  sessionId?: Types.ObjectId;
 
   @Prop({ type: String, enum: JobType, required: true })
   type: JobType;
@@ -35,6 +37,9 @@ export class Job {
 
   @Prop({ type: Object })
   payload?: Record<string, unknown>;
+
+  @Prop({ type: Object })
+  result?: Record<string, unknown>;
 
   @Prop()
   lastError?: string;

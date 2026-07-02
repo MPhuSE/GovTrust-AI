@@ -2,12 +2,20 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    USE_TF=0 \
+    TRANSFORMERS_NO_ADVISORY_WARNINGS=1
 
 WORKDIR /app/apps/ai-svc
 
 COPY apps/ai-svc/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY apps/ai-svc/requirements-local.txt ./requirements-local.txt
+# Install the CPU wheel first so sentence-transformers does not pull the much
+# larger CUDA-enabled PyTorch distribution into this API image.
+RUN pip install --no-cache-dir \
+      --index-url https://download.pytorch.org/whl/cpu \
+      torch==2.6.0 && \
+    pip install --no-cache-dir -r requirements-local.txt
 
 COPY packages/proto /app/packages/proto
 COPY data /app/data

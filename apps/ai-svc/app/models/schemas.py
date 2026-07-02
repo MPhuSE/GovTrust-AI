@@ -65,6 +65,15 @@ class EmbeddingRequest(BaseModel):
     kind: Literal["query", "passage"] = "passage"
 
 
+class SmartBotConsultRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=20_000)
+    procedure_code: str = Field(alias="procedureCode")
+    top_k: int = Field(default=5, ge=1, le=12)
+    procedure_context: str = Field(default="", alias="procedureContext")
+
+    model_config = {"populate_by_name": True}
+
+
 class HoSoBotRequest(BaseModel):
     query: str = Field(min_length=2, max_length=20_000)
     session_id: str | None = None

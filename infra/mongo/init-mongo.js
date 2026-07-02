@@ -23,67 +23,9 @@ db.users.insertMany([
   },
 ]);
 
-// --- Thủ tục: Đăng ký khai sinh ---
-db.procedures.insertOne({
-  code: 'DK_KHAI_SINH',
-  name: 'Đăng ký khai sinh',
-  description: 'Thủ tục đăng ký khai sinh cho trẻ em mới sinh',
-  department: 'UBND cấp xã/phường',
-  checklist: [
-    {
-      id: 'cccd_cha_me',
-      documentTypeCode: 'CCCD',
-      acceptedCodes: ['CCCD', 'CMND', 'PASSPORT'],
-      roleInProcedure: 'CCCD của cha hoặc mẹ',
-      quantity: 1,
-      isRequired: true,
-      points: 30,
-    },
-    {
-      id: 'giay_chung_sinh',
-      documentTypeCode: 'GIAY_CHUNG_SINH',
-      acceptedCodes: ['GIAY_CHUNG_SINH'],
-      roleInProcedure: 'Giấy chứng sinh của con',
-      quantity: 1,
-      isRequired: true,
-      points: 40,
-    },
-    {
-      id: 'giay_dang_ky_ket_hon',
-      documentTypeCode: 'GIAY_DANG_KY_KET_HON',
-      acceptedCodes: ['GIAY_DANG_KY_KET_HON'],
-      roleInProcedure: 'Giấy đăng ký kết hôn (nếu có)',
-      quantity: 1,
-      isRequired: false,
-      conditionalOn: 'parents_married',
-      points: 10,
-    },
-  ],
-  crossCheckRules: [
-    {
-      name: 'Họ tên cha/mẹ khớp giữa CCCD và giấy chứng sinh',
-      left: 'cccd_cha_me.hoTen',
-      right: 'giay_chung_sinh.hoTenMe',
-      matchType: 'normalized',
-      severityIfMismatch: 'HIGH',
-      skipIfMissing: 'giay_chung_sinh',
-    },
-  ],
-  formFields: [
-    { id: 'hoTenCon', label: 'Họ và tên con', required: true, sourceMap: [] },
-    { id: 'ngaySinhCon', label: 'Ngày sinh của con', required: true, sourceMap: ['giay_chung_sinh.ngaySinh'] },
-    { id: 'gioiTinhCon', label: 'Giới tính', required: true, sourceMap: ['giay_chung_sinh.gioiTinhCon'] },
-    { id: 'hoTenCha', label: 'Họ tên cha', required: true, sourceMap: ['cccd_cha_me.hoTen'] },
-    { id: 'hoTenMe', label: 'Họ tên mẹ', required: true, sourceMap: ['giay_chung_sinh.hoTenMe'] },
-    { id: 'noiDangKy', label: 'Nơi đăng ký khai sinh', required: true, sourceMap: [] },
-  ],
-  scoringRules: {
-    baseScore: 100,
-    penalties: { missingRequired: -20, infoMismatch: -10, expiredDoc: -15, lowQualityImage: -5, lowOcrConfidence: -5 },
-  },
-  priorityConfig: { baseUrgency: 'MEDIUM', slaDays: 5 },
-  isActive: true,
-});
+// --- Thủ tục MVP ---
+// Được seed tự động bởi MvpProcedureSeeder (core-svc) khi khởi động, dựa trên registry
+// apps/core-svc/src/modules/procedures/mvp-procedures.ts. Không seed cứng ở đây nữa.
 
 // --- Catalog loại giấy tờ (document_types — OI-6, dùng chung) ---
 db.document_types.insertMany([
@@ -105,16 +47,70 @@ db.document_types.insertMany([
     isActive: true,
   },
   {
-    code: 'GIAY_CHUNG_SINH',
-    name: 'Giấy chứng sinh',
+    code: 'GIAY_KHAI_SINH',
+    name: 'Giấy khai sinh',
     category: 'HO_TICH',
-    issuingAuthority: 'Cơ sở y tế',
+    issuingAuthority: 'UBND cấp xã',
     hasPortrait: false,
     pagesRequired: 1,
     fields: [
-      { key: 'hoTenCon', label: 'Họ tên con', dataType: 'string', required: true, isIdentity: true },
-      { key: 'hoTenMe', label: 'Họ tên mẹ', dataType: 'string', required: true, isIdentity: true },
-      { key: 'ngaySinh', label: 'Ngày sinh', dataType: 'date', format: 'dd/mm/yyyy', required: true, isIdentity: false },
+      { key: 'hoTenCon', label: 'Họ tên người được khai sinh', dataType: 'string', required: true, isIdentity: true },
+      { key: 'ngaySinhCon', label: 'Ngày sinh', dataType: 'date', format: 'dd/mm/yyyy', required: true, isIdentity: false },
+      { key: 'gioiTinhCon', label: 'Giới tính', dataType: 'string', required: false, isIdentity: false },
+      { key: 'hoTenMe', label: 'Họ tên mẹ', dataType: 'string', required: false, isIdentity: false },
+      { key: 'hoTenCha', label: 'Họ tên cha', dataType: 'string', required: false, isIdentity: false },
+      { key: 'noiDangKy', label: 'Nơi đăng ký khai sinh', dataType: 'string', required: false, isIdentity: false },
+    ],
+    validity: { hasExpiry: false },
+    aliasCodes: [],
+    isActive: true,
+  },
+  {
+    code: 'HO_KINH_DOANH',
+    name: 'Giấy chứng nhận đăng ký hộ kinh doanh',
+    category: 'DOANH_NGHIEP',
+    issuingAuthority: 'Cơ quan đăng ký kinh doanh cấp xã',
+    hasPortrait: false,
+    pagesRequired: 1,
+    fields: [
+      { key: 'tenHoKinhDoanh', label: 'Tên hộ kinh doanh', dataType: 'string', required: true, isIdentity: true },
+      { key: 'maSoHoKinhDoanh', label: 'Mã số hộ kinh doanh', dataType: 'string', required: false, isIdentity: true },
+      { key: 'hoTenChuHo', label: 'Họ tên chủ hộ', dataType: 'string', required: true, isIdentity: true },
+      { key: 'diaChiKinhDoanh', label: 'Địa chỉ kinh doanh', dataType: 'string', required: false, isIdentity: false },
+      { key: 'nganhNghe', label: 'Ngành nghề kinh doanh', dataType: 'string', required: false, isIdentity: false },
+    ],
+    validity: { hasExpiry: false },
+    aliasCodes: [],
+    isActive: true,
+  },
+  {
+    code: 'VAN_BAN_UY_QUYEN_HGD',
+    name: 'Văn bản ủy quyền của các thành viên hộ gia đình',
+    category: 'DOANH_NGHIEP',
+    issuingAuthority: 'Các thành viên hộ gia đình (công chứng/chứng thực)',
+    hasPortrait: false,
+    pagesRequired: 1,
+    fields: [
+      { key: 'tenNguoiDuocUyQuyen', label: 'Họ tên thành viên được ủy quyền làm chủ hộ', dataType: 'string', required: true, isIdentity: true },
+      { key: 'tenHoKinhDoanh', label: 'Tên hộ kinh doanh', dataType: 'string', required: false, isIdentity: true },
+      { key: 'ngayUyQuyen', label: 'Ngày lập văn bản ủy quyền', dataType: 'date', format: 'dd/mm/yyyy', required: false, isIdentity: false },
+      { key: 'noiCongChung', label: 'Nơi công chứng/chứng thực', dataType: 'string', required: false, isIdentity: false },
+    ],
+    validity: { hasExpiry: false },
+    aliasCodes: [],
+    isActive: true,
+  },
+  {
+    code: 'VAN_BAN_UY_QUYEN_THU_TUC',
+    name: 'Văn bản ủy quyền thực hiện thủ tục đăng ký hộ kinh doanh',
+    category: 'DOANH_NGHIEP',
+    issuingAuthority: 'Chủ hộ kinh doanh (không bắt buộc công chứng — Đ.93 NĐ 168/2025)',
+    hasPortrait: false,
+    pagesRequired: 1,
+    fields: [
+      { key: 'tenNguoiUyQuyen', label: 'Họ tên người ủy quyền (chủ hộ)', dataType: 'string', required: true, isIdentity: true },
+      { key: 'tenNguoiNhanUyQuyen', label: 'Họ tên người được ủy quyền nộp hồ sơ', dataType: 'string', required: true, isIdentity: false },
+      { key: 'ngayUyQuyen', label: 'Ngày lập văn bản ủy quyền', dataType: 'date', format: 'dd/mm/yyyy', required: false, isIdentity: false },
     ],
     validity: { hasExpiry: false },
     aliasCodes: [],
