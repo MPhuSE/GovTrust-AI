@@ -30,6 +30,8 @@ export class ProxyMiddleware implements NestMiddleware {
   }
 
   use(req: Request, res: Response, next: NextFunction) {
+    // forRoutes('*') rút req.url thành "/"; khôi phục path đầy đủ để proxy forward đúng.
+    req.url = req.originalUrl;
     return this.handler(req, res, next);
   }
 }

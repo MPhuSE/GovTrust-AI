@@ -1,11 +1,13 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig } from 'axios';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 
 export const apiClient = axios.create({
   baseURL: API_BASE,
   timeout: 60000,
-  headers: { 'Content-Type': 'application/json' },
+  // Không ép Content-Type ở instance: Axios tự chọn JSON cho object và
+  // multipart/form-data kèm boundary cho FormData. Ép JSON ở đây sẽ biến
+  // File thành `{}` trước khi request tới backend.
 });
 
 apiClient.interceptors.request.use(config => {
@@ -24,45 +26,77 @@ apiClient.interceptors.response.use(
   },
 );
 
+// Typed generic wrappers
+const get = <T>(url: string, config?: AxiosRequestConfig): Promise<T> => apiClient.get(url, config);
+const post = <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => apiClient.post(url, data, config);
+
 // --- API helpers ---
 
 export const proceduresApi = {
-  list: () => apiClient.get('/procedures'),
-  get: (code: string) => apiClient.get(`/procedures/${code}`),
-  identify: (userQuery: string) => apiClient.post('/procedures/identify', { userQuery }),
+  list: <T = any>() => get<T>('/procedures'),
+  get: <T = any>(code: string) => get<T>(`/procedures/${code}`),
+  identify: <T = any>(userQuery: string) => post<T>('/procedures/identify', { userQuery }),
+  consult: <T = any>(question: string, procedureCode: string, topK?: number) =>
+    post<T>('/procedures/consult', { question, procedureCode, topK }),
 };
 
 export const sessionsApi = {
-  create: (procedureId: string) => apiClient.post('/sessions', { procedureId }),
-  get: (id: string) => apiClient.get(`/sessions/${id}`),
-  confirm: (id: string) => apiClient.post(`/sessions/${id}/confirm`),
+  create: <T = any>(procedureId: string) => post<T>('/sessions', { procedureId }),
+  get: <T = any>(id: string) => get<T>(`/sessions/${id}`),
+  confirm: <T = any>(id: string) => post<T>(`/sessions/${id}/confirm`),
 };
 
 export const documentsApi = {
-  upload: (formData: FormData) =>
-    apiClient.post('/documents/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  triggerOcr: (sessionId: string, documentTypeCode: string) =>
-    apiClient.post(`/documents/${sessionId}/ocr/${documentTypeCode}`),
+  upload: <T = any>(formData: FormData) =>
+    post<T>('/documents/upload', formData),
+  triggerOcr: <T = any>(sessionId: string, documentTypeCode: string, checklistId: string) =>
+    post<T>(`/documents/${sessionId}/ocr/${documentTypeCode}`, { checklistId }),
 };
 
 export const scoringApi = {
-  crosscheck: (sessionId: string) => apiClient.post(`/sessions/${sessionId}/crosscheck`),
-  score: (sessionId: string) => apiClient.post(`/sessions/${sessionId}/score`),
-  lawguard: (sessionId: string) => apiClient.post(`/sessions/${sessionId}/lawguard`),
+  crosscheck: <T = any>(sessionId: string) => post<T>(`/sessions/${sessionId}/crosscheck`),
+  score: <T = any>(sessionId: string) => post<T>(`/sessions/${sessionId}/score`),
+  lawguard: <T = any>(sessionId: string) => post<T>(`/sessions/${sessionId}/lawguard`),
 };
 
 export const smartformApi = {
-  generate: (sessionId: string) => apiClient.post(`/sessions/${sessionId}/smartform`),
+  generate: <T = any>(sessionId: string) => post<T>(`/sessions/${sessionId}/smartform`),
+  render: <T = any>(sessionId: string, values: Record<string, string>) =>
+    post<T>(`/sessions/${sessionId}/smartform/render`, { values }),
+  download: (sessionId: string, format: 'docx' | 'pdf') =>
+    get<Blob>(`/sessions/${sessionId}/smartform/${format}`, { responseType: 'blob' }),
 };
 
 export const insightsApi = {
-  dashboard: (days?: number) => apiClient.get('/insights/dashboard', { params: { days } }),
-  topErrors: (days?: number) => apiClient.get('/insights/top-errors', { params: { days } }),
-  trend: (days?: number) => apiClient.get('/insights/trend', { params: { days } }),
+  dashboard: <T = any>(days?: number) => get<T>('/insights/dashboard', { params: { days } }),
+  topErrors: <T = any>(days?: number) => get<T>('/insights/top-errors', { params: { days } }),
+  trend: <T = any>(days?: number) => get<T>('/insights/trend', { params: { days } }),
 };
 
 export const authApi = {
-  login: (username: string, password: string) => apiClient.post('/auth/login', { username, password }),
-  register: (data: { username: string; password: string; fullName: string }) =>
-    apiClient.post('/auth/register', data),
+  login: <T = any>(username: string, password: string) => post<T>('/auth/login', { username, password }),
+  register: <T = any>(data: { username: string; password: string; fullName: string }) =>
+    post<T>('/auth/register', data),
+  registerWithEkyc: <T = any>(
+    data: { username: string; password: string; fullName: string },
+    front: File,
+    back: File,
+    selfie: File,
+  ) => {
+    const fd = new FormData();
+    fd.append('username', data.username);
+    fd.append('password', data.password);
+    fd.append('fullName', data.fullName);
+    fd.append('front', front);
+    fd.append('back', back);
+    fd.append('selfie', selfie);
+    return post<T>('/auth/register/ekyc', fd, { timeout: 120000 });
+  },
+  verifyEkyc: <T = any>(front: File, back: File, selfie: File) => {
+    const fd = new FormData();
+    fd.append('front', front);
+    fd.append('back', back);
+    fd.append('selfie', selfie);
+    return post<T>('/auth/ekyc/verify', fd, { timeout: 120000 });
+  },
 };

@@ -4,7 +4,9 @@ import { PassportModule } from '@nestjs/passport';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
+import { EkycController } from './ekyc.controller';
 import { AuthService } from './auth.service';
+import { EkycVerificationService } from './ekyc-verification.service';
 import { JwtStrategy } from './jwt.strategy';
 import { User, UserSchema } from '../../database/schemas/user.schema';
 
@@ -20,8 +22,8 @@ import { User, UserSchema } from '../../database/schemas/user.schema';
       }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  controllers: [AuthController, EkycController],
+  providers: [AuthService, EkycVerificationService, JwtStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}

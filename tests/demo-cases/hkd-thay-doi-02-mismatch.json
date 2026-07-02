@@ -1,0 +1,28 @@
+{
+  "caseId": "hkd-thay-doi-02-mismatch",
+  "description": "Chủ hộ trên CCCD không khớp chủ hộ trên Giấy chứng nhận ĐKHKD (mismatch HIGH)",
+  "procedureCode": "HKD_THAY_DOI",
+  "expectedScore": { "max": 90 },
+  "expectedCanSubmit": false,
+  "expectedErrors": ["INFO_MISMATCH"],
+  "documents": [
+    {
+      "checklistId": "cccd_nguoi_yeu_cau",
+      "documentTypeCode": "CCCD",
+      "mockOcrFields": {
+        "hoTen": { "value": "Nguyễn Văn An", "confidence": 0.98 },
+        "soCCCD": { "value": "012345678901", "confidence": 0.99 }
+      },
+      "imageQuality": { "isBlurry": false, "brightness": 0.8, "ocrConfidence": 0.97 }
+    },
+    {
+      "checklistId": "giay_hkd",
+      "documentTypeCode": "HO_KINH_DOANH",
+      "mockOcrFields": {
+        "tenHoKinhDoanh": { "value": "Hộ kinh doanh Lê Thái Hưng", "confidence": 0.95 },
+        "hoTenChuHo": { "value": "Lê Thái Hưng", "confidence": 0.95 }
+      },
+      "imageQuality": { "isBlurry": false, "brightness": 0.78, "ocrConfidence": 0.95 }
+    }
+  ]
+}

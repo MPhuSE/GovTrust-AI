@@ -42,9 +42,11 @@ export class RecheckService {
 
   private detectRisks(session: SessionDocument): Array<{ type: RiskFlagType; message: string; severity: Severity }> {
     const flags: Array<{ type: RiskFlagType; message: string; severity: Severity }> = [];
-    const crossCheck = session.aiResult?.crossCheck as { mismatches?: Array<{ field: string; severity: string }> } | undefined;
+    const crossCheck = session.aiResult?.crossCheck as {
+      checks?: Array<{ field: string; severity: string; status: string }>;
+    } | undefined;
 
-    const mismatches = crossCheck?.mismatches ?? [];
+    const mismatches = (crossCheck?.checks ?? []).filter(check => check.status === 'MISMATCH');
     const highMismatches = mismatches.filter(m => m.severity === 'HIGH');
 
     if (highMismatches.length >= 2) {

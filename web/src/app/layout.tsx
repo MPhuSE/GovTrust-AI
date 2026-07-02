@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import '@/styles/globals.css';
+import { Navbar } from '@/components/ui/Navbar';
+import { VnptSmartBotWidget } from '@/components/smartbot/VnptSmartBotWidget';
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'] });
 
@@ -12,7 +14,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi">
-      <body className={`${inter.className} bg-gray-50 min-h-screen`}>{children}</body>
+      <body className={`${inter.className} bg-gray-50 min-h-screen`}>
+        <Navbar />
+        {children}
+        <VnptSmartBotWidget />
+      </body>
     </html>
   );
 }

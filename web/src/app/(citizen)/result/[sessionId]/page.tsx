@@ -56,8 +56,10 @@ export default function ResultPage() {
         <button
           className="btn-primary flex-1 py-3"
           onClick={() => router.push(`/smartform/${sessionId}`)}
+          disabled={!score.canSubmit}
+          title={!score.canSubmit ? 'Hãy bổ sung hoặc sửa giấy tờ trước khi tạo tờ khai' : undefined}
         >
-          Xem form tự điền
+          {score.canSubmit ? 'Xem tờ khai tự điền' : 'Cần sửa hồ sơ trước'}
         </button>
       </div>
     </main>

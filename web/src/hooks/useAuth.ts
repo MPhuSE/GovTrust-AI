@@ -19,9 +19,25 @@ export function useAuth() {
   const login = async (username: string, password: string) => {
     setState(s => ({ ...s, isLoading: true, error: null }));
     try {
-      const result = await authApi.login(username, password) as { access_token: string; user: AuthState['user'] };
+      const result = await authApi.login(username, password) as unknown as { access_token: string; user: AuthState['user'] };
       if (typeof window !== 'undefined') {
         localStorage.setItem('govtrust_token', result.access_token);
+        if (result.user) localStorage.setItem('govtrust_user', JSON.stringify(result.user));
+      }
+      setState({ user: result.user, isLoading: false, error: null });
+      return result.user;
+    } catch (e) {
+      setState(s => ({ ...s, isLoading: false, error: (e as Error).message }));
+    }
+  };
+
+  const register = async (username: string, password: string, fullName: string) => {
+    setState(s => ({ ...s, isLoading: true, error: null }));
+    try {
+      const result = await authApi.register({ username, password, fullName }) as unknown as { access_token: string; user: AuthState['user'] };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('govtrust_token', result.access_token);
+        if (result.user) localStorage.setItem('govtrust_user', JSON.stringify(result.user));
       }
       setState({ user: result.user, isLoading: false, error: null });
       return result.user;
@@ -31,9 +47,12 @@ export function useAuth() {
   };
 
   const logout = () => {
-    if (typeof window !== 'undefined') localStorage.removeItem('govtrust_token');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('govtrust_token');
+      localStorage.removeItem('govtrust_user');
+    }
     setState({ user: null, isLoading: false, error: null });
   };
 
-  return { ...state, login, logout };
+  return { ...state, login, register, logout };
 }

@@ -6,4 +6,5 @@ def test_shared_ai_proto_generates_python_contract():
 
     assert hasattr(pb2, "OCRRequest")
     assert hasattr(pb2, "LawGuardRequest")
+    assert hasattr(pb2, "EmbeddingIngestRequest")
     assert hasattr(pb2_grpc, "AIServiceServicer")

@@ -2,6 +2,7 @@ import { Controller, Post, Param, Body, UploadedFile, UseInterceptors } from '@n
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { DocumentsService } from './documents.service';
+import { UploadDto, TriggerOcrDto } from './documents.dto';
 
 @ApiTags('Documents')
 @Controller('documents')
@@ -13,7 +14,7 @@ export class DocumentsController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
   upload(
-    @Body() body: { sessionId: string; documentTypeCode: string },
+    @Body() body: UploadDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
     return this.documentsService.upload(body, file);
@@ -24,8 +25,8 @@ export class DocumentsController {
   triggerOcr(
     @Param('sessionId') sessionId: string,
     @Param('documentTypeCode') documentTypeCode: string,
-    @Body() body?: { checklistId?: string },
+    @Body() body: TriggerOcrDto,
   ) {
-    return this.documentsService.triggerOcr(sessionId, documentTypeCode, body?.checklistId);
+    return this.documentsService.triggerOcr(sessionId, documentTypeCode, body.checklistId);
   }
 }

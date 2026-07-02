@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes import embeddings, health, hosobot, lawguard, ocr
+from app.api.routes import embeddings, ekyc, health, hosobot, lawguard, ocr, smartbot
 from app.config import get_settings
 from app.container import AppContainer
 from app.grpc_server import start_grpc_server
@@ -39,6 +39,8 @@ app = FastAPI(
 
 app.include_router(health.router)
 app.include_router(ocr.router, prefix="/api/v1", tags=["OCR"])
+app.include_router(ekyc.router, prefix="/api/v1", tags=["eKYC"])
 app.include_router(hosobot.router, prefix="/api/v1", tags=["HoSoBot"])
+app.include_router(smartbot.router, prefix="/api/v1", tags=["SmartBot"])
 app.include_router(lawguard.router, prefix="/api/v1", tags=["LawGuard"])
 app.include_router(embeddings.router, prefix="/api/v1", tags=["Embeddings"])

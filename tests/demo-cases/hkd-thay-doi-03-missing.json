@@ -1,0 +1,19 @@
+{
+  "caseId": "hkd-thay-doi-03-missing",
+  "description": "Thiếu Giấy chứng nhận ĐKHKD bắt buộc — cross-check bị SKIPPED, không đủ điều kiện nộp",
+  "procedureCode": "HKD_THAY_DOI",
+  "expectedScore": { "max": 90 },
+  "expectedCanSubmit": false,
+  "expectedErrors": ["MISSING_DOCUMENT"],
+  "documents": [
+    {
+      "checklistId": "cccd_nguoi_yeu_cau",
+      "documentTypeCode": "CCCD",
+      "mockOcrFields": {
+        "hoTen": { "value": "Lê Thái Hưng", "confidence": 0.98 },
+        "soCCCD": { "value": "091652320011", "confidence": 0.99 }
+      },
+      "imageQuality": { "isBlurry": false, "brightness": 0.8, "ocrConfidence": 0.97 }
+    }
+  ]
+}

@@ -12,6 +12,7 @@ RUN npm install && npm run build
 WORKDIR /app
 COPY packages/proto ./packages/proto
 COPY data ./data
+COPY template ./template
 
 # 3. Deps core-svc (bỏ dòng workspace:* để npm không lỗi, ta tự link ở bước 5)
 COPY apps/core-svc/package.json ./apps/core-svc/

@@ -74,9 +74,18 @@ services:
       - AI_SVC_GRPC_URL=0.0.0.0:50051
       - AI_SVC_PORT=8000
       - QDRANT_URL=http://qdrant:6333
+      - QDRANT_COLLECTION=legal_chunks
+      - QDRANT_VECTOR_NAME=dense
+      - QDRANT_VECTOR_SIZE=768
+      - QDRANT_INGEST_ON_STARTUP=false
+      - EMBEDDING_PROVIDER=local
+      - EMBEDDING_MODEL=keepitreal/vietnamese-sbert
+      - EMBEDDING_DIMENSIONS=768
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - LEGAL_CHUNKS_DIR=/app/data/legal-sources/chunks
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
     env_file:
       - ../.env
     depends_on:
@@ -87,7 +96,7 @@ services:
   mongo:
     image: mongo:7
     ports:
-      - "27017:27017"
+      - "27019:27017"
     volumes:
       - mongo-data:/data/db
       - ./mongo/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
@@ -111,3 +120,4 @@ volumes:
   mongo-data:
   redis-data:
   qdrant-data:
+  huggingface-cache:

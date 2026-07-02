@@ -1,17 +1,27 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { InsightsService } from './insights.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../database/schemas/user.schema';
+import { JobsService } from '../jobs/jobs.service';
 
 @ApiTags('Insights')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('insights')
 export class InsightsController {
-  constructor(private readonly insightsService: InsightsService) {}
+  constructor(private readonly insightsService: InsightsService, private readonly jobs: JobsService) {}
+
+  @Post('reports')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Roles(UserRole.OFFICER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Sinh báo cáo InsightMap bất đồng bộ' })
+  report(@Query('days') days?: string) {
+    const parsed = Math.min(365, Math.max(1, Number.parseInt(days ?? '30', 10) || 30));
+    return this.jobs.createInsightReport(parsed);
+  }
 
   @Get('dashboard')
   @Roles(UserRole.OFFICER, UserRole.ADMIN)

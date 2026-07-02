@@ -1,0 +1,28 @@
+{
+  "caseId": "trich-luc-khai-sinh-01-full",
+  "description": "Cấp bản sao trích lục khai sinh — đọc Giấy khai sinh cũ, ảnh rõ, đầy đủ",
+  "procedureCode": "CAP_BAN_SAO_TRICH_LUC_KHAI_SINH",
+  "expectedScore": { "min": 85, "grade": "A" },
+  "expectedCanSubmit": true,
+  "documents": [
+    {
+      "checklistId": "cccd_nguoi_yeu_cau",
+      "documentTypeCode": "CCCD",
+      "mockOcrFields": {
+        "hoTen": { "value": "Đào Thị Trà Giang", "confidence": 0.98 },
+        "soCCCD": { "value": "012345678901", "confidence": 0.99 }
+      },
+      "imageQuality": { "isBlurry": false, "brightness": 0.8, "ocrConfidence": 0.97 }
+    },
+    {
+      "checklistId": "giay_khai_sinh",
+      "documentTypeCode": "GIAY_KHAI_SINH",
+      "mockOcrFields": {
+        "hoTenCon": { "value": "Đào Thị Trà Giang", "confidence": 0.96 },
+        "ngaySinhCon": { "value": "12/11/2021", "confidence": 0.95 },
+        "noiDangKy": { "value": "UBND xã Thụy Sơn, huyện Tiên Lữ, tỉnh Hưng Yên", "confidence": 0.93 }
+      },
+      "imageQuality": { "isBlurry": false, "brightness": 0.78, "ocrConfidence": 0.95 }
+    }
+  ]
+}

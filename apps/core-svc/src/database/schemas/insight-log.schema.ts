@@ -16,8 +16,10 @@ export class InsightLog {
   @Prop({ type: Types.ObjectId, ref: 'Procedure', required: true })
   procedureId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, required: true })
-  sessionId: Types.ObjectId;
+  // Hash một chiều của sessionId — InsightMap chỉ giữ metadata ẩn danh,
+  // không truy ngược được về phiên/người dân cụ thể (docs/Gov_Trust.md).
+  @Prop({ type: String, required: true })
+  anonymizedSessionId: string;
 
   @Prop({ type: String, enum: ErrorType, required: true })
   errorType: ErrorType;

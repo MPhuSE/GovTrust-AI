@@ -6,6 +6,30 @@ service AIService {
   rpc ExtractOCR (OCRRequest) returns (OCRResponse);
   rpc CheckLawGuard (LawGuardRequest) returns (LawGuardResponse);
   rpc IdentifyProcedure (IdentifyRequest) returns (IdentifyResponse);
+  rpc ConsultSmartBot (SmartBotRequest) returns (SmartBotResponse);
+  rpc IngestEmbeddings (EmbeddingIngestRequest) returns (EmbeddingIngestResponse);
+}
+
+// ---- Async embedding ingestion ----
+
+message EmbeddingChunk {
+  string chunk_id       = 1;
+  string text           = 2;
+  string title          = 3;
+  string article        = 4;
+  string url            = 5;
+  string source_version = 6;
+  string category       = 7;
+}
+
+message EmbeddingIngestRequest {
+  repeated EmbeddingChunk chunks = 1;
+}
+
+message EmbeddingIngestResponse {
+  int32 ingested = 1;
+  string model   = 2;
+  int32 dimension = 3;
 }
 
 // ---- OCR ----
@@ -24,11 +48,19 @@ message OCRResponse {
   double avg_confidence  = 4;
   bool   liveness        = 5;
   int32  processing_time_ms = 6;
+  ImageQuality image_quality = 7;
 }
 
 message FieldValue {
   string value      = 1;
   double confidence = 2;
+}
+
+message ImageQuality {
+  bool   is_blurry      = 1;
+  double brightness     = 2;
+  string resolution     = 3;
+  double ocr_confidence = 4;
 }
 
 // ---- LawGuard ----
@@ -70,4 +102,29 @@ message IdentifyResponse {
   string procedure_code = 1;
   double confidence     = 2;
   string message        = 3;
+}
+
+// ---- SmartBot ----
+
+message SmartBotRequest {
+  string question         = 1;
+  string procedure_code   = 2;
+  int32  top_k            = 3;
+  string procedure_context = 4;
+}
+
+message SmartBotSource {
+  string content          = 1;
+  double relevance_score  = 2;
+  string title            = 3;
+  string article          = 4;
+  string url              = 5;
+  string source_version   = 6;
+}
+
+message SmartBotResponse {
+  string answer                    = 1;
+  string procedure_code            = 2;
+  repeated SmartBotSource sources  = 3;
+  string disclaimer                = 4;
 }
