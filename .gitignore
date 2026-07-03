@@ -57,3 +57,10 @@ htmlcov/
 
 # Docker
 *.override.yml
+
+# Agent Files
+.agents/
+.claude/
+.gemini/
+.antigravityignore
+skills-lock.json
