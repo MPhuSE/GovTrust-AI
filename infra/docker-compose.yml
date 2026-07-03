@@ -73,7 +73,9 @@ services:
     environment:
       - AI_SVC_GRPC_URL=0.0.0.0:50051
       - AI_SVC_PORT=8000
-      - QDRANT_URL=http://qdrant:6333
+      # Trỏ Qdrant remote đã seed 875 chunk (QDRANT_API_KEY nạp từ ../.env).
+      # Đổi về http://qdrant:6333 nếu muốn dùng Qdrant nội bộ (cần ingest trước).
+      - QDRANT_URL=http://45.130.164.249:6333
       - QDRANT_COLLECTION=legal_chunks
       - QDRANT_VECTOR_NAME=dense
       - QDRANT_VECTOR_SIZE=768

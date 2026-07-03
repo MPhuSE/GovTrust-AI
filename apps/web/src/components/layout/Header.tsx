@@ -109,7 +109,7 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
       </div>
 
       {/* Primary Navigation Bar (White background, pills) */}
-      <div className="bg-white hidden md:block py-2">
+      <div className={`bg-white hidden ${variant === 'officer' ? 'md:block lg:hidden' : 'md:block'} py-2`}>
         <div className="w-full px-4 md:px-8 xl:px-12">
           <nav className="flex items-center gap-2">
             {navItems.map((item) => {

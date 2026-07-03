@@ -27,7 +27,7 @@ export function TrendLine({ data }: Props) {
           yAxisId="left"
           type="monotone"
           dataKey="avgScore"
-          stroke="#2563EB"
+          stroke="#047857"
           strokeWidth={2.5}
           dot={false}
           name="Điểm TB"

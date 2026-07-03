@@ -19,7 +19,7 @@ const citizenMenu = [
 ];
 
 const officerMenu = [
-  { href: '/dashboard', label: 'Bảng điều khiển', icon: 'chart', primary: true },
+  { href: '/dashboard', label: 'Bảng điều khiển', icon: 'chart' },
   { href: '/queue', label: 'Kiểm duyệt', icon: 'check' },
   { href: '/history', label: 'Lịch sử duyệt', icon: 'folder' },
   { href: '/notifications', label: 'Thông báo', icon: 'bell' },

@@ -16,8 +16,8 @@ export function FilterBar({ days, onChange }: Props) {
           onClick={() => onChange(d)}
           className={`px-3 py-1 text-sm rounded-lg border transition-colors ${
             days === d
-              ? 'bg-blue-700 text-white border-blue-700'
-              : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+              ? 'bg-emerald-700 text-white border-emerald-700'
+              : 'bg-white text-gray-600 border-gray-300 hover:border-emerald-500'
           }`}
         >
           {d} ngày
