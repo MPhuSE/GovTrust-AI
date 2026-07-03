@@ -12,13 +12,9 @@ from app.text import VietnameseTextProcessor
 logger = logging.getLogger(__name__)
 
 PROCEDURE_CATEGORIES: dict[str, str] = {
-    "CAP_BAN_SAO_TRICH_LUC_KHAI_SINH": "HO_TICH",
-    "DK_LAI_KHAI_SINH": "HO_TICH",
-    "XAC_NHAN_TINH_TRANG_HON_NHAN": "HO_TICH",
-    "HKD_THANH_LAP": "HO_KINH_DOANH",
+    "DK_THUONG_TRU": "CƯ TRÚ",
     "HKD_THAY_DOI": "HO_KINH_DOANH",
-    "HKD_CAP_LAI": "HO_KINH_DOANH",
-    "HKD_CHAM_DUT": "HO_KINH_DOANH",
+    "CHUYEN_NHUONG_QSDD": "ĐẤT ĐAI",
 }
 
 SYSTEM_PROMPT = (

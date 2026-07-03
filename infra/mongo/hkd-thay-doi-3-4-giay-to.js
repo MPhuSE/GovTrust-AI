@@ -45,14 +45,38 @@ const newDocTypes = [
   },
 ];
 
-newDocTypes.forEach((dt) => {
-  db.document_types.updateOne(
-    { code: dt.code },
-    { $set: dt, $setOnInsert: { createdAt: new Date() } },
-    { upsert: true },
-  );
-});
-print('[OK] document_types mới: ' + newDocTypes.map((d) => d.code).join(', '));
+db.document_types.updateOne(
+  { code: 'HO_KINH_DOANH' },
+  {
+    $set: {
+      fields: [
+        // Thông tin hộ kinh doanh
+        { key: 'tenHoKinhDoanh', label: 'Tên hộ kinh doanh', dataType: 'string', required: true, isIdentity: true },
+        { key: 'maSoHoKinhDoanh', label: 'Mã số hộ kinh doanh', dataType: 'string', required: false, isIdentity: true },
+        { key: 'diaChiKinhDoanh', label: 'Địa chỉ kinh doanh', dataType: 'string', required: false, isIdentity: false },
+        { key: 'nganhNghe', label: 'Ngành nghề kinh doanh', dataType: 'string', required: false, isIdentity: false },
+        { key: 'dienThoai', label: 'Điện thoại', dataType: 'string', required: false, isIdentity: false },
+        { key: 'email', label: 'Email', dataType: 'string', required: false, isIdentity: false },
+
+        // Thông tin chủ hộ (để điền vào phần "Chủ hộ cũ" trong tờ khai thay đổi)
+        { key: 'hoTenChuHo', label: 'Họ tên chủ hộ', dataType: 'string', required: true, isIdentity: true },
+        { key: 'soCCCDChuHo', label: 'Số CCCD/CMND chủ hộ', dataType: 'string', required: false, isIdentity: true },
+        { key: 'ngaySinhChuHo', label: 'Ngày sinh chủ hộ', dataType: 'date', format: 'dd/mm/yyyy', required: false, isIdentity: false },
+        { key: 'gioiTinhChuHo', label: 'Giới tính chủ hộ', dataType: 'string', required: false, isIdentity: false },
+        { key: 'danTocChuHo', label: 'Dân tộc chủ hộ', dataType: 'string', required: false, isIdentity: false },
+        { key: 'quocTichChuHo', label: 'Quốc tịch chủ hộ', dataType: 'string', required: false, isIdentity: false },
+        { key: 'ngayCapCCCDChuHo', label: 'Ngày cấp CCCD chủ hộ', dataType: 'date', format: 'dd/mm/yyyy', required: false, isIdentity: false },
+        { key: 'noiCapCCCDChuHo', label: 'Nơi cấp CCCD chủ hộ', dataType: 'string', required: false, isIdentity: false },
+        { key: 'diaChiThuongTruChuHo', label: 'Địa chỉ thường trú chủ hộ', dataType: 'string', required: false, isIdentity: false },
+        { key: 'dienThoaiChuHo', label: 'Điện thoại chủ hộ', dataType: 'string', required: false, isIdentity: false },
+        { key: 'emailChuHo', label: 'Email chủ hộ', dataType: 'string', required: false, isIdentity: false },
+      ],
+    },
+  },
+  { upsert: false },
+);
+print('[OK] document_types.HO_KINH_DOANH — thêm các trường CCCD chủ hộ');
+
 
 // ── 2. Cập nhật thủ tục HKD_THAY_DOI ──
 db.procedures.updateOne(

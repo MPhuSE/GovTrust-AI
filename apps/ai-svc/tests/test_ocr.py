@@ -63,3 +63,15 @@ async def test_mock_image_quality_marks_fake_bytes_as_blurry():
     result = await service.extract(b"fake-image", "GIAY_KHAI_SINH")
     # _assess_quality fallback: isBlurry=True khi không decode được ảnh
     assert result.image_quality["isBlurry"] is True
+
+
+@pytest.mark.asyncio
+async def test_extract_supports_giay_cho_o_hop_phap():
+    """Giấy tờ chỗ ở (GIAY_CHUNG_NHAN_QSDD) — OCR mới cho thủ tục thường trú.
+    Có endpoint (v2 văn bản hành chính) nên KHÔNG raise, trả mock khi thiếu token."""
+    service = _service()
+    result = await service.extract(b"fake-image", "GIAY_CHUNG_NHAN_QSDD")
+    assert isinstance(result, OcrResult)
+    # Mock phải có các field định danh dùng cho CrossCheck thường trú
+    assert "tenChuSoHuu" in result.fields
+    assert "diaChiNha" in result.fields

@@ -1,22 +1,40 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, Matches } from 'class-validator';
 import { UserRole } from '../../../database/schemas/user.schema';
 
 export class RegisterDto {
-  @ApiProperty({ example: 'nguyenvana', description: 'Tên đăng nhập' })
+  @ApiPropertyOptional({ example: 'nguyenvana', description: 'Tên đăng nhập (tùy chọn; sẽ dùng CCCD nếu không có)' })
   @IsString()
-  @IsNotEmpty()
-  username: string;
+  @IsOptional()
+  username?: string;
 
-  @ApiProperty({ example: 'matkhau123', minLength: 6, description: 'Mật khẩu (>= 6 ký tự)' })
+  @ApiProperty({
+    example: 'MyP@ssw0rd123!',
+    minLength: 8,
+    description: 'Mật khẩu (>= 8 ký tự, phải có chữ hoa, chữ thường, số và ký tự đặc biệt)'
+  })
   @IsString()
-  @MinLength(6)
+  @MinLength(8, { message: 'Mật khẩu phải có ít nhất 8 ký tự' })
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+\-=\[\]{};':"\\|,.<>\/])[A-Za-z\d@$!%*?&#^()_+\-=\[\]{};':"\\|,.<>\/]{8,}$/,
+    { message: 'Mật khẩu phải chứa ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt' }
+  )
   password: string;
 
   @ApiProperty({ example: 'Nguyễn Văn A', description: 'Họ tên đầy đủ' })
   @IsString()
   @IsNotEmpty()
   fullName: string;
+
+  @ApiPropertyOptional({ example: '0912345678', description: 'Số điện thoại liên hệ (không bắt buộc)' })
+  @IsString()
+  @IsOptional()
+  phoneNumber?: string;
+
+  @ApiPropertyOptional({ example: 'nguyenvana@example.com', description: 'Email liên hệ (không bắt buộc)' })
+  @IsEmail({}, { message: 'Email không hợp lệ' })
+  @IsOptional()
+  email?: string;
 
   @ApiPropertyOptional({
     enum: UserRole,

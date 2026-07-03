@@ -16,6 +16,7 @@ import { InsightsModule } from './modules/insights/insights.module';
 import { DocumentTypesModule } from './modules/document-types/document-types.module';
 import { QueueModule } from './queue/queue.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { SignaturesModule } from './modules/signatures/signatures.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
     InsightsModule,
     QueueModule,
     JobsModule,
+    SignaturesModule,
   ],
 })
 export class AppModule {}

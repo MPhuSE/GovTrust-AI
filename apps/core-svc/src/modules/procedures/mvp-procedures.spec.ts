@@ -3,9 +3,9 @@ import { resolve } from 'path';
 import { MVP_PROCEDURES } from './mvp-procedures';
 
 describe('MVP procedure registry', () => {
-  it('defines seven procedures with unique codes and output templates', () => {
-    expect(MVP_PROCEDURES).toHaveLength(7);
-    expect(new Set(MVP_PROCEDURES.map(item => item.code)).size).toBe(7);
+  it('defines three procedures with unique codes and output templates', () => {
+    expect(MVP_PROCEDURES).toHaveLength(3);
+    expect(new Set(MVP_PROCEDURES.map(item => item.code)).size).toBe(3);
     expect(MVP_PROCEDURES.every(item => item.outputTemplate?.key)).toBe(true);
   });
 

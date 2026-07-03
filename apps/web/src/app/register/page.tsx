@@ -175,7 +175,7 @@ const CameraCapture = ({
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('info');
-  const [form, setForm] = useState({ username: '', fullName: '', password: '', confirmPassword: '' });
+  const [form, setForm] = useState({ fullName: '', password: '', confirmPassword: '' });
   const [files, setFiles] = useState<{ front: File | null; back: File | null; selfie: File | null }>({ front: null, back: null, selfie: null });
   const [previews, setPreviews] = useState<{ front: string; back: string; selfie: string }>({ front: '', back: '', selfie: '' });
   const [error, setError] = useState<string | null>(null);
@@ -200,9 +200,20 @@ export default function RegisterPage() {
   const handleInfoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (form.username.length < 3) { setError('Tên đăng nhập tối thiểu 3 ký tự'); return; }
     if (form.fullName.trim().length < 1) { setError('Vui lòng nhập họ tên'); return; }
-    if (form.password.length < 6) { setError('Mật khẩu tối thiểu 6 ký tự'); return; }
+    if (form.password.length < 8) { setError('Mật khẩu phải có ít nhất 8 ký tự'); return; }
+
+    // Validate password strength
+    const hasUpperCase = /[A-Z]/.test(form.password);
+    const hasLowerCase = /[a-z]/.test(form.password);
+    const hasNumber = /\d/.test(form.password);
+    const hasSpecialChar = /[@$!%*?&#^()_+\-=\[\]{};':"\\|,.<>\/]/.test(form.password);
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecialChar) {
+      setError('Mật khẩu phải chứa ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt');
+      return;
+    }
+
     if (form.password !== form.confirmPassword) { setError('Mật khẩu xác nhận không khớp'); return; }
     setStep('front');
   };
@@ -214,7 +225,7 @@ export default function RegisterPage() {
     setStep('verifying');
 
     const fd = new FormData();
-    fd.append('username', form.username);
+    // username sẽ được backend tự động điền từ CCCD number
     fd.append('password', form.password);
     fd.append('fullName', form.fullName);
     fd.append('front', files.front);
@@ -493,10 +504,12 @@ export default function RegisterPage() {
               <h2 className="text-xl font-extrabold text-teal-700">Tạo tài khoản công dân</h2>
               <p className="text-sm text-gray-500 font-medium mt-1">Xác minh danh tính bằng CCCD gắn chip</p>
             </div>
-            <Field id="username" label="Tên đăng nhập" placeholder="Ví dụ: 012345678912" value={form.username} onChange={v => setForm(p => ({ ...p, username: v }))} autoComplete="username" />
             <Field id="fullName" label="Họ và Tên" placeholder="NGUYEN VAN A" value={form.fullName} onChange={v => setForm(p => ({ ...p, fullName: v }))} />
-            <Field id="password" label="Mật khẩu" placeholder="••••••••" type="password" value={form.password} onChange={v => setForm(p => ({ ...p, password: v }))} autoComplete="new-password" hint="Tối thiểu 6 ký tự" />
+            <Field id="password" label="Mật khẩu" placeholder="••••••••" type="password" value={form.password} onChange={v => setForm(p => ({ ...p, password: v }))} autoComplete="new-password" hint="Tối thiểu 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt" />
             <Field id="confirmPassword" label="Xác nhận mật khẩu" placeholder="••••••••" type="password" value={form.confirmPassword} onChange={v => setForm(p => ({ ...p, confirmPassword: v }))} autoComplete="new-password" />
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-800 font-medium">
+              💡 Tên đăng nhập sẽ là số CCCD của bạn sau khi xác thực
+            </div>
             <button type="submit" className="w-full py-4 rounded bg-teal-700 hover:bg-teal-800 text-white font-bold transition-all shadow-md mt-2">
               Tiếp tục chụp CCCD →
             </button>

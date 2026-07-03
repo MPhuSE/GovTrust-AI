@@ -34,10 +34,7 @@ def answer(question: str) -> str:
 
 def test_household_business_procedures_use_qdrant_category():
     household_business_codes = {
-        "HKD_THANH_LAP",
         "HKD_THAY_DOI",
-        "HKD_CAP_LAI",
-        "HKD_CHAM_DUT",
     }
 
     assert {

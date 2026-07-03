@@ -8,6 +8,7 @@ import httpx
 
 from app.config import Settings
 from app.services.preprocess import preprocess_image
+from app.services.qwen_ocr import QwenOcrService
 
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,17 @@ SMARTREADER_MAPPING: dict[str, dict[str, str]] = {
         "coQuanBanHanh": "ten_co_quan_thuc_hien",
         "ngayBanHanh": "ngay_ban_hanh_van_ban",
     },
+    # Giấy tờ chứng minh chỗ ở hợp pháp (sổ đỏ / GCN QSDĐ) — dùng để đăng ký thường trú.
+    # Chưa có endpoint SmartReader chuyên biệt cho sổ đỏ nên bóc qua v2 văn bản hành chính
+    # (thật, tổng quát). Map field theo tên trường v2 trả về; ít ổn định hơn giấy chuyên biệt.
+    # Khi VNPT mở endpoint riêng cho GCN QSDĐ: đổi 1 dòng ở SMARTREADER_ENDPOINTS + map lại key.
+    "GIAY_CHUNG_NHAN_QSDD": {
+        "soGiayChungNhan": "so_van_ban",
+        "tenChuSoHuu": "ten_nguoi_dai_dien",
+        "diaChiNha": "dia_chi",
+        "coQuanCap": "ten_co_quan_thuc_hien",
+        "ngayCap": "ngay_ban_hanh_van_ban",
+    },
 }
 
 # Endpoint SmartReader theo loại giấy tờ. Thêm loại mới: thêm 1 dòng ở đây + 1 mapping ở trên.
@@ -110,6 +122,15 @@ SMARTREADER_ENDPOINTS: dict[str, str] = {
     "GIAY_KET_HON": "/rpa-service/aidigdoc/v1/ocr/giay-dang-ky-ket-hon",
     "HO_KINH_DOANH": "/rpa-service/aidigdoc/v1/ocr/dang-ky-ho-kinh-doanh",
     "VAN_BAN_HANH_CHINH": "/rpa-service/aidigdoc/v2/ocr/van-ban-hanh-chinh",
+    "GIAY_CHUNG_NHAN_QSDD": "/rpa-service/aidigdoc/v2/ocr/van-ban-hanh-chinh",
+}
+
+# Loại giấy tờ sử dụng Qwen VL OCR (không có VNPT endpoint hoặc VNPT không có quyền)
+QWEN_OCR_DOCUMENTS: set[str] = {
+    "GIAY_CHUNG_NHAN_QSDD",  # Sổ đỏ - VNPT không có quyền
+    "VAN_BAN_UY_QUYEN_HGD",  # Văn bản ủy quyền hộ gia đình
+    "VAN_BAN_UY_QUYEN_THU_TUC",  # Văn bản ủy quyền thủ tục
+    "HOP_DONG_CHUYEN_NHUONG",  # Hợp đồng chuyển nhượng đất
 }
 
 @dataclass(frozen=True)
@@ -125,6 +146,12 @@ class OcrService:
     def __init__(self, settings: Settings, http: httpx.AsyncClient):
         self.settings = settings
         self.http = http
+        self.qwen_service = None
+        if settings.QWEN_OCR_API_KEY:
+            self.qwen_service = QwenOcrService(
+                api_key=settings.QWEN_OCR_API_KEY,
+                base_url=settings.QWEN_OCR_BASE_URL
+            )
 
     @property
     def configured(self) -> bool:
@@ -144,6 +171,10 @@ class OcrService:
             and self.settings.VNPT_EKYC_ACCESS_TOKEN
         )
 
+    @property
+    def qwen_configured(self) -> bool:
+        return bool(self.settings.QWEN_OCR_API_KEY and self.qwen_service)
+
     async def extract(
         self,
         image: bytes,
@@ -158,9 +189,14 @@ class OcrService:
                 return self._mock_result(document_type, quality, started)
             return await self._extract_ekyc(image, document_type, quality, started)
 
+        if document_type in QWEN_OCR_DOCUMENTS:
+            if not self.qwen_configured:
+                return self._mock_result(document_type, quality, started)
+            return await self._extract_qwen(image, document_type, quality, started)
+
         if document_type not in SMARTREADER_ENDPOINTS:
             raise UnsupportedDocumentType(
-                f"Loại giấy '{document_type}' chưa hỗ trợ OCR (không có endpoint VNPT)"
+                f"Loại giấy '{document_type}' chưa hỗ trợ OCR (không có endpoint VNPT hoặc Qwen)"
             )
         if not self.configured:
             return self._mock_result(document_type, quality, started)
@@ -204,6 +240,36 @@ class OcrService:
             processing_time_ms=int((time.perf_counter() - started) * 1000),
             liveness=None,
             image_quality={**quality, "ocrConfidence": normalized.avg_confidence},
+        )
+
+    async def _extract_qwen(
+        self,
+        image: bytes,
+        document_type: str,
+        quality: dict[str, Any],
+        started: float,
+    ) -> OcrResult:
+        """Extract fields using Qwen VL OCR"""
+        qwen_data = await self.qwen_service.extract(image, document_type, self.http)
+
+        # Convert Qwen response to OcrResult format with confidence scores
+        fields = {
+            key: {"value": value, "confidence": 0.87}
+            for key, value in qwen_data.items()
+        }
+
+        processing_time_ms = int((time.perf_counter() - started) * 1000)
+        logger.info(
+            f"Qwen OCR extracted {document_type} in {processing_time_ms}ms",
+            extra={"document_type": document_type, "processing_time_ms": processing_time_ms}
+        )
+
+        return OcrResult(
+            fields=fields,
+            avg_confidence=0.87,
+            processing_time_ms=processing_time_ms,
+            liveness=None,
+            image_quality={**quality, "ocrConfidence": 0.87},
         )
 
     async def _extract_ekyc(
@@ -320,6 +386,13 @@ class OcrService:
                 "soVanBan": "01/UQ",
                 "coQuanBanHanh": "UBND phường Minh Khai",
                 "ngayBanHanh": "01/07/2026",
+            },
+            "GIAY_CHUNG_NHAN_QSDD": {
+                "soGiayChungNhan": "CT 01234",
+                "tenChuSoHuu": "NGUYEN VAN A",
+                "diaChiNha": "Phường Minh Khai, Hà Nội",
+                "coQuanCap": "Sở Tài nguyên và Môi trường Hà Nội",
+                "ngayCap": "01/01/2020",
             },
         }
         return {

@@ -67,6 +67,12 @@ export class User {
 
   @Prop()
   kycVerifiedAt?: Date;
+
+  @Prop({ required: true })
+  phoneNumber: string;
+
+  @Prop()
+  email?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

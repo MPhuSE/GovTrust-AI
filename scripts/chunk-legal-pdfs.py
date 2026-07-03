@@ -24,6 +24,9 @@ class Source:
     topic: str
     url: str
     effective_date: str | None = None
+    # category phải KHỚP CHÍNH XÁC procedure.category (LawGuard lọc strict-match:
+    # hybrid_search.py). Mặc định HO_KINH_DOANH cho các VB thuế/ĐKKD hiện có.
+    category: str = "HO_KINH_DOANH"
 
 
 SOURCES: dict[str, Source] = {
@@ -120,6 +123,27 @@ SOURCES: dict[str, Source] = {
         "https://congbao.chinhphu.vn/van-ban/luat-so-143-2025-qh15-468703/61729.htm",
         "2026-03-01",
     ),
+    # ————————————— CƯ TRÚ (thủ tục đăng ký thường trú) —————————————
+    # ĐỔI TÊN KEY bên dưới cho khớp ĐÚNG tên file PDF bạn tải về đặt trong pdf/.
+    # category='CƯ TRÚ' phải khớp procedure.category ở mvp-procedures.ts (LawGuard strict-match).
+    "luat-cu-tru-2020.pdf": Source(
+        "luat-cu-tru-2020",
+        "Luật Cư trú 2020",
+        "68/2020/QH14",
+        "CU_TRU",
+        "https://thuvienphapluat.vn/van-ban/Quyen-dan-su/Luat-Cu-tru-2020-so-68-2020-QH14-444805.aspx",
+        "2021-07-01",
+        category="CƯ TRÚ",
+    ),
+    "nghi-dinh-154-2024-cu-tru.pdf": Source(
+        "nghi-dinh-154-2024-cu-tru",
+        "Nghị định 154/2024/NĐ-CP hướng dẫn Luật Cư trú",
+        "154/2024/NĐ-CP",
+        "CU_TRU",
+        "https://congbao.chinhphu.vn/van-ban/nghi-dinh-so-154-2024-nd-cp-46060.htm",
+        "2025-01-10",
+        category="CƯ TRÚ",
+    ),
 }
 
 
@@ -129,6 +153,10 @@ NOISE_RE = [
     re.compile(r"(?m)^\s*CÔNG BÁO/Số[^\n]*$"),
     re.compile(r"(?m)^\s*\d+\s*$"),
     re.compile(r"(?m)^\s*Người ký: CỔNG THÔNG TIN ĐIỆN TỬ CHÍNH PHỦ\s*$"),
+    # Nhiễu khi in PDF từ trình duyệt (vd luật cư trú tải từ thuvienphapluat):
+    re.compile(r"(?m)^\s*about:blank\s*$"),
+    re.compile(r"(?m)^\s*\d{1,2}/\d{1,2}/\d{2,4},\s*\d{1,2}:\d{2}\s*[AP]M\s*$"),
+    re.compile(r"(?m)^\s*\d+/\d+\s*$"),
 ]
 
 
@@ -209,7 +237,7 @@ def build_chunks(path: Path, source: Source) -> list[dict]:
             chunks.append(
                 {
                     "chunkId": f"pdf-{source.slug}-{article_key}{occurrence_suffix}-chunk{number}",
-                    "category": "HO_KINH_DOANH",
+                    "category": source.category,
                     "topic": source.topic,
                     "title": source.title,
                     "article": article,
@@ -231,10 +259,13 @@ def main() -> None:
     actual_files = {path.name for path in PDF_DIR.glob("*.pdf")}
     missing_metadata = sorted(actual_files - SOURCES.keys())
     missing_files = sorted(SOURCES.keys() - actual_files)
-    if missing_metadata or missing_files:
-        raise RuntimeError(
-            f"PDF chưa có metadata={missing_metadata}; metadata thiếu PDF={missing_files}"
-        )
+    # PDF có trong pdf/ nhưng chưa khai metadata → vẫn báo lỗi (thiếu category/nguồn).
+    if missing_metadata:
+        raise RuntimeError(f"PDF chưa có metadata={missing_metadata}")
+    # Metadata khai nhưng chưa có file PDF (vd luật cư trú chưa tải) → BỎ QUA + cảnh báo,
+    # để vẫn re-chunk được các văn bản hiện có. Thêm PDF vào pdf/ là tự động cuốn vào.
+    if missing_files:
+        print(f"[bỏ qua] metadata chưa có file PDF trong pdf/: {missing_files}")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     for stale in OUTPUT_DIR.glob("*.json"):
@@ -242,6 +273,8 @@ def main() -> None:
 
     total = 0
     for filename, source in SOURCES.items():
+        if filename in missing_files:
+            continue
         chunks = build_chunks(PDF_DIR / filename, source)
         destination = OUTPUT_DIR / f"{source.slug}.json"
         destination.write_text(

@@ -122,6 +122,9 @@ export class FormDocumentRenderer {
     const templatePath = candidates.find(existsSync);
     if (!templatePath) return undefined;
 
+    // Conditional rendering: xóa các trường công trình nếu user không chọn đăng ký
+    const finalValues = this.applyConditionalRules(key, values);
+
     const zip = new PizZip(readFileSync(templatePath));
     const template = new Docxtemplater(zip, {
       delimiters: { start: '{{', end: '}}' },
@@ -129,8 +132,43 @@ export class FormDocumentRenderer {
       linebreaks: true,
       nullGetter: () => '',
     });
-    template.render(values);
+    template.render(finalValues);
     return template.getZip().generate({ type: 'nodebuffer' });
+  }
+
+  /**
+   * Áp dụng logic conditional cho từng template
+   */
+  private applyConditionalRules(
+    templateKey: string,
+    values: Record<string, string>,
+  ): Record<string, any> {
+    const result: Record<string, any> = { ...values };
+
+    // Template DKDD_CHUYEN_NHUONG: xử lý phần 3 (công trình)
+    if (templateKey === 'DKDD_CHUYEN_NHUONG') {
+      const dangKyCongTrinh = values['congTrinh.dangKy']?.toLowerCase() === 'true';
+
+      // Chuyển sang nested object để docxtemplater hiểu conditional {#congTrinh.dangKy}
+      result['congTrinh'] = {
+        dangKy: dangKyCongTrinh,  // Boolean để docxtemplater check
+        loai: dangKyCongTrinh ? (values['congTrinh.loai'] || 'N/A') : undefined,
+        soTang: dangKyCongTrinh ? (values['congTrinh.soTang'] || 'N/A') : undefined,
+        chieuCao: dangKyCongTrinh ? (values['congTrinh.chieuCao'] || 'N/A') : undefined,
+        matDoXayDung: dangKyCongTrinh ? (values['congTrinh.matDoXayDung'] || 'N/A') : undefined,
+        chiTieuKhac: dangKyCongTrinh ? (values['congTrinh.chiTieuKhac'] || 'N/A') : undefined,
+      };
+
+      // Xóa các flat keys cũ
+      delete result['congTrinh.dangKy'];
+      delete result['congTrinh.loai'];
+      delete result['congTrinh.soTang'];
+      delete result['congTrinh.chieuCao'];
+      delete result['congTrinh.matDoXayDung'];
+      delete result['congTrinh.chiTieuKhac'];
+    }
+
+    return result;
   }
 
   async renderPdf(procedure: ProcedureDocument, values: Record<string, string>): Promise<Buffer> {

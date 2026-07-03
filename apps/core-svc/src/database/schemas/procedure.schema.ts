@@ -53,6 +53,7 @@ export class Procedure {
     required: boolean;
     sourceMap: string[];
     defaultValue?: string;
+    autofillFromUser?: string;
   }>;
 
   @Prop({ type: [Object], default: [] })

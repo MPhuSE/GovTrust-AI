@@ -9,25 +9,24 @@ from app.text import VietnameseTextProcessor
 logger = logging.getLogger(__name__)
 
 # Thứ tự QUAN TRỌNG: keyword_fallback trả match ĐẦU TIÊN, nên cụm cụ thể phải đứng
-# trước cụm chung (vd "đăng ký lại khai sinh" trước "khai sinh").
+# trước cụm chung (vd "thay đổi hộ kinh doanh" trước "hộ kinh doanh").
+# 3 thủ tục MVP: đăng ký thường trú + thay đổi chủ hộ kinh doanh + chuyển nhượng QSDĐ.
 PROCEDURE_KEYWORDS: dict[str, str] = {
-    "cấp bản sao trích lục khai sinh": "CAP_BAN_SAO_TRICH_LUC_KHAI_SINH",
-    "trích lục khai sinh": "CAP_BAN_SAO_TRICH_LUC_KHAI_SINH",
-    "bản sao khai sinh": "CAP_BAN_SAO_TRICH_LUC_KHAI_SINH",
-    "đăng ký lại khai sinh": "DK_LAI_KHAI_SINH",
-    "khai sinh": "DK_LAI_KHAI_SINH",
-    "xác nhận tình trạng hôn nhân": "XAC_NHAN_TINH_TRANG_HON_NHAN",
-    "tình trạng hôn nhân": "XAC_NHAN_TINH_TRANG_HON_NHAN",
-    "hôn nhân": "XAC_NHAN_TINH_TRANG_HON_NHAN",
-    "thành lập hộ kinh doanh": "HKD_THANH_LAP",
-    "đăng ký hộ kinh doanh": "HKD_THANH_LAP",
+    "đăng ký thường trú": "DK_THUONG_TRU",
+    "nhập hộ khẩu": "DK_THUONG_TRU",
+    "nhập khẩu": "DK_THUONG_TRU",
+    "thường trú": "DK_THUONG_TRU",
+    "cư trú": "DK_THUONG_TRU",
+    "chuyển nhượng quyền sử dụng đất": "CHUYEN_NHUONG_QSDD",
+    "chuyển nhượng đất": "CHUYEN_NHUONG_QSDD",
+    "chuyển nhượng qsdđ": "CHUYEN_NHUONG_QSDD",
+    "sang tên sổ đỏ": "CHUYEN_NHUONG_QSDD",
+    "sang tên đất": "CHUYEN_NHUONG_QSDD",
+    "thay đổi chủ hộ kinh doanh": "HKD_THAY_DOI",
     "thay đổi hộ kinh doanh": "HKD_THAY_DOI",
     "thay đổi đăng ký kinh doanh": "HKD_THAY_DOI",
-    "cấp lại giấy chứng nhận hộ kinh doanh": "HKD_CAP_LAI",
-    "cấp lại hộ kinh doanh": "HKD_CAP_LAI",
-    "chấm dứt hộ kinh doanh": "HKD_CHAM_DUT",
-    "ngừng hộ kinh doanh": "HKD_CHAM_DUT",
-    "hộ kinh doanh": "HKD_THANH_LAP",
+    "thay đổi chủ hộ": "HKD_THAY_DOI",
+    "hộ kinh doanh": "HKD_THAY_DOI",
 }
 
 

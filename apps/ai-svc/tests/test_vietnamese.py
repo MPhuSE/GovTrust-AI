@@ -14,5 +14,5 @@ def test_tokens_keep_accents_folded_form_and_bigrams():
 
 
 def test_keyword_fallback_accepts_missing_diacritics():
-    assert HoSoBotService.keyword_fallback("Toi muon dang ky lai khai sinh") == "DK_LAI_KHAI_SINH"
-    assert HoSoBotService.keyword_fallback("thanh lap ho kinh doanh") == "HKD_THANH_LAP"
+    assert HoSoBotService.keyword_fallback("Toi muon dang ky thuong tru") == "DK_THUONG_TRU"
+    assert HoSoBotService.keyword_fallback("thay doi ho kinh doanh") == "HKD_THAY_DOI"

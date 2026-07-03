@@ -146,9 +146,8 @@ export default function HomePage() {
                 <h3 className="text-xl font-extrabold text-slate-800 uppercase tracking-tight">Công Dân</h3>
               </div>
               <div className="flex flex-col gap-4">
-                <ServiceListBar icon={<Baby />} title="Cấp bản sao trích lục khai sinh" subtitle="Thủ tục hành chính về hộ tịch" onClick={() => handleSelectProcedure('CAP_BAN_SAO_TRICH_LUC_KHAI_SINH')} />
-                <ServiceListBar icon={<Baby />} title="Đăng ký lại khai sinh" subtitle="Thủ tục hành chính về hộ tịch" onClick={() => handleSelectProcedure('DK_LAI_KHAI_SINH')} />
-                <ServiceListBar icon={<HeartPulse />} title="Cấp Giấy xác nhận tình trạng hôn nhân" subtitle="Thủ tục hành chính về hộ tịch" onClick={() => handleSelectProcedure('XAC_NHAN_TINH_TRANG_HON_NHAN')} />
+                <ServiceListBar icon={<Home />} title="Đăng ký thường trú" subtitle="Thủ tục hành chính về cư trú" onClick={() => handleSelectProcedure('DK_THUONG_TRU')} />
+                <ServiceListBar icon={<Landmark />} title="Chuyển nhượng quyền sử dụng đất" subtitle="Thủ tục hành chính về đất đai" onClick={() => handleSelectProcedure('CHUYEN_NHUONG_QSDD')} />
               </div>
             </div>
 
@@ -161,10 +160,7 @@ export default function HomePage() {
                 <h3 className="text-xl font-extrabold text-slate-800 uppercase tracking-tight">Doanh Nghiệp (Hộ kinh doanh)</h3>
               </div>
               <div className="flex flex-col gap-4">
-                <ServiceListBar icon={<Factory />} title="Đăng ký thành lập hộ kinh doanh" subtitle="Thủ tục hành chính về đăng ký kinh doanh" onClick={() => handleSelectProcedure('HKD_THANH_LAP')} />
                 <ServiceListBar icon={<Briefcase />} title="Đăng ký thay đổi chủ hộ kinh doanh" subtitle="Thủ tục hành chính về đăng ký kinh doanh" onClick={() => handleSelectProcedure('HKD_THAY_DOI')} />
-                <ServiceListBar icon={<FileText />} title="Cấp lại Giấy chứng nhận đăng ký hộ kinh doanh" subtitle="Thủ tục hành chính về đăng ký kinh doanh" onClick={() => handleSelectProcedure('HKD_CAP_LAI')} />
-                <ServiceListBar icon={<Bolt />} title="Chấm dứt hoạt động hộ kinh doanh" subtitle="Thủ tục hành chính về đăng ký kinh doanh" onClick={() => handleSelectProcedure('HKD_CHAM_DUT')} />
               </div>
             </div>
 

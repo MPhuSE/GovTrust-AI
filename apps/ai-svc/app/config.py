@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     # Contract cũ của HoSoBot; giữ để không làm hỏng fallback hiện tại.
     VNPT_SMARTBOT_API_KEY: str = ""
 
+    # Qwen VL OCR - for documents without VNPT endpoints (e.g., sổ đỏ, hợp đồng)
+    QWEN_OCR_API_KEY: str = ""
+    QWEN_OCR_BASE_URL: str = "https://api.shopaikey.com/v1"
+
     @field_validator("EMBEDDING_DIMENSIONS", mode="before")
     @classmethod
     def empty_dimension_is_none(cls, value):

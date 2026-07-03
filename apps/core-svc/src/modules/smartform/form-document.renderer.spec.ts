@@ -4,24 +4,24 @@ import PizZip = require('pizzip');
 
 describe('FormDocumentRenderer', () => {
   const procedure = {
-    code: 'XAC_NHAN_TINH_TRANG_HON_NHAN',
-    name: 'Cấp Giấy xác nhận tình trạng hôn nhân',
+    code: 'DK_THUONG_TRU',
+    name: 'Đăng ký thường trú',
     outputTemplate: {
-      key: 'HT_XNTTHN',
-      displayName: 'Tờ khai cấp Giấy xác nhận tình trạng hôn nhân',
-      originalFile: 'template/xntthn.docx',
+      key: 'CT_THUONG_TRU',
+      displayName: 'Tờ khai đăng ký thường trú',
+      originalFile: 'template/renderable/CT_THUONG_TRU.docx',
       version: 'MVP',
       outputFormats: ['docx', 'pdf'],
     },
     formFields: [
       { id: 'nguoiYeuCau.hoTen', label: 'Họ và tên người yêu cầu', required: true, sourceMap: [] },
-      { id: 'honNhan.tinhTrang', label: 'Tình trạng hôn nhân', required: true, sourceMap: [] },
+      { id: 'cuTru.diaChiThuongTru', label: 'Địa chỉ thường trú', required: true, sourceMap: [] },
     ],
   } as unknown as ProcedureDocument;
   const values = {
     __sessionId: 'session-test',
     'nguoiYeuCau.hoTen': 'Nguyễn Văn An',
-    'honNhan.tinhTrang': 'Chưa đăng ký kết hôn',
+    'cuTru.diaChiThuongTru': '123 Đường ABC, Phường XYZ',
   };
 
   it('renders a non-empty DOCX draft', async () => {

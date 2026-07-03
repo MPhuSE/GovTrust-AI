@@ -9,6 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import {
   KycStatus,
   User,
@@ -16,6 +17,11 @@ import {
   UserRole,
 } from '../../database/schemas/user.schema';
 import { EkycFiles, EkycVerificationService } from './ekyc-verification.service';
+
+/** Hash sensitive PII using SHA-256 (one-way). Used for CCCD number and addresses. */
+function hashPii(value: string): string {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
 
 /** Mask CCCD: giữ 3 số đầu và 3 số cuối, che phần giữa.
  *  Ví dụ: "034095012345" → "034******345"
@@ -40,15 +46,21 @@ export class AuthService {
     private ekycVerificationService: EkycVerificationService,
   ) {}
 
-  async register(dto: { username: string; password: string; fullName: string; role?: UserRole }) {
-    const exists = await this.userModel.findOne({ username: dto.username });
+  async register(dto: { username?: string; password: string; fullName: string; phoneNumber?: string; email?: string; role?: UserRole }) {
+    // Validate password strength
+    this.validatePasswordStrength(dto.password);
+
+    const username = dto.username || dto.fullName.toLowerCase().replace(/\s+/g, '');
+    const exists = await this.userModel.findOne({ username });
     if (exists) throw new ConflictException('Tên đăng nhập đã tồn tại');
 
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const passwordHash = await bcrypt.hash(dto.password, 12); // Increased bcrypt rounds to 12
     const user = await this.userModel.create({
-      username: dto.username,
+      username,
       passwordHash,
       fullName: dto.fullName,
+      phoneNumber: dto.phoneNumber,
+      email: dto.email,
       role: dto.role ?? UserRole.CITIZEN,
     });
 
@@ -56,11 +68,11 @@ export class AuthService {
   }
 
   async registerWithEkyc(
-    dto: { username: string; password: string; fullName: string },
+    dto: { username?: string; password: string; fullName: string; phoneNumber?: string; email?: string },
     files: EkycFiles,
   ) {
-    const exists = await this.userModel.findOne({ username: dto.username });
-    if (exists) throw new ConflictException('Tên đăng nhập đã tồn tại');
+    // Validate password strength
+    this.validatePasswordStrength(dto.password);
 
     // Không ghi users trước khi eKYC hoàn tất. Nhờ vậy mọi nhánh thất bại
     // đều kết thúc mà không để lại document mồ côi trong MongoDB.
@@ -72,8 +84,20 @@ export class AuthService {
       );
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, 10);
     const cccdNumber = ekyc.ocrFields?.cccdNumber?.value;
+    if (!cccdNumber) {
+      throw new UnprocessableEntityException('Không trích xuất được số CCCD từ ảnh');
+    }
+
+    // Username = CCCD number nếu không có username được cung cấp
+    const username = dto.username || cccdNumber;
+
+    const exists = await this.userModel.findOne({ username });
+    if (exists) throw new ConflictException('Tên đăng nhập đã tồn tại');
+
+    const passwordHash = await bcrypt.hash(dto.password, 12); // Increased bcrypt rounds to 12
+
+    // Extract OCR fields
     const cccdFullName = ekyc.ocrFields?.fullName?.value;
     const cccdBirthDay = ekyc.ocrFields?.birthDay?.value;
     const cccdGender = ekyc.ocrFields?.gender?.value;
@@ -85,18 +109,21 @@ export class AuthService {
     let user: UserDocument;
     try {
       user = await this.userModel.create({
-        username: dto.username,
+        username,
         passwordHash,
         fullName: dto.fullName,
+        phoneNumber: dto.phoneNumber,
+        email: dto.email,
         role: UserRole.CITIZEN,
         kycStatus: KycStatus.VERIFIED,
-        ...(cccdNumber && { cccdNumber }),
-        ...(cccdFullName && { cccdFullName }),
+        // Hash sensitive PII before storing
+        cccdNumber: hashPii(cccdNumber),
+        ...(cccdFullName && { cccdFullName }), // Name is not hashed for display
         ...(cccdBirthDay && { cccdBirthDay }),
         ...(cccdGender && { cccdGender }),
         ...(cccdNationality && { cccdNationality }),
-        ...(cccdOriginLocation && { cccdOriginLocation }),
-        ...(cccdRecentLocation && { cccdRecentLocation }),
+        ...(cccdOriginLocation && { cccdOriginLocation: hashPii(cccdOriginLocation) }),
+        ...(cccdRecentLocation && { cccdRecentLocation: hashPii(cccdRecentLocation) }),
         ...(cccdValidDate && { cccdValidDate }),
         kycFaceMatchProb: ekyc.faceMatchProb ?? 0,
         kycVerifiedAt: new Date(),
@@ -108,7 +135,16 @@ export class AuthService {
       throw error;
     }
 
-    return { ...this.buildToken(user), ekyc };
+    // Return unhashed CCCD data in response for immediate display
+    const ekycWithOriginalData = {
+      ...ekyc,
+      ocrFields: {
+        ...ekyc.ocrFields,
+        cccdNumber: { value: cccdNumber, confidence: ekyc.ocrFields?.cccdNumber?.confidence ?? 0 },
+      }
+    };
+
+    return { ...this.buildToken(user), ekyc: ekycWithOriginalData };
   }
 
   async login(dto: { username: string; password: string }) {
@@ -136,16 +172,33 @@ export class AuthService {
       kycStatus: user.kycStatus ?? KycStatus.NONE,
       kycVerifiedAt: user.kycVerifiedAt ?? null,
       kycFaceMatchProb: user.kycFaceMatchProb ?? null,
-      // CCCD — masked để bảo vệ PII; full value chỉ nằm trong DB
-      cccdNumber:        user.cccdNumber    ? maskCccd(user.cccdNumber) : null,
+      // CCCD — already hashed in DB, display masked placeholder
+      cccdNumber:        user.cccdNumber    ? '***' : null, // Hashed in DB, show placeholder
       cccdFullName:      user.cccdFullName  ?? null,
       cccdBirthDay:      user.cccdBirthDay  ?? null,
       cccdGender:        user.cccdGender    ?? null,
       cccdNationality:   user.cccdNationality ?? null,
-      cccdOriginLocation: user.cccdOriginLocation ? maskAddr(user.cccdOriginLocation) : null,
-      cccdRecentLocation: user.cccdRecentLocation ? maskAddr(user.cccdRecentLocation) : null,
+      cccdOriginLocation: user.cccdOriginLocation ? '***' : null, // Hashed in DB
+      cccdRecentLocation: user.cccdRecentLocation ? '***' : null, // Hashed in DB
       cccdValidDate:     user.cccdValidDate ?? null,
     };
+  }
+
+  private validatePasswordStrength(password: string): void {
+    if (password.length < 8) {
+      throw new UnprocessableEntityException('Mật khẩu phải có ít nhất 8 ký tự');
+    }
+
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    const hasSpecialChar = /[@$!%*?&#^()_+\-=\[\]{};':"\\|,.<>\/]/.test(password);
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecialChar) {
+      throw new UnprocessableEntityException(
+        'Mật khẩu phải chứa ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt'
+      );
+    }
   }
 
   private buildToken(user: UserDocument) {
