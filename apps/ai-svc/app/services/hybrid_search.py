@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
@@ -77,10 +78,39 @@ class HybridLegalSearch:
         self.tokenized_documents: list[list[str]] = []
         self.bm25: BM25Okapi | None = None
         self.dense_ready = False
+        # canonical category key -> giá trị category thật đang lưu trong Qdrant.
+        # Data ingest không nhất quán (DAT_DAI, HO_TICH vs "CƯ TRÚ"), còn caller
+        # gửi "ĐẤT ĐAI" / "HỘ TỊCH"... nên phải resolve về đúng giá trị đã lưu.
+        self._category_lookup: dict[str, str] = {}
+
+    @staticmethod
+    def _canon_category(value: str) -> str:
+        """Fold dấu + slug hóa: 'ĐẤT ĐAI' == 'DAT_DAI' == 'dat dai' -> 'DAT_DAI'."""
+        folded = VietnameseTextProcessor.fold_accents(value).upper()
+        return re.sub(r"[^A-Z0-9]+", "_", folded).strip("_")
+
+    def _resolve_category(self, category: str | None) -> str | None:
+        """Ánh xạ category caller gửi về đúng giá trị Qdrant đang lưu (cho dense filter)."""
+        if not category:
+            return None
+        return self._category_lookup.get(self._canon_category(category), category)
 
     async def initialize(self) -> None:
         self.documents = await asyncio.to_thread(self._load_documents, self.settings.legal_chunks_path)
         self.by_id = {doc.chunk_id: doc for doc in self.documents}
+        # Lookup canonical -> giá trị category thật. Ưu tiên category trong Qdrant vì
+        # collection chứa nhiều category hơn JSON local (HO_KINH_DOANH, CƯ TRÚ không có
+        # file local) — nếu chỉ dựa vào JSON, filter cho các category đó sẽ không khớp.
+        self._category_lookup = {
+            self._canon_category(doc.category): doc.category
+            for doc in self.documents
+            if doc.category
+        }
+        qdrant_categories = await asyncio.to_thread(self._load_qdrant_categories)
+        for value in qdrant_categories:
+            self._category_lookup[self._canon_category(value)] = value
+        if qdrant_categories:
+            logger.info("Category lookup từ Qdrant: %s", sorted(qdrant_categories))
         if self.documents:
             self.tokenized_documents = [
                 VietnameseTextProcessor.tokens(doc.text) for doc in self.documents
@@ -184,9 +214,10 @@ class HybridLegalSearch:
     async def _dense_search(self, query: str, category: str | None, limit: int) -> list[str]:
         vector = await self.embeddings.embed_one(query, "query")
         query_filter = None
-        if category:
+        resolved = self._resolve_category(category)
+        if resolved:
             query_filter = Filter(
-                must=[FieldCondition(key="category", match=MatchValue(value=category))]
+                must=[FieldCondition(key="category", match=MatchValue(value=resolved))]
             )
         results = await asyncio.to_thread(
             self.client.search,
@@ -199,7 +230,20 @@ class HybridLegalSearch:
             limit=limit,
             with_payload=True,
         )
-        return [str(item.payload.get("chunkId", "")) for item in results if item.payload]
+        ids: list[str] = []
+        for item in results:
+            if not item.payload:
+                continue
+            chunk_id = str(item.payload.get("chunkId", ""))
+            if not chunk_id:
+                continue
+            # Qdrant chứa nhiều chunk hơn JSON local (vd HO_KINH_DOANH, CƯ TRÚ
+            # không có file local) — dựng LegalChunk từ payload để _rrf resolve được,
+            # nếu không chunk sẽ bị loại vì không có trong self.by_id.
+            if chunk_id not in self.by_id:
+                self.by_id[chunk_id] = LegalChunk.from_dict(item.payload)
+            ids.append(chunk_id)
+        return ids
 
     def _lexical_search(self, query: str, category: str | None, limit: int) -> list[str]:
         if not self.bm25:
@@ -213,13 +257,14 @@ class HybridLegalSearch:
             key=lambda index: (float(scores[index]), overlap[index]),
             reverse=True,
         )
+        want_category = self._canon_category(category) if category else None
         output: list[str] = []
         for index in ranked:
             # BM25 IDF có thể âm khi corpus cực nhỏ (demo chỉ có 1 chunk).
             if overlap[index] == 0:
                 continue
             doc = self.documents[index]
-            if category and doc.category != category:
+            if want_category and self._canon_category(doc.category) != want_category:
                 continue
             output.append(doc.chunk_id)
             if len(output) >= limit:
@@ -247,6 +292,41 @@ class HybridLegalSearch:
             for chunk_id in ranked
             if chunk_id in self.by_id
         ]
+
+    def _load_qdrant_categories(self) -> set[str]:
+        """Lấy tập giá trị category thật đang lưu trong Qdrant (facet, fallback scroll)."""
+        name = self.settings.QDRANT_COLLECTION
+        try:
+            if not self.client.collection_exists(name):
+                return set()
+            result = self.client.facet(collection_name=name, key="category", limit=100)
+            values = {str(hit.value) for hit in result.hits if hit.value is not None}
+            if values:
+                return values
+        except Exception as exc:
+            logger.warning("Facet category thất bại, fallback scroll: %s", exc)
+
+        # Fallback: scroll payload nếu server không hỗ trợ facet.
+        values = set()
+        try:
+            offset = None
+            for _ in range(20):  # tối đa 20 trang × 256 điểm
+                points, offset = self.client.scroll(
+                    collection_name=name,
+                    limit=256,
+                    with_payload=["category"],
+                    with_vectors=False,
+                    offset=offset,
+                )
+                for point in points:
+                    category = (point.payload or {}).get("category")
+                    if category:
+                        values.add(str(category))
+                if offset is None:
+                    break
+        except Exception as exc:
+            logger.warning("Scroll category thất bại: %s", exc)
+        return values
 
     def _ensure_collection(self) -> None:
         name = self.settings.QDRANT_COLLECTION
