@@ -5,7 +5,8 @@ from app.services.ocr import OcrResult, OcrService, UnsupportedDocumentType
 
 
 def _service() -> OcrService:
-    # Ép rỗng token VNPT để không phụ thuộc .env cục bộ (nếu có cấu hình thật).
+    # Ép rỗng mọi token (VNPT + Qwen) để test hermetic, không phụ thuộc .env cục bộ.
+    # Thiếu token → extract() trả mock thay vì gọi HTTP thật (http=None sẽ nổ).
     settings = Settings(
         VNPT_BASE_URL="",
         VNPT_SMARTREADER_TOKEN_ID="",
@@ -14,6 +15,7 @@ def _service() -> OcrService:
         VNPT_EKYC_TOKEN_ID="",
         VNPT_EKYC_TOKEN_KEY="",
         VNPT_EKYC_ACCESS_TOKEN="",
+        QWEN_OCR_API_KEY="",
     )
     return OcrService(settings, http=None)
 

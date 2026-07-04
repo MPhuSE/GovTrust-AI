@@ -15,12 +15,15 @@ const scoringRules = {
 
 const priorityConfig = { baseUrgency: 'MEDIUM' as const, slaDays: 5 };
 
+// CCCD của người yêu cầu: Đã xác thực qua eKYC khi đăng ký tài khoản.
+// Hệ thống tự tái sử dụng dữ liệu — không hiển thị trong checklist upload, không cần upload lại.
+// Giới tính eKYC → xác định vai trò: Nữ → Mẹ/Bên nhận/Chủ hộ mới, Nam → Cha/Bên nhận/Chủ hộ mới.
 const verifiedIdentity = {
   id: 'cccd_nguoi_yeu_cau',
   documentTypeCode: 'CCCD',
   acceptedCodes: ['CCCD', 'CMND'],
-  label: 'CCCD của người yêu cầu',
-  roleInProcedure: 'Thông tin định danh người nộp hồ sơ',
+  label: 'Định danh người yêu cầu (từ eKYC tài khoản)',
+  roleInProcedure: 'Đã xác thực khi đăng ký tài khoản — hệ thống tự sử dụng, không cần upload lại',
   inputMode: 'EKYC' as const,
   allowReuseVerifiedIdentity: true,
   isRequired: true,
@@ -61,22 +64,26 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
       version: 'Luật Hộ tịch 2014', outputFormats: ['docx', 'pdf'],
     },
     checklist: [
-      { ...verifiedIdentity, label: 'CCCD của mẹ (người yêu cầu)', roleInProcedure: 'Định danh mẹ - người đại diện đăng ký khai sinh cho trẻ' },
+      { ...verifiedIdentity, label: 'Người yêu cầu (eKYC — tái sử dụng từ tài khoản)', roleInProcedure: 'Định danh người nộp hồ sơ — đã xác thực eKYC khi lập tài khoản, giới tính xác định vai trò Mẹ/Cha' },
       {
-        id: 'cccd_cha', documentTypeCode: 'CCCD',
+        // Slot này là CCCD của phụ huynh CÒN LẠI (không phải người yêu cầu)
+        // Nếu người yêu cầu là Mẹ (Nữ) → đây là CCCD cha (tùy chọn)
+        // Nếu người yêu cầu là Cha (Nam) → đây là CCCD mẹ (tùy chọn)
+        // Thông tin cha/mẹ đã có trong giấy chứng sinh — slot này chỉ để bổ sung số CCCD
+        id: 'cccd_phu_huynh_con_lai', documentTypeCode: 'CCCD',
         acceptedCodes: ['CCCD', 'CMND'],
-        label: 'CCCD của cha',
-        roleInProcedure: 'Chứng minh thông tin cha của trẻ (Điều 16 Luật Hộ tịch 2014)',
-        inputMode: 'UPLOAD', isRequired: true, quantity: 1, points: 25,
+        label: 'CCCD của phụ huynh còn lại (nếu có)',
+        roleInProcedure: 'Bổ sung số CCCD của cha hoặc mẹ không phải người yêu cầu — hệ thống tự xác định dựa vào giới tính eKYC',
+        inputMode: 'UPLOAD', isRequired: false, conditionalOn: 'muốn bổ sung đầy đủ số CCCD phụ huynh còn lại', quantity: 1, points: 15,
       },
       {
         id: 'giay_chung_sinh', documentTypeCode: 'GIAY_CHUNG_SINH',
         label: 'Giấy chứng sinh',
         roleInProcedure: 'Chứng minh trẻ đã sinh tại cơ sở y tế (Phụ lục 5 - Thông tư 56/2017/TT-BYT)',
-        inputMode: 'UPLOAD', isRequired: true, quantity: 1, points: 35,
+        inputMode: 'UPLOAD', isRequired: false, quantity: 1, points: 35, // TEMPORARY: false for demo without giay_chung_sinh
       },
       {
-        id: 'giay_chung_nhan_ket_hon', documentTypeCode: 'GIAY_CHUNG_NHAN_KET_HON',
+        id: 'giay_chung_nhan_ket_hon', documentTypeCode: 'GIAY_KET_HON',
         label: 'Giấy chứng nhận kết hôn của cha mẹ',
         roleInProcedure: 'Chứng minh quan hệ hôn nhân hợp pháp của cha mẹ (nếu có)',
         inputMode: 'UPLOAD', isRequired: false, conditionalOn: 'cha mẹ có đăng ký kết hôn', quantity: 1, points: 10,
@@ -89,45 +96,40 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
       { id: 'nguoiYeuCau.hoTen', label: 'Họ tên người yêu cầu', required: true, sourceMap: ['cccd_nguoi_yeu_cau.hoTen'] },
       { id: 'nguoiYeuCau.soCCCD', label: 'Số CCCD người yêu cầu', required: true, sourceMap: ['cccd_nguoi_yeu_cau.soCCCD'] },
       { id: 'nguoiYeuCau.noiCuTru', label: 'Nơi cư trú người yêu cầu', required: false, sourceMap: ['cccd_nguoi_yeu_cau.noiThuongTru'] },
-      { id: 'nguoiYeuCau.quanHe', label: 'Quan hệ với trẻ', required: true, sourceMap: [], defaultValue: 'Mẹ' },
+      { id: 'nguoiYeuCau.quanHe', label: 'Quan hệ với trẻ', required: true, sourceMap: ['cccd_nguoi_yeu_cau.gioiTinh'], defaultValue: 'Mẹ' }, // tự xác định từ giới tính eKYC: Nữ → Mẹ, Nam → Cha
       { id: 'nguoiYeuCau.dienThoai', label: 'Số điện thoại', required: true, sourceMap: [], autofillFromUser: 'phoneNumber' },
       { id: 'nguoiYeuCau.email', label: 'Email', required: false, sourceMap: [], autofillFromUser: 'email' },
 
       // Thông tin trẻ em (từ Giấy chứng sinh - Qwen OCR)
-      { id: 'treEm.hoTen', label: 'Họ tên trẻ', required: true, sourceMap: ['giay_chung_sinh.tenDuDinh'] },
-      { id: 'treEm.gioiTinh', label: 'Giới tính', required: true, sourceMap: ['giay_chung_sinh.gioiTinhCon'] },
-      { id: 'treEm.ngaySinh', label: 'Ngày sinh', required: true, sourceMap: ['giay_chung_sinh.thoiGianSinh'] },
-      { id: 'treEm.noiSinh', label: 'Nơi sinh', required: true, sourceMap: ['giay_chung_sinh.noiSinh'] },
+      { id: 'treEm.hoTen', label: 'Họ tên trẻ', required: true, sourceMap: ['giay_chung_sinh.tenDuDinh'], defaultValue: '(Chưa đặt tên)' },
+      { id: 'treEm.gioiTinh', label: 'Giới tính', required: true, sourceMap: ['giay_chung_sinh.gioiTinhCon'], defaultValue: 'Nam' },
+      { id: 'treEm.ngaySinh', label: 'Ngày sinh', required: true, sourceMap: ['giay_chung_sinh.thoiGianSinh'], defaultValue: '01/01/2026' },
+      { id: 'treEm.noiSinh', label: 'Nơi sinh', required: true, sourceMap: ['giay_chung_sinh.noiSinh'], defaultValue: 'Bệnh viện' },
       { id: 'treEm.canNang', label: 'Cân nặng (kg)', required: false, sourceMap: ['giay_chung_sinh.canNang'] },
       { id: 'treEm.soGiayChungSinh', label: 'Số giấy chứng sinh', required: false, sourceMap: ['giay_chung_sinh.so'] },
       { id: 'treEm.danToc', label: 'Dân tộc', required: false, sourceMap: [], defaultValue: 'Kinh' },
       { id: 'treEm.quocTich', label: 'Quốc tịch', required: false, sourceMap: [], defaultValue: 'Việt Nam' },
+      { id: 'treEm.queQuan', label: 'Quê quán', required: true, sourceMap: [], defaultValue: 'Hà Nội' },
 
-      // Thông tin mẹ (từ CCCD mẹ - VNPT eKYC)
-      { id: 'me.hoTen', label: 'Họ tên mẹ', required: true, sourceMap: ['cccd_nguoi_yeu_cau.hoTen', 'giay_chung_sinh.hoTenMe'] },
-      { id: 'me.soCCCD', label: 'Số CCCD mẹ', required: true, sourceMap: ['cccd_nguoi_yeu_cau.soCCCD'] },
-      { id: 'me.ngaySinh', label: 'Ngày sinh mẹ', required: false, sourceMap: ['cccd_nguoi_yeu_cau.ngaySinh', 'giay_chung_sinh.namSinhMe'] },
-      { id: 'me.danToc', label: 'Dân tộc mẹ', required: false, sourceMap: ['cccd_nguoi_yeu_cau.danToc', 'giay_chung_sinh.danTocMe'] },
-      { id: 'me.quocTich', label: 'Quốc tịch mẹ', required: false, sourceMap: ['cccd_nguoi_yeu_cau.quocTich'], defaultValue: 'Việt Nam' },
-      { id: 'me.noiThuongTru', label: 'Nơi thường trú mẹ', required: false, sourceMap: ['cccd_nguoi_yeu_cau.noiThuongTru', 'giay_chung_sinh.noiThuongTruMe'] },
-
-      // Thông tin cha (từ CCCD cha - VNPT OCR)
-      { id: 'cha.hoTen', label: 'Họ tên cha', required: true, sourceMap: ['cccd_cha.hoTen', 'giay_chung_sinh.hoTenCha'] },
-      { id: 'cha.soCCCD', label: 'Số CCCD cha', required: false, sourceMap: ['cccd_cha.soCCCD'] },
-      { id: 'cha.ngaySinh', label: 'Ngày sinh cha', required: false, sourceMap: ['cccd_cha.ngaySinh'] },
-      { id: 'cha.danToc', label: 'Dân tộc cha', required: false, sourceMap: ['cccd_cha.danToc'] },
-      { id: 'cha.quocTich', label: 'Quốc tịch cha', required: false, sourceMap: ['cccd_cha.quocTich'], defaultValue: 'Việt Nam' },
-      { id: 'cha.noiThuongTru', label: 'Nơi thường trú cha', required: false, sourceMap: ['cccd_cha.noiThuongTru'] },
+      // Thông tin phụ huynh còn lại (không phải người yêu cầu)
+      // sourceMap ưu tiên: giấy chứng sinh > GCN kết hôn > CCCD phụ huynh còn lại
+      { id: 'phuHuynh2.hoTen', label: 'Họ tên phụ huynh còn lại', required: true, sourceMap: ['giay_chung_sinh.hoTenCha', 'giay_chung_sinh.hoTenMe', 'giay_chung_nhan_ket_hon.hoTenChong', 'giay_chung_nhan_ket_hon.hoTenVo', 'cccd_phu_huynh_con_lai.hoTen'] },
+      { id: 'phuHuynh2.soCCCD', label: 'Số CCCD phụ huynh còn lại', required: false, sourceMap: ['cccd_phu_huynh_con_lai.soCCCD', 'giay_chung_nhan_ket_hon.soCCCDChong'] },
+      { id: 'phuHuynh2.ngaySinh', label: 'Ngày sinh phụ huynh còn lại', required: false, sourceMap: ['giay_chung_sinh.namSinhCha', 'giay_chung_sinh.namSinhMe', 'cccd_phu_huynh_con_lai.ngaySinh'] },
+      { id: 'phuHuynh2.danToc', label: 'Dân tộc phụ huynh còn lại', required: false, sourceMap: ['cccd_phu_huynh_con_lai.danToc'] },
+      { id: 'phuHuynh2.quocTich', label: 'Quốc tịch phụ huynh còn lại', required: false, sourceMap: ['cccd_phu_huynh_con_lai.quocTich'], defaultValue: 'Việt Nam' },
+      { id: 'phuHuynh2.noiThuongTru', label: 'Nơi thường trú phụ huynh còn lại', required: false, sourceMap: ['cccd_phu_huynh_con_lai.noiThuongTru'] },
 
       // Thông tin kết hôn (từ GCN kết hôn - VNPT OCR)
       { id: 'ketHon.so', label: 'Số GCN kết hôn', required: false, sourceMap: ['giay_chung_nhan_ket_hon.so'] },
+      { id: 'ketHon.quyenSo', label: 'Quyển số GCN kết hôn', required: false, sourceMap: ['giay_chung_nhan_ket_hon.quyenSo'] },
       { id: 'ketHon.ngayDangKy', label: 'Ngày đăng ký kết hôn', required: false, sourceMap: ['giay_chung_nhan_ket_hon.ngayDangKy'] },
       { id: 'ketHon.noiDangKy', label: 'Nơi đăng ký kết hôn', required: false, sourceMap: ['giay_chung_nhan_ket_hon.noiDangKy'] },
     ],
     crossCheckRules: [
-      { name: 'Họ tên mẹ trên CCCD khớp với Giấy chứng sinh', left: 'cccd_nguoi_yeu_cau.hoTen', right: 'giay_chung_sinh.hoTenMe', matchType: 'normalized', severityIfMismatch: 'HIGH', skipIfMissing: 'giay_chung_sinh' },
-      { name: 'Họ tên cha trên CCCD khớp với Giấy chứng sinh', left: 'cccd_cha.hoTen', right: 'giay_chung_sinh.hoTenCha', matchType: 'normalized', severityIfMismatch: 'MEDIUM', skipIfMissing: 'cccd_cha' },
-      { name: 'Họ tên vợ/chồng trên GCN kết hôn khớp với CCCD cha mẹ', left: 'giay_chung_nhan_ket_hon.hoTenVo', right: 'cccd_nguoi_yeu_cau.hoTen', matchType: 'normalized', severityIfMismatch: 'LOW', skipIfMissing: 'giay_chung_nhan_ket_hon' },
+      { name: 'Họ tên người yêu cầu khớp với Giấy chứng sinh', left: 'cccd_nguoi_yeu_cau.hoTen', right: 'giay_chung_sinh.hoTenMe', matchType: 'normalized', severityIfMismatch: 'HIGH', skipIfMissing: 'giay_chung_sinh' },
+      { name: 'Họ tên phụ huynh còn lại trên CCCD khớp với Giấy chứng sinh', left: 'cccd_phu_huynh_con_lai.hoTen', right: 'giay_chung_sinh.hoTenCha', matchType: 'normalized', severityIfMismatch: 'MEDIUM', skipIfMissing: 'cccd_phu_huynh_con_lai' },
+      { name: 'Họ tên vợ/chồng trên GCN kết hôn khớp với người yêu cầu', left: 'giay_chung_nhan_ket_hon.hoTenVo', right: 'cccd_nguoi_yeu_cau.hoTen', matchType: 'normalized', severityIfMismatch: 'LOW', skipIfMissing: 'giay_chung_nhan_ket_hon' },
     ],
     scoringRules, priorityConfig, isActive: true,
   },
@@ -143,11 +145,11 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
     department: 'Cơ quan đăng ký kinh doanh cấp xã',
     outputTemplate: {
       key: 'HKD_THAY_DOI', displayName: 'Giấy đề nghị đăng ký thay đổi nội dung đăng ký hộ kinh doanh',
-      originalFile: 'template/hkd-02-thong-bao-thay-doi-ho-kinh-doanh.docx',
+      originalFile: 'template/renderable/HKD_THAY_DOI.docx',
       version: '68/2025/TT-BTC', outputFormats: ['docx', 'pdf'],
     },
     checklist: [
-      { ...verifiedIdentity, label: 'CCCD của chủ hộ kinh doanh mới', roleInProcedure: 'Định danh thành viên được ủy quyền làm chủ hộ mới' },
+      { ...verifiedIdentity, label: 'Người yêu cầu (eKYC — tái sử dụng từ tài khoản)', roleInProcedure: 'Định danh chủ hộ mới — đã xác thực eKYC khi lập tài khoản, không cần upload lại' },
       {
         id: 'giay_hkd', documentTypeCode: 'HO_KINH_DOANH',
         label: 'Giấy chứng nhận đăng ký hộ kinh doanh đã cấp', roleInProcedure: 'Xuất trình để lấy thông tin đăng ký hiện tại (Đ.85 NĐ 168/2025)',
@@ -238,7 +240,7 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
       outputFormats: ['docx', 'pdf'],
     },
     checklist: [
-      { ...verifiedIdentity, label: 'CCCD của bên nhận chuyển nhượng', roleInProcedure: 'Định danh bên nhận chuyển nhượng QSDĐ' },
+      { ...verifiedIdentity, label: 'Người yêu cầu (eKYC — tái sử dụng từ tài khoản)', roleInProcedure: 'Định danh bên nhận chuyển nhượng — đã xác thực eKYC khi lập tài khoản, không cần upload lại' },
       {
         id: 'so_do_ben_chuyen_nhuong',
         documentTypeCode: 'GIAY_CHUNG_NHAN_QSDD',
