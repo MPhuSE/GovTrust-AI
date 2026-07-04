@@ -13,7 +13,7 @@ const nextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           {
             key: 'Permissions-Policy',
-            value: 'camera=(self), microphone=(), geolocation=()',
+            value: 'camera=(self), microphone=(self), geolocation=()',
           },
           {
             key: 'Content-Security-Policy',
@@ -23,6 +23,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob:",
+              "media-src 'self' https://ic-smartvoice.vnpt.vn",
               `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}`,
               "frame-ancestors 'none'",
             ].join('; '),

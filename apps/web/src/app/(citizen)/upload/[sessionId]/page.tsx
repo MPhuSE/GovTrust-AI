@@ -170,7 +170,7 @@ export default function UploadPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const router = useRouter();
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
-  const [uploadedDocs, setUploadedDocs] = useState<Record<string, { fileName: string; preview?: string; checklistId: string }>>({});
+  const [uploadedDocs, setUploadedDocs] = useState<Record<string, { fileName: string; preview?: string; documentTypeCode: string }>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [procedureName, setProcedureName] = useState('');
@@ -261,15 +261,15 @@ export default function UploadPage() {
     formData.append('checklistId', checklistId);
     await documentsApi.upload(formData);
     const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
-    setUploadedDocs(prev => ({ ...prev, [documentTypeCode]: { fileName: file.name, preview, checklistId } }));
+    setUploadedDocs(prev => ({ ...prev, [checklistId]: { fileName: file.name, preview, documentTypeCode } }));
   }, [sessionId]);
 
   const handleRunPipeline = async () => {
     setIsProcessing(true);
     try {
       setStatusMsg('Đang bóc tách thông tin từ giấy tờ...');
-      for (const [docCode, doc] of Object.entries(uploadedDocs))
-        await documentsApi.triggerOcr(sessionId, docCode, doc.checklistId);
+      for (const [checklistId, doc] of Object.entries(uploadedDocs))
+        await documentsApi.triggerOcr(sessionId, doc.documentTypeCode, checklistId);
 
       setStatusMsg('Đang kiểm tra chéo thông tin...');
       await scoringApi.crosscheck(sessionId);
@@ -292,7 +292,7 @@ export default function UploadPage() {
 
   // Slot thỏa mãn nếu: đã upload file, HOẶC đã điền sẵn từ hồ sơ eKYC.
   const isSlotSatisfied = (item: ChecklistItem) =>
-    !!uploadedDocs[item.documentTypeCode] || !!prefilledSlots[item.id];
+    !!uploadedDocs[item.id] || !!prefilledSlots[item.id];
   const requiredUploaded = checklist.filter(c => c.required).every(isSlotSatisfied);
 
   return (
@@ -355,11 +355,11 @@ export default function UploadPage() {
           ) : (
             <div className="space-y-6">
               {checklist.map((item) => {
-                const uploaded = uploadedDocs[item.documentTypeCode];
+                const uploaded = uploadedDocs[item.id];
                 const prefilled = prefilledSlots[item.id];
                 return (
                   <div
-                    key={item.documentTypeCode}
+                    key={item.id}
                     className={`rounded-md p-6 border shadow-[0_4px_20px_rgb(0,0,0,0.02)] ${
                       prefilled ? 'bg-gray-50/40 border-teal-600' : 'bg-white border-gray-100'
                     }`}
@@ -423,7 +423,7 @@ export default function UploadPage() {
                           onClick={() =>
                             setUploadedDocs(prev => {
                               const next = { ...prev };
-                              delete next[item.documentTypeCode];
+                              delete next[item.id];
                               return next;
                             })
                           }

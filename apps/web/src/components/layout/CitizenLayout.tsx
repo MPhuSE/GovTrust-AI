@@ -2,6 +2,7 @@
 
 import { Header } from './Header';
 import { Footer } from './Footer';
+import { ChatWidget } from '../chat/ChatWidget';
 
 interface CitizenLayoutProps {
   children: React.ReactNode;
@@ -17,6 +18,7 @@ export function CitizenLayout({ children, showHeader = true, showFooter = true }
         {children}
       </main>
       {showFooter && <Footer />}
+      <ChatWidget />
     </div>
   );
 }

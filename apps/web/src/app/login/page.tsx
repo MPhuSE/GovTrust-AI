@@ -68,8 +68,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10 animate-scale-in">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-full bg-teal-600 flex items-center justify-center border-4 border-gold-500 shadow-sm relative overflow-hidden mx-auto mb-4">
-            <span className="text-gold-500 text-3xl">★</span>
+          <div className="w-16 h-16 rounded-full flex items-center justify-center shadow-sm relative overflow-hidden mx-auto mb-4">
+            <img src="/logo.jpg" alt="GovTrust AI" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-extrabold text-teal-700 mb-2 tracking-tight">Cổng Dịch Vụ Công <span className="text-teal-700">AI</span></h1>
           <p className="text-gray-500 font-medium">Đăng nhập để quản lý hồ sơ của bạn</p>

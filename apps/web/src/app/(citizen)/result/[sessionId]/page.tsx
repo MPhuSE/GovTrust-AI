@@ -52,6 +52,7 @@ interface Session {
     };
   };
   procedure?: { name: string };
+  status?: string;
 }
 
 export default function ResultPage() {
@@ -64,13 +65,32 @@ export default function ResultPage() {
   });
 
   useEffect(() => {
-    sessionsApi
-      .get(sessionId)
-      .then((s) => {
-        setSession(s as Session);
-        setIsLoading(false);
-      })
-      .catch(() => setIsLoading(false));
+    let timeoutId: NodeJS.Timeout;
+
+    const fetchSession = () => {
+      sessionsApi
+        .get(sessionId)
+        .then((s) => {
+          const sessionData = s as Session & { status?: string };
+          setSession(sessionData);
+          
+          if (sessionData.status === 'AI_PROCESSING' || sessionData.status === 'UPLOADING') {
+            // Keep polling if not done
+            timeoutId = setTimeout(fetchSession, 3000);
+          } else {
+            setIsLoading(false);
+          }
+        })
+        .catch(() => {
+          setIsLoading(false);
+        });
+    };
+
+    fetchSession();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [sessionId]);
 
   const toggleSection = (key: string) => {
@@ -89,20 +109,33 @@ export default function ResultPage() {
   }
 
   if (!session?.aiResult?.score) {
+    const isProcessing = session?.status === 'AI_PROCESSING' || session?.status === 'UPLOADING';
     return (
       <CitizenLayout>
         <div className="max-w-3xl mx-auto px-4 py-20 text-center">
-          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-3xl">📭</span>
-          </div>
-          <h2 className="text-xl font-bold text-teal-700 mb-2">Chưa có kết quả kiểm tra</h2>
-          <p className="text-gray-500 font-medium mb-8">Vui lòng tải lên giấy tờ để AI phân tích hồ sơ của bạn.</p>
-          <button 
-            className="px-6 py-3 rounded font-bold bg-teal-700 text-white hover:bg-teal-800 transition-all shadow-md" 
-            onClick={() => router.back()}
-          >
-            Quay lại tải giấy tờ
-          </button>
+          {isProcessing ? (
+            <>
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <h2 className="text-xl font-bold text-teal-700 mb-2">Hệ thống đang xử lý</h2>
+              <p className="text-gray-500 font-medium mb-8">Vui lòng đợi trong giây lát, AI đang phân tích hồ sơ của bạn...</p>
+            </>
+          ) : (
+            <>
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <span className="text-3xl">📭</span>
+              </div>
+              <h2 className="text-xl font-bold text-teal-700 mb-2">Chưa có kết quả kiểm tra</h2>
+              <p className="text-gray-500 font-medium mb-8">Vui lòng tải lên giấy tờ để AI phân tích hồ sơ của bạn.</p>
+              <button 
+                className="px-6 py-3 rounded font-bold bg-teal-700 text-white hover:bg-teal-800 transition-all shadow-md" 
+                onClick={() => router.back()}
+              >
+                Quay lại tải giấy tờ
+              </button>
+            </>
+          )}
         </div>
       </CitizenLayout>
     );

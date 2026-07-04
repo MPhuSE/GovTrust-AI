@@ -34,8 +34,12 @@ export class ScoreEngine {
     const results = this.rules.map(r => r.evaluate(context));
     const violations = results.filter(r => !r.passed);
     const totalImpact = violations.reduce((sum, r) => sum + r.impact, 0);
-    const score = Math.max(0, Math.min(100, base + totalImpact));
     const hasCritical = violations.some(r => r.severity === 'CRITICAL');
+    
+    let score = Math.max(0, Math.min(100, base + totalImpact));
+    if (hasCritical && score > 50) {
+      score = 50; // Cap score if critical error exists
+    }
 
     return {
       score,

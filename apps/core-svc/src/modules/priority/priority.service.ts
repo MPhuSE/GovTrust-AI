@@ -21,16 +21,17 @@ export class PriorityService {
 
     const ranked = sessions.map(s => {
       const procedure = s.procedureId as unknown as ProcedureDocument;
-      const scoreResult = s.aiResult?.score as { score?: number; total?: number } | undefined;
+      const scoreResult = s.aiResult?.score as { score?: number; total?: number, breakdown?: any[] } | undefined;
       const score = scoreResult?.score ?? scoreResult?.total ?? 0;
+      const hasCriticalError = scoreResult?.breakdown?.some(b => b.severity === 'CRITICAL') || false;
       const slaDeadline = this.calcSlaDeadline(s, procedure);
       const daysLeft = Math.max(0, (slaDeadline.getTime() - Date.now()) / 86400000);
-      const level = this.calcPriority(score, daysLeft, procedure.priorityConfig?.baseUrgency ?? 'MEDIUM');
+      const level = this.calcPriority(score, daysLeft, procedure.priorityConfig?.baseUrgency ?? 'MEDIUM', hasCriticalError);
 
       return {
         sessionId: s._id,
         priority: level,
-        reason: `${procedure.name} — hạn xử lý còn ${Math.ceil(daysLeft)} ngày`,
+        reason: hasCriticalError ? 'Lỗi nghiêm trọng' : (score < 60 ? 'Điểm thấp' : `${procedure.name} — hạn xử lý còn ${Math.ceil(daysLeft)} ngày`),
         score,
         slaDeadline,
         submittedAt: s.createdAt,
@@ -52,7 +53,8 @@ export class PriorityService {
     return new Date(base.getTime() + slaDays * 86400000);
   }
 
-  private calcPriority(score: number, daysLeft: number, urgency: string): PriorityLevel {
+  private calcPriority(score: number, daysLeft: number, urgency: string, hasCriticalError: boolean): PriorityLevel {
+    if (hasCriticalError || score < 60) return 'A'; // Ưu tiên kiểm tra thủ công ngay lập tức để huỷ/trả hồ sơ
     if (daysLeft <= 1 || urgency === 'HIGH') return 'A';
     if (daysLeft <= 3 && score >= 70) return 'B';
     if (score >= 60) return 'C';

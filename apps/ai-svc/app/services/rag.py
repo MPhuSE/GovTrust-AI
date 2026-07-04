@@ -41,7 +41,7 @@ class RAGEngine:
                 type="REFERENCE" if is_reference else "WARNING",
                 checklistItemId=item.get("id", ""),
                 message=(
-                    f"Căn cứ: {best.title}, {best.article}"
+                    f"Căn cứ: Điều {best.article}, {best.title}"
                     if is_reference
                     else "Căn cứ truy xuất chưa đủ mạnh — cần cán bộ kiểm tra thêm"
                 ),

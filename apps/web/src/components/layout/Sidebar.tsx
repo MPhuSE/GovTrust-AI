@@ -9,7 +9,14 @@ interface SidebarProps {
   userLevel?: string;
 }
 
-const citizenMenu = [
+type MenuItem = {
+  href: string;
+  label: string;
+  icon: string;
+  primary?: boolean;
+};
+
+const citizenMenu: MenuItem[] = [
   { href: '/', label: 'Nộp hồ sơ mới', icon: 'plus', primary: true },
   { href: '/history', label: 'Hồ sơ đã nộp', icon: 'folder' },
   { href: '/services', label: 'Dịch vụ của tôi', icon: 'grid' },
@@ -18,7 +25,7 @@ const citizenMenu = [
   { href: '/support', label: 'Hỗ trợ', icon: 'help' },
 ];
 
-const officerMenu = [
+const officerMenu: MenuItem[] = [
   { href: '/dashboard', label: 'Bảng điều khiển', icon: 'chart' },
   { href: '/queue', label: 'Kiểm duyệt', icon: 'check' },
   { href: '/history', label: 'Lịch sử duyệt', icon: 'folder' },

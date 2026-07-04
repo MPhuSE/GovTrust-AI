@@ -105,9 +105,22 @@ export class SmartFormService {
           const [checklistId, fieldKey] = sourceMap.split('.');
           const fieldValue = ocrData[checklistId]?.fields?.[fieldKey];
           if (fieldValue) {
-            value = fieldValue.value;
+            let extractedValue = fieldValue.value;
+            // Parse common fields like gender
+            if (field.id === 'gioi_tinh' || fieldKey.toLowerCase().includes('gioitinh')) {
+              const lower = extractedValue.toLowerCase();
+              if (lower === 'nam' || lower === 'm') extractedValue = 'Nam';
+              else if (lower === 'nữ' || lower === 'nu' || lower === 'f') extractedValue = 'Nữ';
+            }
+            
+            value = extractedValue;
             source = checklistId;
             confidence = fieldValue.confidence;
+            
+            // Fallback: If confidence is too low, act as if we need user to manually input/verify
+            if (confidence < 0.6) {
+              source = 'manual';
+            }
             break;
           }
         }

@@ -15,6 +15,7 @@ PROCEDURE_CATEGORIES: dict[str, str] = {
     "DK_THUONG_TRU": "CƯ TRÚ",
     "HKD_THAY_DOI": "HO_KINH_DOANH",
     "CHUYEN_NHUONG_QSDD": "ĐẤT ĐAI",
+    "DANG_KY_KHAI_SINH": "HỘ TỊCH",
 }
 
 SYSTEM_PROMPT = (

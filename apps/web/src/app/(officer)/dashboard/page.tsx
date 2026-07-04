@@ -65,39 +65,37 @@ export default function DashboardPage() {
   return (
     <OfficerLayout>
       <div className="p-6 sm:p-8 animate-fade-in">
-        {/* Premium Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-8 sm:px-10 mb-8 -mx-6 sm:-mx-8 -mt-6 sm:-mt-8 shadow-sm relative overflow-hidden">
-          {/* Subtle gradient background element */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-400/10 rounded-full blur-[80px] -mr-20 -mt-20 pointer-events-none"></div>
-          <div className="absolute bottom-0 left-10 w-64 h-64 bg-emerald-300/10 rounded-full blur-[60px] -mb-20 pointer-events-none"></div>
+        {/* Enterprise Professional Header */}
+        <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-gray-200 pb-6">
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-xs font-semibold text-emerald-600 tracking-wider uppercase">Giám sát hệ thống</span>
+            </div>
+            
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-2">
+              Tổng quan InsightsMap
+            </h1>
+            
+            <p className="text-sm text-gray-500 font-medium">
+              Phân tích hiệu suất xử lý hồ sơ, tỷ lệ lỗi và thống kê chất lượng thời gian thực.
+            </p>
+          </div>
           
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 tracking-tight">
-                Bảng điều khiển InsightMap
-              </h1>
-              <p className="text-sm text-gray-500 mt-1.5 font-medium flex items-center gap-2">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-                Tổng quan dữ liệu hoạt động hệ thống AI thời gian thực
-              </p>
-            </div>
-            <div className="bg-gray-50/80 p-1.5 rounded border border-gray-100 -sm shadow-sm inline-flex">
-              <FilterBar days={days} onChange={setDays} />
-            </div>
+          <div className="flex items-center gap-4">
+            <FilterBar days={days} onChange={setDays} />
           </div>
         </div>
 
-        {/* Privacy notice */}
-        <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/50 border border-emerald-100 rounded p-3.5 mb-8 text-sm text-emerald-800 flex items-center gap-3 shadow-sm">
-          <div className="bg-emerald-100/50 p-1.5 rounded-lg shrink-0">
-            <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <span className="font-medium">Dữ liệu ẩn danh</span> — chỉ phản ánh loại lỗi, thủ tục và thời điểm. Không chứa thông tin định danh cá nhân.
+        {/* Subtle Privacy notice */}
+        <div className="flex items-center gap-2 mb-6 px-4 py-2.5 bg-slate-50 border border-slate-200/60 rounded-md text-xs text-slate-600">
+          <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Dữ liệu báo cáo đã được <strong>ẩn danh hoàn toàn</strong> theo chuẩn an toàn thông tin PII.</span>
         </div>
 
         {/* Stat Cards */}
@@ -137,39 +135,43 @@ export default function DashboardPage() {
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-900">Top 5 Lỗi Thường Gặp</h2>
+          <div className="bg-white rounded-xl border border-gray-200/75 shadow-sm p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-gray-900 tracking-tight">Top 5 Lỗi Thường Gặp</h2>
             </div>
-            {data?.topErrors && <TopErrorsChart data={data.topErrors} />}
+            <div className="flex-1">
+              {data?.topErrors && <TopErrorsChart data={data.topErrors} />}
+            </div>
           </div>
 
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-900">Xu Hướng Tuần</h2>
-              <div className="flex items-center gap-3 text-xs text-gray-500">
-                <span className="flex items-center gap-1">
-                  <span className="w-3 h-0.5 bg-emerald-600 rounded" /> Điểm
+          <div className="bg-white rounded-xl border border-gray-200/75 shadow-sm p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-gray-900 tracking-tight">Xu Hướng Tuần</h2>
+              <div className="flex items-center gap-4 text-xs font-medium text-gray-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Điểm trung bình
                 </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-3 h-0.5 bg-gray-400 rounded" /> Lượng HS
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-gray-300" /> Lượng hồ sơ
                 </span>
               </div>
             </div>
-            <TrendLine data={trend} />
+            <div className="flex-1">
+              <TrendLine data={trend} />
+            </div>
           </div>
         </div>
 
         {/* Heatmap */}
         {data?.heatmap && (
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-900">Bản Đồ Nhiệt: Dịch Vụ Công vs Loại Lỗi</h2>
-              <button className="text-sm text-emerald-600 hover:text-emerald-800 font-medium flex items-center gap-1">
-                Xuất báo cáo
+          <div className="bg-white rounded-xl border border-gray-200/75 shadow-sm p-6 mb-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-gray-900 tracking-tight">Bản Đồ Nhiệt: Lĩnh Vực vs Loại Lỗi</h2>
+              <button className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
+                Xuất báo cáo
               </button>
             </div>
             <HeatMapChart

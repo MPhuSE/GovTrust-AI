@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     LLM_MODEL: str = ""
     LLM_TIMEOUT_SECONDS: float = 45.0
 
+    MOCK_OCR_FOR_DEMO: bool = False
+
     # Domain chung cho mọi dịch vụ VNPT (eKYC, SmartReader, SmartBot, SmartVoice).
     VNPT_BASE_URL: str = "https://api.idg.vnpt.vn"
 

@@ -18,16 +18,48 @@ function normalize(value: string): string {
 
 function fuzzyMatch(a: string, b: string, tolerance: number): boolean {
   if (a === b) return true;
-  const maxLen = Math.max(a.length, b.length);
-  if (maxLen === 0) return true;
-  let diff = 0;
-  const shorter = a.length <= b.length ? a : b;
-  const longer = a.length <= b.length ? b : a;
-  for (let i = 0; i < shorter.length; i++) {
-    if (shorter[i] !== longer[i]) diff++;
+  if (a.length === 0 || b.length === 0) return false;
+  
+  const matrix: number[][] = [];
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
   }
-  diff += longer.length - shorter.length;
-  return diff / maxLen <= 1 - tolerance;
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+  
+  const distance = matrix[b.length][a.length];
+  const maxLen = Math.max(a.length, b.length);
+  return (maxLen - distance) / maxLen >= tolerance;
+}
+
+function parseDate(dateStr: string): Date | null {
+  if (!dateStr) return null;
+  // Handle DD/MM/YYYY
+  const parts = dateStr.split('/');
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const year = parseInt(parts[2], 10);
+    return new Date(year, month, day);
+  }
+  // Fallback to standard parsing
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function getFieldValue(
@@ -63,11 +95,14 @@ export class CrossChecker {
     // 2. Kiểm tra giấy tờ hết hạn
     const expiredDocuments: string[] = [];
     const now = new Date();
+    // Reset time for today to compare accurately
+    now.setHours(0, 0, 0, 0);
+    
     for (const doc of documents) {
       const expiryField = doc.fields['ngayHetHan'] ?? doc.fields['coGiaTriDen'];
       if (!expiryField) continue;
-      const expiry = new Date(expiryField.value);
-      if (!isNaN(expiry.getTime()) && expiry < now) {
+      const expiry = parseDate(expiryField.value);
+      if (expiry && expiry < now) {
         expiredDocuments.push(doc.checklistId);
       }
     }

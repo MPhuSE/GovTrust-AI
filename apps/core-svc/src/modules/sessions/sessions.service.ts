@@ -68,10 +68,8 @@ export class SessionsService {
     userId: string,
     procedure: ProcedureDocument,
   ): Promise<Record<string, unknown> | undefined> {
-    const cccdSlots = (procedure.checklist ?? []).filter(item =>
-      item.documentTypeCode === 'CCCD' || item.acceptedCodes?.includes('CCCD'),
-    );
-    if (cccdSlots.length !== 1) return undefined;
+    const ekycSlots = (procedure.checklist ?? []).filter(item => item.inputMode === 'EKYC');
+    if (ekycSlots.length === 0) return undefined;
 
     const user = await this.userModel.findById(userId);
     if (!user || user.kycStatus !== KycStatus.VERIFIED) return undefined;
@@ -87,7 +85,7 @@ export class SessionsService {
     if (user.cccdValidDate) fields.ngayHetHan = { value: user.cccdValidDate, confidence: 1 };
     if (Object.keys(fields).length === 0) return undefined;
 
-    const slot = cccdSlots[0];
+    const slot = ekycSlots[0];
     return {
       [slot.id]: {
         documentTypeCode: 'CCCD',

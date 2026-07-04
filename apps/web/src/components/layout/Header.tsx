@@ -54,9 +54,9 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
           >
             <div
               aria-label="GovTrust AI Logo"
-              className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full bg-emerald-700 text-white font-extrabold text-lg md:text-xl shadow-sm border border-emerald-800 group-hover:scale-105 transition-transform duration-300"
+              className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full shadow-sm group-hover:scale-105 transition-transform duration-300 overflow-hidden"
             >
-              GT
+              <img src="/logo.jpg" alt="GovTrust AI" className="w-full h-full object-cover" />
             </div>
             
             <div className="flex flex-col">

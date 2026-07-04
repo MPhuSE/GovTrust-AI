@@ -27,6 +27,9 @@ PROCEDURE_KEYWORDS: dict[str, str] = {
     "thay đổi đăng ký kinh doanh": "HKD_THAY_DOI",
     "thay đổi chủ hộ": "HKD_THAY_DOI",
     "hộ kinh doanh": "HKD_THAY_DOI",
+    "khai sinh": "DANG_KY_KHAI_SINH",
+    "làm giấy khai sinh": "DANG_KY_KHAI_SINH",
+    "đăng ký khai sinh": "DANG_KY_KHAI_SINH",
 }
 
 

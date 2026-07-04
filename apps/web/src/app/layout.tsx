@@ -21,6 +21,9 @@ export const metadata: Metadata = {
     'Hệ thống hỗ trợ tiền kiểm hồ sơ dịch vụ công — kiểm tra giấy tờ trước khi nộp, phát hiện lỗi ngay tại nhà. Vietnamese Student HackAIthon 2026.',
   keywords: 'dịch vụ công, kiểm tra hồ sơ, AI, GovTrust, tiền kiểm',
   robots: 'noindex, nofollow',
+  icons: {
+    icon: '/logo.jpg',
+  },
 };
 
 export const viewport: Viewport = {
@@ -31,13 +34,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html lang="vi" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <head>
         <meta httpEquiv="X-Content-Type-Options" content="nosniff" />
 
         <meta name="referrer" content="strict-origin-when-cross-origin" />
       </head>
-      <body className={`${inter.className} bg-gray-50 min-h-screen antialiased`}>
+      <body className={`${inter.className} bg-gray-50 min-h-screen antialiased`} suppressHydrationWarning>
         <Providers>
           {children}
         </Providers>

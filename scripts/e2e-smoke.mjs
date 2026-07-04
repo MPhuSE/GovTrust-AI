@@ -38,6 +38,7 @@ async function main() {
     const fd = new FormData();
     fd.append('sessionId', sid);
     fd.append('documentTypeCode', d.code);
+    fd.append('checklistId', d.checklistId);
     fd.append('file', new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'image/jpeg' }), `${d.code}.jpg`);
     const up = await j(await fetch(`${BASE}/documents/upload`, { method: 'POST', headers: AUTHC, body: fd }));
     log(`B2 upload ${d.code}`, up);

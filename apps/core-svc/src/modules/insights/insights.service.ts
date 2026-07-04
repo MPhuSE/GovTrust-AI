@@ -26,6 +26,23 @@ export class InsightsService {
     };
   }
 
+  async getChartData(days = 30) {
+    const trend = await this.getTrend(days);
+    return {
+      labels: trend.map(t => t._id),
+      datasets: [
+        {
+          label: 'Số hồ sơ',
+          data: trend.map(t => t.count),
+        },
+        {
+          label: 'Điểm trung bình',
+          data: trend.map(t => Math.round(t.avgScore)),
+        }
+      ]
+    };
+  }
+
   async getTopErrors(since: Date) {
     return this.insightModel.aggregate([
       { $match: { createdAt: { $gte: since } } },

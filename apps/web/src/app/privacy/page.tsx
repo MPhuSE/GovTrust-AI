@@ -19,7 +19,7 @@ export default function PrivacyPage() {
 
             <h2 className="text-xl font-bold text-navy mt-8 mb-4">2. Xử lý và Ẩn danh dữ liệu (Data Masking)</h2>
             <p className="text-navy/60 mb-4">
-              Khi hồ sơ của bạn được xử lý, toàn bộ thông tin định danh cá nhân (PII) sẽ được tự động làm mờ hoặc ẩn đi đối với các công chức không có thẩm quyền truy cập. Các báo cáo phân tích InsightMap của hệ thống AI chỉ sử dụng dữ liệu ẩn danh hoàn toàn (anonymized data) để thống kê tỷ lệ lỗi và điểm số, tuyệt đối không chứa dữ liệu thật của bạn.
+              Khi hồ sơ của bạn được xử lý, toàn bộ thông tin định danh cá nhân (PII) sẽ được tự động làm mờ hoặc ẩn đi đối với các công chức không có thẩm quyền truy cập. Các báo cáo phân tích InsightsMap của hệ thống AI chỉ sử dụng dữ liệu ẩn danh hoàn toàn (anonymized data) để thống kê tỷ lệ lỗi và điểm số, tuyệt đối không chứa dữ liệu thật của bạn.
             </p>
 
             <h2 className="text-xl font-bold text-navy mt-8 mb-4">3. Tiêu hủy dữ liệu (Data Minimization)</h2>

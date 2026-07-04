@@ -45,4 +45,11 @@ export class InsightsController {
   trend(@Query('days') days?: string) {
     return this.insightsService.getTrend(days ? parseInt(days) : 30);
   }
+
+  @Get('charts')
+  @Roles(UserRole.OFFICER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Dữ liệu biểu đồ (Chart.js/Recharts format)' })
+  charts(@Query('days') days?: string) {
+    return this.insightsService.getChartData(days ? parseInt(days) : 30);
+  }
 }
