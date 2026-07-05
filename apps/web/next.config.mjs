@@ -1,4 +1,12 @@
 /** @type {import('next').NextConfig} */
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+// CSP connect-src chỉ chấp nhận origin tuyệt đối (http/https/ws). Khi deploy prod,
+// NEXT_PUBLIC_API_URL là đường dẫn tương đối '/gw' (nginx proxy cùng origin) → không phải
+// source hợp lệ, browser bỏ qua và log warning. Same-origin đã được 'self' bao phủ nên
+// chỉ thêm API_URL vào connect-src khi nó là URL tuyệt đối.
+const API_CONNECT_SRC = /^(https?|wss?):\/\//.test(API_URL) ? ` ${API_URL}` : '';
+
 const nextConfig = {
   reactStrictMode: true,
   // Security Headers
@@ -29,7 +37,7 @@ const nextConfig = {
               "font-src 'self' https://fonts.gstatic.com https://livechat.vnpt.vn data:",
               "img-src 'self' data: blob: https://*.vnpt.vn",
               "media-src 'self' https://ic-smartvoice.vnpt.vn",
-              `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'} https://livechat.vnpt.vn https://*.vnpt.ai wss://*.vnpt.ai https://console-smartux.vnpt.vn`,
+              `connect-src 'self'${API_CONNECT_SRC} https://livechat.vnpt.vn https://*.vnpt.ai wss://*.vnpt.ai https://console-smartux.vnpt.vn`,
               "frame-src 'self' https://*.vnpt.vn",
               "frame-ancestors 'none'",
             ].join('; '),

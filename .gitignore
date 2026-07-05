@@ -29,6 +29,10 @@ uploads/
 *.pdf
 !data/sample-documents/*.jpg
 !data/sample-documents/*.jpeg
+# Web static assets are part of the app bundle — must be committed & shipped in the image
+!apps/web/public/**/*.png
+!apps/web/public/**/*.jpg
+!apps/web/public/**/*.jpeg
 
 # IDE
 .vscode/
