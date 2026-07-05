@@ -74,6 +74,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - AI_SVC_GRPC_URL=ai-svc:50051
+      # HTTP base cho OCR/eKYC inline — service name trong Docker, KHÔNG localhost.
+      - AI_SVC_HTTP_URL=http://ai-svc:8000
       # MONGO_URI + MONGO_DB_NAME lấy từ ../.env (Atlas) — KHÔNG override ở đây.
     env_file:
       - ../.env

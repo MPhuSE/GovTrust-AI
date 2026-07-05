@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { InjectQueue } from '@nestjs/bull';
+import { ConfigService } from '@nestjs/config';
 import { Queue } from 'bull';
 import { Model, Types } from 'mongoose';
 import { readFile, unlink } from 'fs/promises';
@@ -16,12 +17,28 @@ import { Procedure, ProcedureDocument } from '../../database/schemas/procedure.s
 
 @Injectable()
 export class DocumentsService {
+  // ai-svc HTTP base URL. Trong Docker phải là service name (ai-svc:8000),
+  // KHÔNG phải localhost. Derive giống ekyc-verification.service.ts.
+  private readonly aiSvcUrl: string;
+
   constructor(
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     @InjectModel(Job.name) private jobModel: Model<JobDocument>,
     @InjectModel(Procedure.name) private procedureModel: Model<ProcedureDocument>,
     @InjectQueue(AI_TASKS_QUEUE) private aiQueue: Queue,
-  ) {}
+    config: ConfigService,
+  ) {
+    const explicitUrl = config.get<string>('AI_SVC_HTTP_URL');
+    if (explicitUrl) {
+      this.aiSvcUrl = explicitUrl.replace(/\/$/, '');
+    } else {
+      const grpcUrl = config.get<string>('AI_SVC_GRPC_URL', 'localhost:50051');
+      const grpcHost = grpcUrl.replace(/^grpc:\/\//, '').split(':')[0];
+      const host = grpcHost === '0.0.0.0' ? 'localhost' : grpcHost;
+      const port = config.get<number>('AI_SVC_PORT', 8000);
+      this.aiSvcUrl = `http://${host}:${port}`;
+    }
+  }
 
   async upload(
     dto: { sessionId: string; documentTypeCode: string; checklistId: string },
@@ -82,7 +99,7 @@ export class DocumentsService {
       formData.append('document_type_code', dto.documentTypeCode);
       formData.append('checklist_id', dto.checklistId);
 
-      const res = await fetch('http://localhost:8000/api/v1/ocr/extract', {
+      const res = await fetch(`${this.aiSvcUrl}/api/v1/ocr/extract`, {
         method: 'POST',
         body: formData,
       });
