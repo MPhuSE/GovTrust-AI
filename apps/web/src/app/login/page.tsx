@@ -87,6 +87,25 @@ export default function LoginPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="bg-white/80  rounded-md shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-8 sm:p-10">
+          
+          {/* DEV Quick Login */}
+          <div className="mb-6 flex gap-2 justify-center">
+            <button
+              type="button"
+              onClick={() => { setUsername('052206000143'); setPassword('123456'); }}
+              className="text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded border border-emerald-200 font-semibold hover:bg-emerald-200 transition-colors"
+            >
+              Fill Citizen
+            </button>
+            <button
+              type="button"
+              onClick={() => { setUsername('dinhngocanh_test'); setPassword('123456'); }}
+              className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded border border-blue-200 font-semibold hover:bg-blue-200 transition-colors"
+            >
+              Fill Officer
+            </button>
+          </div>
+
           <div className="space-y-6">
             <div>
               <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2">
