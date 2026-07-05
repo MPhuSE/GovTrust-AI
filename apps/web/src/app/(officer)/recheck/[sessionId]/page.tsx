@@ -29,16 +29,28 @@ const SECTION_TITLES: Record<string, string> = {
   hopDong: 'Thông tin giao dịch', congTrinh: 'Nhà ở, công trình xây dựng',
 };
 
+// Chuẩn hoá giá trị field: bool "Có/Không", bỏ giá trị rỗng/false để không hiển thị rác.
+function normalizeFieldValue(raw: unknown): string | null {
+  if (raw === true || raw === 'true') return 'Có';
+  if (raw === false || raw === 'false') return null; // ẩn cờ tắt (VD: không đăng ký công trình)
+  const v = (raw ?? '').toString().trim();
+  if (!v) return null; // ẩn field để trống với officer (chỉ xem thông tin thực có)
+  return v;
+}
+
 function groupFormSections(fields: SmartFormField[]) {
   const order: string[] = [];
-  const byTitle = new Map<string, SmartFormField[]>();
+  const byTitle = new Map<string, Array<{ key: string; label: string; value: string }>>();
   for (const f of fields) {
+    const value = normalizeFieldValue(f.value);
+    if (value === null) continue; // bỏ field rỗng/false
     const prefix = f.key.includes('.') ? f.key.split('.')[0] : '';
     const title = SECTION_TITLES[prefix] ?? 'Thông tin chung';
     if (!byTitle.has(title)) { byTitle.set(title, []); order.push(title); }
-    byTitle.get(title)!.push(f);
+    byTitle.get(title)!.push({ key: f.key, label: f.label, value });
   }
-  return order.map((title) => ({ title, fields: byTitle.get(title)! }));
+  // Bỏ luôn section rỗng sau khi lọc.
+  return order.map((title) => ({ title, fields: byTitle.get(title)! })).filter((s) => s.fields.length > 0);
 }
 
 interface RecheckSession {
@@ -222,27 +234,29 @@ export default function RecheckPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {!session?.formFields || session.formFields.length === 0 ? (
-                    <p className="text-sm font-medium text-navy/50">Hồ sơ này không có dữ liệu tờ khai.</p>
-                  ) : (
-                    <div className="space-y-5">
-                      {groupFormSections(session.formFields).map((sec) => (
-                        <div key={sec.title}>
-                          <h4 className="text-xs font-bold text-navy/40 uppercase tracking-wider mb-2">{sec.title}</h4>
-                          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
-                            {sec.fields.map((f) => (
-                              <div key={f.key} className="flex flex-col border-b border-navy/5 pb-2">
-                                <dt className="text-[13px] font-medium text-navy/50">{f.label}</dt>
-                                <dd className={`text-sm font-semibold ${f.value ? 'text-navy' : 'text-navy/30 italic'}`}>
-                                  {f.value || '(để trống)'}
-                                </dd>
-                              </div>
-                            ))}
-                          </dl>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {(() => {
+                    const sections = session?.formFields ? groupFormSections(session.formFields) : [];
+                    if (sections.length === 0) {
+                      return <p className="text-sm font-medium text-navy/50">Hồ sơ này không có dữ liệu tờ khai.</p>;
+                    }
+                    return (
+                      <div className="space-y-5">
+                        {sections.map((sec) => (
+                          <div key={sec.title}>
+                            <h4 className="text-xs font-bold text-navy/40 uppercase tracking-wider mb-2">{sec.title}</h4>
+                            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+                              {sec.fields.map((f) => (
+                                <div key={f.key} className="flex flex-col border-b border-navy/5 pb-2">
+                                  <dt className="text-[13px] font-medium text-navy/50">{f.label}</dt>
+                                  <dd className="text-sm font-semibold text-navy">{f.value}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
 
