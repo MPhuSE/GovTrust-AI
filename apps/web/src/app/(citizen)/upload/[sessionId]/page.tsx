@@ -240,6 +240,7 @@ export default function UploadPage() {
           aiResult?: {
             ocrData?: Record<string, {
               source?: string;
+              documentTypeCode?: string;
               fields?: { soCCCD?: { value?: string } };
             }>;
           };
@@ -248,12 +249,21 @@ export default function UploadPage() {
         // Đọc các slot đã điền sẵn từ hồ sơ eKYC (backend gán khi tạo session)
         const ocrData = s.aiResult?.ocrData ?? {};
         const prefilled: Record<string, { cccdNumber?: string }> = {};
+        // Khôi phục các slot ĐÃ upload trước đó (quay lại hồ sơ nháp không bị mất).
+        // Ảnh gốc đã xoá theo data-minimization nên không có preview, chỉ đánh dấu "đã tải lên".
+        const restored: Record<string, { fileName: string; preview?: string; documentTypeCode: string }> = {};
         for (const [slotId, slot] of Object.entries(ocrData)) {
           if (slot?.source === 'EKYC_PROFILE') {
             prefilled[slotId] = { cccdNumber: slot.fields?.soCCCD?.value };
+          } else if (slot?.fields && Object.keys(slot.fields).length > 0) {
+            restored[slotId] = {
+              fileName: 'Giấy tờ đã tải lên trước đó',
+              documentTypeCode: slot.documentTypeCode ?? '',
+            };
           }
         }
         if (Object.keys(prefilled).length > 0) setPrefilledSlots(prefilled);
+        if (Object.keys(restored).length > 0) setUploadedDocs(prev => ({ ...restored, ...prev }));
 
         const proc =
           s.procedureId && typeof s.procedureId === 'object'
