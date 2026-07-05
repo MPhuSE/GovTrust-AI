@@ -42,19 +42,35 @@ const DAY = 86400000;
 // Kịch bản: mỗi phần tử = 1 hồ sơ đã nộp với đặc tính riêng để ra hạng mong muốn.
 // grade/score chỉ để hiển thị; hạng A/B/C/D do priority.service tự tính lại lúc GET /priority.
 function buildScenarios(procByCode) {
-  // helper crossCheck có N mismatch (để dashboard "top lỗi" có dữ liệu)
+  // helper crossCheck có N mismatch — shape KHỚP CrossChecker thật:
+  // { ruleName, field, leftValue, rightValue, status, severity, message, legalBasis }
+  // Backend maskCrossCheck rebuild message từ leftValue/rightValue nên PHẢI có 2 giá trị này.
   const mkCross = (matches, mismatches) => {
     const checks = [];
-    for (let i = 0; i < matches; i++)
-      checks.push({ ruleName: 'Đối chiếu thông tin định danh', status: 'MATCH', severity: 'LOW', message: 'Khớp' });
-    const errRules = [
-      'Họ tên người yêu cầu khớp giấy tờ gốc',
-      'Chủ sở hữu khớp bên chuyển nhượng',
-      'Diện tích thửa đất khớp hợp đồng',
-      'Chủ hộ cũ khớp người ủy quyền',
+    for (let i = 0; i < matches; i++) {
+      const v = ['NGUYỄN ĐĂNG PHÚ', 'LÊ THÁI HƯNG', '120 m²', 'Số 15 Nam Cường'][i % 4];
+      checks.push({
+        ruleName: 'Đối chiếu thông tin định danh khớp giấy tờ gốc',
+        field: 'hoTen', leftValue: v, rightValue: v,
+        status: 'MATCH', severity: 'LOW', message: `Khớp: "${v}"`,
+      });
+    }
+    // [ruleName, field, trái, phải, legalBasis]
+    const errRows = [
+      ['Họ tên người yêu cầu khớp giấy tờ gốc', 'hoTen', 'NGUYỄN VĂN A', 'NGUYỄN VĂN B', 'Điều 16 Luật Hộ tịch 2014'],
+      ['Chủ sở hữu khớp bên chuyển nhượng', 'tenChuSoHuu', 'LÊ VĂN HÙNG', 'TRẦN VĂN MINH', 'Điều 45 Luật Đất đai 2024'],
+      ['Diện tích thửa đất khớp hợp đồng', 'dienTich', '120 m²', '150 m²', 'Điều 45 Luật Đất đai 2024'],
+      ['Chủ hộ cũ khớp người ủy quyền', 'hoTenChuHo', 'LÊ THÁI HƯNG', 'TRẦN VĂN SỬU', 'Điều 85 NĐ 168/2025/NĐ-CP'],
     ];
-    for (let i = 0; i < mismatches; i++)
-      checks.push({ ruleName: errRules[i % errRules.length], status: 'MISMATCH', severity: i === 0 ? 'HIGH' : 'MEDIUM', message: 'Không khớp' });
+    for (let i = 0; i < mismatches; i++) {
+      const [ruleName, field, left, right, article] = errRows[i % errRows.length];
+      checks.push({
+        ruleName, field, leftValue: left, rightValue: right,
+        status: 'MISMATCH', severity: i === 0 ? 'HIGH' : 'MEDIUM',
+        message: `Không khớp — "${left}" ≠ "${right}"`,
+        legalBasis: { article, note: 'Thông tin phải đồng nhất giữa các giấy tờ để xác định đúng nhân thân/tài sản.' },
+      });
+    }
     return {
       checks,
       missingDocuments: [],
@@ -63,10 +79,15 @@ function buildScenarios(procByCode) {
     };
   };
 
+  // Shape breakdown KHỚP scoring thật: { ruleId, passed, impact, severity, detail }
   const mkScore = (score, hasCritical) => ({
     score,
     grade: score >= 85 ? 'A' : score >= 70 ? 'B' : score >= 60 ? 'C' : 'D',
-    breakdown: hasCritical ? [{ label: 'Sai lệch nghiêm trọng', severity: 'CRITICAL', delta: -40 }] : [],
+    breakdown: hasCritical
+      ? [{ ruleId: 'mismatch-info', passed: false, impact: -40, severity: 'CRITICAL', detail: 'Thông tin không khớp giữa giấy tờ và tờ khai — cần kiểm tra thủ công.' }]
+      : score < 90
+        ? [{ ruleId: 'minor-deduction', passed: false, impact: -(100 - score), severity: 'MEDIUM', detail: 'Một số thông tin cần rà soát bổ sung.' }]
+        : [],
     canSubmit: score >= 60,
     recommendation: score >= 60 ? 'Hồ sơ đạt yêu cầu.' : 'Hồ sơ cần bổ sung/kiểm tra kỹ.',
   });
@@ -119,16 +140,24 @@ function buildSmartForm(proc, user) {
   const guess = (id, label) => {
     const L = (label || '').toLowerCase();
     const K = (id || '').toLowerCase();
-    if (K.endsWith('.hoten') || L.includes('họ tên') || L.includes('họ và tên')) return name.toUpperCase();
+    // Số/mã đứng TRƯỚC các match địa chỉ/tên để không bị nuốt nhầm.
+    if (L.includes('số giấy') || L.includes('số gcn') || L.includes('số định danh') || L.includes('số sổ')) return 'CT' + Math.floor(100000 + Math.random() * 899999);
     if (L.includes('cccd') || L.includes('căn cước') || L.includes('cmnd')) return '0' + Math.floor(100000000000 + Math.random() * 899999999999);
-    if (L.includes('ngày sinh')) return '19' + (85 + (name.length % 14)) + '-0' + (1 + name.length % 8) + '-1' + (name.length % 9);
+    if (L.includes('mã số') || L.includes('đkhkd')) return '12.A8.0' + Math.floor(10000 + Math.random() * 89999);
+    // Tên riêng theo vai trò — cha/mẹ/chủ hộ KHÁC tên người yêu cầu để tờ khai thật.
+    if (L.includes('họ tên cha') || K.includes('cha')) return 'NGUYỄN VĂN HẢI';
+    if (L.includes('họ tên mẹ') || K.includes('me.') || K.endsWith('.me')) return 'TRẦN THỊ LAN';
+    if (L.includes('chủ hộ') && (L.includes('họ tên') || L.includes('đồng ý'))) return 'PHẠM VĂN CƯỜNG';
+    if (L.includes('bên chuyển') && L.includes('họ tên')) return 'TRẦN VĂN MINH';
+    if (L.includes('người được') && L.includes('họ tên')) return 'LÊ THỊ HƯƠNG';
+    if (K.endsWith('.hoten') || L.includes('họ tên') || L.includes('họ và tên')) return name.toUpperCase();
+    if (L.includes('ngày sinh')) return String(10 + (name.length % 18)).padStart(2, '0') + '/0' + (1 + name.length % 8) + '/19' + (85 + name.length % 14);
     if (L.includes('điện thoại') || L.includes('sđt')) return user.phoneNumber || '09' + Math.floor(10000000 + Math.random() * 89999999);
     if (L.includes('email')) return user.email || 'congdan@example.com';
     if (L.includes('cơ quan')) return 'UBND phường Nam Cường, TP Lào Cai';
     if (L.includes('địa chỉ') || L.includes('nơi cư trú') || L.includes('nơi thường trú') || L.includes('trụ sở') || L.includes('chỗ ở')) return 'Số 15, Tổ 8, phường Nam Cường, TP Lào Cai';
     if (L.includes('quan hệ')) return 'Chủ hộ';
     if (L.includes('tên hộ kinh doanh')) return 'HỘ KINH DOANH ' + name.toUpperCase();
-    if (L.includes('mã số') || L.includes('đkhkd')) return '12.A8.0' + Math.floor(10000 + Math.random() * 89999);
     if (L.includes('ngành') || L.includes('nghề')) return 'Bán lẻ hàng hóa tổng hợp';
     if (L.includes('vốn')) return '50.000.000 đồng';
     if (L.includes('diện tích')) return '120 m²';

@@ -98,7 +98,7 @@ export default function RecheckPage() {
 
         setSession({
           _id: sessionId,
-          procedureName: s.procedure?.name || 'Không rõ thủ tục',
+          procedureName: s.procedure?.name || s.procedureId?.name || 'Không rõ thủ tục',
           score: s.aiResult?.score?.score || 0,
           grade: s.aiResult?.score?.grade || 'D',
           breakdown: (s.aiResult?.score?.breakdown || []) as RecheckSession['breakdown'],
@@ -209,12 +209,19 @@ export default function RecheckPage() {
                   <div className="flex-1 w-full">
                     <h3 className="font-bold text-navy text-lg mb-4">Kết quả AI đánh giá</h3>
                     <div className="space-y-1 bg-navy/5 p-4 rounded border border-navy/10">
-                      {session?.breakdown.map((b) => (
-                        <div key={b.ruleId} className="flex items-center justify-between text-sm py-2 border-b border-navy/5 last:border-0 gap-4">
-                          <span className="text-navy/80 font-medium">{b.detail}</span>
-                          <Badge variant="destructive" animate={false} className="shrink-0 font-mono">-{Math.abs(b.impact)}đ</Badge>
-                        </div>
-                      ))}
+                      {session?.breakdown.map((b, i) => {
+                        // impact có thể là 'delta' (shape cũ) hoặc thiếu → tránh NaN.
+                        const raw = (b.impact ?? (b as { delta?: number }).delta ?? 0);
+                        const impact = Number(raw) || 0;
+                        return (
+                          <div key={b.ruleId || i} className="flex items-center justify-between text-sm py-2 border-b border-navy/5 last:border-0 gap-4">
+                            <span className="text-navy/80 font-medium">{b.detail || (b as { label?: string }).label || 'Điểm trừ'}</span>
+                            {impact !== 0 && (
+                              <Badge variant="destructive" animate={false} className="shrink-0 font-mono">-{Math.abs(impact)}đ</Badge>
+                            )}
+                          </div>
+                        );
+                      })}
                       {(!session?.breakdown || session.breakdown.length === 0) && (
                         <p className="text-sm text-teal-700 font-medium text-center py-2">Không có điểm trừ nào. Hồ sơ hoàn hảo.</p>
                       )}
