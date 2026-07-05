@@ -22,7 +22,9 @@ const nextConfig = {
             // Thiếu các domain này thì widget bị CSP chặn im lặng → nút chat không hiện.
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://livechat.vnpt.vn https://console-smartux.vnpt.vn",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://livechat.vnpt.vn https://console-smartux.vnpt.vn",
+              // VNPT core-track.js spawn web worker từ blob: → cần worker-src blob:.
+              "worker-src 'self' blob:",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://livechat.vnpt.vn",
               "font-src 'self' https://fonts.gstatic.com https://livechat.vnpt.vn data:",
               "img-src 'self' data: blob: https://*.vnpt.vn",
