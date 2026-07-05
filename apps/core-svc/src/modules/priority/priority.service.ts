@@ -40,7 +40,13 @@ export class PriorityService {
         createdAt: s.createdAt, // Add createdAt
         citizenName: (s as any).userId?.fullName || 'Người dùng', // Add citizenName (assuming populated or not, fallback)
         priority: level,
-        reason: hasCriticalError ? 'Lỗi nghiêm trọng' : (score < 60 ? 'Điểm thấp' : `${procedure.name} — hạn xử lý còn ${Math.ceil(daysLeft)} ngày`),
+        reason: hasCriticalError
+          ? 'Lỗi nghiêm trọng'
+          : score < 60
+          ? 'Điểm thấp'
+          : level === 'D'
+          ? `Hồ sơ sạch (điểm ${score}) — ưu tiên thấp, xử lý sau cùng`
+          : `${procedure.name} — hạn xử lý còn ${Math.ceil(daysLeft)} ngày`,
         score,
         slaDeadline,
         submittedAt: s.createdAt,
@@ -66,6 +72,8 @@ export class PriorityService {
     if (hasCriticalError || score < 60) return 'A'; // Ưu tiên kiểm tra thủ công ngay lập tức để huỷ/trả hồ sơ
     if (daysLeft <= 1 || urgency === 'HIGH') return 'A';
     if (daysLeft <= 3 && score >= 70) return 'B';
+    // Hồ sơ rất sạch (điểm cao) và còn nhiều thời gian → ưu tiên thấp nhất, xử lý sau cùng.
+    if (score >= 90 && daysLeft > 3) return 'D';
     if (score >= 60) return 'C';
     return 'D';
   }
