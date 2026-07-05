@@ -11,7 +11,35 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { ChevronLeft, CheckCircle2, AlertTriangle, Search, Flag, Lightbulb } from 'lucide-react';
+import { ChevronLeft, CheckCircle2, AlertTriangle, Search, Flag, Lightbulb, FileText } from 'lucide-react';
+
+interface SmartFormField {
+  key: string;
+  label: string;
+  value: string;
+  required?: boolean;
+}
+
+// Prefix key → tiêu đề nhóm (đồng bộ với trang track/smartform của công dân).
+const SECTION_TITLES: Record<string, string> = {
+  nguoiYeuCau: 'Người yêu cầu', treEm: 'Thông tin trẻ em', phuHuynh2: 'Phụ huynh còn lại',
+  ketHon: 'Giấy chứng nhận kết hôn', hoKinhDoanh: 'Hộ kinh doanh', chuHoCu: 'Chủ hộ trước khi thay đổi',
+  chuHoMoi: 'Chủ hộ sau khi thay đổi', thayDoi: 'Nội dung thay đổi',
+  benNhan: 'Bên nhận chuyển nhượng', thuaDat: 'Thông tin thửa đất', benChuyen: 'Bên chuyển nhượng',
+  hopDong: 'Thông tin giao dịch', congTrinh: 'Nhà ở, công trình xây dựng',
+};
+
+function groupFormSections(fields: SmartFormField[]) {
+  const order: string[] = [];
+  const byTitle = new Map<string, SmartFormField[]>();
+  for (const f of fields) {
+    const prefix = f.key.includes('.') ? f.key.split('.')[0] : '';
+    const title = SECTION_TITLES[prefix] ?? 'Thông tin chung';
+    if (!byTitle.has(title)) { byTitle.set(title, []); order.push(title); }
+    byTitle.get(title)!.push(f);
+  }
+  return order.map((title) => ({ title, fields: byTitle.get(title)! }));
+}
 
 interface RecheckSession {
   _id: string;
@@ -37,6 +65,7 @@ interface RecheckSession {
     legalSource?: { title: string; article: string; url?: string };
   }>;
   riskFlags: Array<{ type: string; message: string; severity: string }>;
+  formFields: SmartFormField[];
 }
 
 export default function RecheckPage() {
@@ -64,6 +93,7 @@ export default function RecheckPage() {
           crossCheckResults: (s.aiResult?.crossCheck?.checks || []) as RecheckSession['crossCheckResults'],
           lawGuardAlerts: (s.aiResult?.lawGuardAlerts || []) as RecheckSession['lawGuardAlerts'],
           riskFlags: (s.govReCheck?.riskFlags || []) as RecheckSession['riskFlags'],
+          formFields: (s.aiResult?.smartForm?.fields || []) as SmartFormField[],
         });
         setIsLoading(false);
       })
@@ -178,6 +208,41 @@ export default function RecheckPage() {
                       )}
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Tờ khai công dân đã điền (biểu mẫu nộp lên) */}
+              <Card className="border-navy/10 shadow-sm bg-white">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg text-navy">
+                    <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-teal-600" />
+                    </div>
+                    Tờ khai công dân đã nộp
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!session?.formFields || session.formFields.length === 0 ? (
+                    <p className="text-sm font-medium text-navy/50">Hồ sơ này không có dữ liệu tờ khai.</p>
+                  ) : (
+                    <div className="space-y-5">
+                      {groupFormSections(session.formFields).map((sec) => (
+                        <div key={sec.title}>
+                          <h4 className="text-xs font-bold text-navy/40 uppercase tracking-wider mb-2">{sec.title}</h4>
+                          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+                            {sec.fields.map((f) => (
+                              <div key={f.key} className="flex flex-col border-b border-navy/5 pb-2">
+                                <dt className="text-[13px] font-medium text-navy/50">{f.label}</dt>
+                                <dd className={`text-sm font-semibold ${f.value ? 'text-navy' : 'text-navy/30 italic'}`}>
+                                  {f.value || '(để trống)'}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

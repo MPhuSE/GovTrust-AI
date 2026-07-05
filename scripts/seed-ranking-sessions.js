@@ -111,6 +111,45 @@ function buildScenarios(procByCode) {
     }));
 }
 
+// Sinh giá trị tờ khai (smartForm.fields) từ formFields của procedure + thông tin citizen.
+// Value đoán theo label để tờ khai trông thật khi officer xem. Không cần chính xác pháp lý.
+function buildSmartForm(proc, user) {
+  if (!proc || !Array.isArray(proc.formFields)) return { procedureName: proc && proc.name, fields: [] };
+  const name = user.fullName || 'Nguyễn Văn A';
+  const guess = (id, label) => {
+    const L = (label || '').toLowerCase();
+    const K = (id || '').toLowerCase();
+    if (K.endsWith('.hoten') || L.includes('họ tên') || L.includes('họ và tên')) return name.toUpperCase();
+    if (L.includes('cccd') || L.includes('căn cước') || L.includes('cmnd')) return '0' + Math.floor(100000000000 + Math.random() * 899999999999);
+    if (L.includes('ngày sinh')) return '19' + (85 + (name.length % 14)) + '-0' + (1 + name.length % 8) + '-1' + (name.length % 9);
+    if (L.includes('điện thoại') || L.includes('sđt')) return user.phoneNumber || '09' + Math.floor(10000000 + Math.random() * 89999999);
+    if (L.includes('email')) return user.email || 'congdan@example.com';
+    if (L.includes('cơ quan')) return 'UBND phường Nam Cường, TP Lào Cai';
+    if (L.includes('địa chỉ') || L.includes('nơi cư trú') || L.includes('nơi thường trú') || L.includes('trụ sở') || L.includes('chỗ ở')) return 'Số 15, Tổ 8, phường Nam Cường, TP Lào Cai';
+    if (L.includes('quan hệ')) return 'Chủ hộ';
+    if (L.includes('tên hộ kinh doanh')) return 'HỘ KINH DOANH ' + name.toUpperCase();
+    if (L.includes('mã số') || L.includes('đkhkd')) return '12.A8.0' + Math.floor(10000 + Math.random() * 89999);
+    if (L.includes('ngành') || L.includes('nghề')) return 'Bán lẻ hàng hóa tổng hợp';
+    if (L.includes('vốn')) return '50.000.000 đồng';
+    if (L.includes('diện tích')) return '120 m²';
+    if (L.includes('thửa')) return '42';
+    if (L.includes('bản đồ')) return '15';
+    if (L.includes('giới tính')) return 'Nam';
+    if (L.includes('quốc tịch')) return 'Việt Nam';
+    if (L.includes('dân tộc')) return 'Kinh';
+    if (L.includes('nơi sinh')) return 'Bệnh viện Đa khoa tỉnh Lào Cai';
+    return '';
+  };
+  const fields = proc.formFields.map((f) => ({
+    key: f.id,
+    label: f.label,
+    value: f.defaultValue != null ? f.defaultValue : guess(f.id, f.label),
+    required: Boolean(f.required),
+    filled: true,
+  }));
+  return { procedureName: proc.name, fields };
+}
+
 async function main() {
   const env = loadEnv();
   const uri = env.MONGO_URI;
@@ -129,18 +168,21 @@ async function main() {
     return;
   }
 
-  const users = await db.collection('users').find({ role: 'CITIZEN' }).project({ fullName: 1 }).toArray();
+  const users = await db.collection('users').find({ role: 'CITIZEN' }).project({ fullName: 1, phoneNumber: 1, email: 1 }).toArray();
   if (users.length === 0) throw new Error('Không có user CITIZEN nào để gán session.');
 
-  const procs = await db.collection('procedures').find({}).project({ code: 1 }).toArray();
+  const procs = await db.collection('procedures').find({}).project({ code: 1, name: 1, formFields: 1 }).toArray();
   const procByCode = {};
-  for (const p of procs) procByCode[p.code] = p._id;
+  const procById = {};
+  for (const p of procs) { procByCode[p.code] = p._id; procById[String(p._id)] = p; }
 
   const scenarios = buildScenarios(procByCode);
   const now = Date.now();
   const docs = scenarios.map((sc, i) => {
     const user = users[i % users.length]; // xoay vòng qua các citizen
     const createdAt = new Date(now - sc.ageDays * DAY - (i % 5) * 3600_000); // lệch giờ cho tự nhiên
+    const proc = procById[String(sc.procedureId)];
+    const smartForm = buildSmartForm(proc, user);
     return {
       userId: user._id,
       procedureId: sc.procedureId,
@@ -152,6 +194,7 @@ async function main() {
         ocrData: {},
         crossCheck: sc.crossCheck,
         score: sc.score,
+        smartForm,
       },
       // TTL: giữ 7 ngày để demo không bị TTL xoá sớm (session thật để 24h)
       expiresAt: new Date(now + 7 * DAY),
