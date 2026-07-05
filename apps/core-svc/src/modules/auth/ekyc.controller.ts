@@ -28,8 +28,18 @@ export class EkycController {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private config: ConfigService,
   ) {
-    const port = this.config.get<number>('AI_SVC_PORT', 8000);
-    this.aiSvcUrl = `http://localhost:${port}`;
+    // ai-svc HTTP base. Trong Docker phải là service name (ai-svc:8000), KHÔNG
+    // localhost. Derive giống ekyc-verification.service.ts / documents.service.ts.
+    const explicitUrl = this.config.get<string>('AI_SVC_HTTP_URL');
+    if (explicitUrl) {
+      this.aiSvcUrl = explicitUrl.replace(/\/$/, '');
+    } else {
+      const grpcUrl = this.config.get<string>('AI_SVC_GRPC_URL', 'localhost:50051');
+      const grpcHost = grpcUrl.replace(/^grpc:\/\//, '').split(':')[0];
+      const host = grpcHost === '0.0.0.0' ? 'localhost' : grpcHost;
+      const port = this.config.get<number>('AI_SVC_PORT', 8000);
+      this.aiSvcUrl = `http://${host}:${port}`;
+    }
   }
 
   @Post('verify')
