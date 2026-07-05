@@ -399,3 +399,28 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* ===== VNPT SmartBot — căn giữa icon trong nút chat nổi ===== */
+/* KHÔNG ép `display` trên nút: khi mở chat, vendor ẩn nút bằng inline
+   style.display="none" (không !important). Nếu ta để `display:flex !important`
+   thì rule stylesheet thắng inline → nút không tắt được khi mở chat.
+   Giải pháp: chỉ dùng position + absolute-center cho ẢNH để căn giữa mà không
+   chạm tới display của nút, nên vendor vẫn ẩn/hiện nút bình thường. */
+#vnpt_ai_livechat_button,
+#vnpt_ai_livechat_button_dynamic {
+  position: relative !important;
+  overflow: hidden !important;
+}
+#vnpt_ai_livechat_button img,
+#vnpt_ai_livechat_button_dynamic img {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  height: auto !important;
+  max-width: 60% !important;
+  max-height: 60% !important;
+  object-fit: contain !important;
+  margin: 0 !important;
+  float: none !important;
+}

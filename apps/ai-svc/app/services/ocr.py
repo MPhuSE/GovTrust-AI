@@ -22,6 +22,47 @@ class OcrUnavailableError(RuntimeError):
     """VNPT OCR chưa được cấu hình (thiếu token) nên không thể trích xuất."""
 
 
+class DocumentTypeMismatch(ValueError):
+    """Ảnh upload KHÔNG phải loại giấy tờ đã chọn — OCR không đọc được các field
+    đặc trưng của loại đó (vd chọn 'Giấy kết hôn' nhưng ảnh là sổ hộ khẩu)."""
+
+
+# Field ĐẶC TRƯNG cho mỗi loại giấy tờ: nếu ảnh ĐÚNG loại thì OCR bắt buộc phải
+# đọc được ÍT NHẤT MỘT trong các field này. Không đọc được field nào → ảnh sai loại
+# (vd giấy kết hôn không thể thiếu cả hoTenVo lẫn hoTenChong). Dùng "any-of" để
+# khoan dung với ảnh mờ 1 phần, nhưng vẫn chặn ảnh hoàn toàn khác loại.
+# Key nội bộ — khớp EKYC_MAPPING / SMARTREADER_MAPPING / Qwen prompt keys.
+SIGNATURE_FIELDS: dict[str, list[str]] = {
+    "CCCD": ["soCCCD", "hoTen"],
+    "CMND": ["soCMND", "hoTen"],
+    "GIAY_KHAI_SINH": ["hoTenCon", "hoTenMe", "hoTenCha"],
+    "GIAY_KET_HON": ["hoTenVo", "hoTenChong"],
+    "HO_KINH_DOANH": ["tenHoKinhDoanh", "maSoHoKinhDoanh", "hoTenChuHo"],
+    "GIAY_CHUNG_SINH": ["hoTenCon", "hoTenMe", "noiSinh"],
+    "GIAY_CHUNG_NHAN_QSDD": ["tenChuSoHuu", "soThua", "soGiayChungNhan"],
+    "HOP_DONG_CHUYEN_NHUONG": ["benChuyenNhuong", "benNhanChuyenNhuong", "diaChiThuaDat"],
+    "VAN_BAN_UY_QUYEN_HGD": ["tenNguoiUyQuyen", "tenNguoiDuocUyQuyen"],
+    "VAN_BAN_UY_QUYEN_THU_TUC": ["tenNguoiUyQuyen", "tenNguoiDuocUyQuyen"],
+}
+
+
+def _assert_document_type(document_type: str, fields: dict[str, dict[str, Any]]) -> None:
+    """Xác minh ảnh đúng loại: phải đọc được >=1 field đặc trưng có giá trị.
+    Loại không khai báo signature → bỏ qua (không chặn). Raise DocumentTypeMismatch nếu sai."""
+    signature = SIGNATURE_FIELDS.get(document_type)
+    if not signature:
+        return
+    for key in signature:
+        entry = fields.get(key)
+        value = entry.get("value") if isinstance(entry, dict) else None
+        if value not in (None, "", "-"):
+            return  # đọc được ít nhất 1 field đặc trưng → đúng loại
+    raise DocumentTypeMismatch(
+        f"Ảnh không khớp loại giấy tờ đã chọn ({document_type}). "
+        f"Không đọc được thông tin đặc trưng — vui lòng chụp/tải đúng loại giấy tờ, rõ nét."
+    )
+
+
 # eKYC OCR (path web /ai/v1/web/ocr/id) — bóc CCCD/CMND. Map key VNPT -> key nội bộ.
 EKYC_MAPPING: dict[str, dict[str, str]] = {
     "CCCD": {
@@ -33,6 +74,10 @@ EKYC_MAPPING: dict[str, dict[str, str]] = {
         "queQuan": "origin_location",
         "noiThuongTru": "recent_location",
         "ngayHetHan": "valid_date",
+        # Ngày/nơi cấp — trước bỏ sót nên CCCD upload trực tiếp thiếu 2 ô này,
+        # dù full eKYC (ekyc.py FIELD_MAP) đã bóc. Bổ sung cho nhất quán.
+        "ngayCap": "issue_date",
+        "noiCap": "issue_place",
     },
     "CMND": {
         "soCMND": "id",
@@ -84,17 +129,25 @@ SMARTREADER_MAPPING: dict[str, dict[str, str]] = {
     },
     # Key VNPT đã xác minh bằng response thật (scripts/debug-hkd-raw.py, server 1.5.8).
     # Endpoint dang-ky-ho-kinh-doanh trả object phẳng với các key dưới đây.
+    # Key nội bộ = fieldKey trong sourceMap mvp-procedures (giay_hkd.<key>) — phải khớp
+    # để smartform điền được. dan_toc/noi_cap/ngay_cap trước bị bỏ sót nên các ô
+    # Dân tộc / Nơi cấp / Ngày cấp CCCD chủ hộ cũ trống dù VNPT có trả.
     "HO_KINH_DOANH": {
         "tenHoKinhDoanh": "ten_ho_kinh_doanh",
         "maSoHoKinhDoanh": "so_giay_phep_kinh_doanh",
         "diaChiKinhDoanh": "dia_diem_kinh_doanh",
+        "dienThoai": "so_dien_thoai_ho_kinh_doanh",
         "hoTenChuHo": "ten_nguoi_dai_dien",
         "soGiayTo": "cmnd_cccd",
         "ngaySinhChuHo": "ngay_sinh_ho_kinh_doanh",
+        "danTocChuHo": "dan_toc",
+        "ngayCapCCCDChuHo": "ngay_cap",
+        "noiCapCCCDChuHo": "noi_cap",
         "noiThuongTruChuHo": "ho_khau_thuong_tru",
         "vonKinhDoanh": "von_kinh_doanh",
         "nganhNghe": "nganh_nghe",
-        "ngayCap": "ngay_cap",
+        # Cơ quan đã cấp giấy = cơ quan tiếp nhận hồ sơ thay đổi (cùng phòng ĐKKD cấp xã/huyện).
+        "donViCap": "don_vi_cap",
     },
     # Văn bản hành chính chung (v2) — chỉ map field định danh cốt lõi, ít ổn định.
     "VAN_BAN_HANH_CHINH": {
@@ -127,6 +180,7 @@ SMARTREADER_ENDPOINTS: dict[str, str] = {
 
 # Loại giấy tờ sử dụng Qwen VL OCR (không có VNPT endpoint hoặc VNPT không có quyền)
 QWEN_OCR_DOCUMENTS: set[str] = {
+    "GIAY_CHUNG_SINH",  # Giấy chứng sinh từ bệnh viện
     "GIAY_CHUNG_NHAN_QSDD",  # Sổ đỏ - VNPT không có quyền
     "VAN_BAN_UY_QUYEN_HGD",  # Văn bản ủy quyền hộ gia đình
     "VAN_BAN_UY_QUYEN_THU_TUC",  # Văn bản ủy quyền thủ tục
@@ -186,22 +240,26 @@ class OcrService:
 
         if document_type in EKYC_MAPPING:
             if not self.ekyc_configured:
-                return self._mock_result(document_type, quality, started)
-            return await self._extract_ekyc(image, document_type, quality, started)
-
-        if document_type in QWEN_OCR_DOCUMENTS:
+                return self._fallback(document_type, quality, started, "chưa cấu hình VNPT eKYC token")
+            result = await self._extract_ekyc(image, document_type, quality, started)
+        elif document_type in QWEN_OCR_DOCUMENTS:
             if not self.qwen_configured:
-                return self._mock_result(document_type, quality, started)
-            return await self._extract_qwen(image, document_type, quality, started)
-
-        if document_type not in SMARTREADER_ENDPOINTS:
+                return self._fallback(document_type, quality, started, "chưa cấu hình Qwen OCR API key")
+            result = await self._extract_qwen(image, document_type, quality, started)
+        elif document_type not in SMARTREADER_ENDPOINTS:
             raise UnsupportedDocumentType(
                 f"Loại giấy '{document_type}' chưa hỗ trợ OCR (không có endpoint VNPT hoặc Qwen)"
             )
-        if not self.configured:
-            return self._mock_result(document_type, quality, started)
+        elif not self.configured:
+            return self._fallback(document_type, quality, started, "chưa cấu hình VNPT SmartReader token")
+        else:
+            result = await self._extract_smartreader(image, document_type, quality, started)
 
-        return await self._extract_smartreader(image, document_type, quality, started)
+        # Xác minh ảnh ĐÚNG loại giấy tờ đã chọn (chống upload nhầm: chọn Giấy kết hôn
+        # nhưng ảnh là sổ hộ khẩu). Mock có đủ field đặc trưng nên vẫn qua; chỉ chặn
+        # kết quả thật thiếu toàn bộ field đặc trưng → DocumentTypeMismatch (route → 422).
+        _assert_document_type(document_type, result.fields)
+        return result
 
     async def _extract_smartreader(
         self,
@@ -213,34 +271,42 @@ class OcrService:
         base = self.settings.VNPT_BASE_URL.rstrip("/")
         headers = self._smartreader_headers
         filename, content_type, is_pdf = self._detect_file(image)
-        image_hash = await self._upload(
-            image,
-            base,
-            headers,
-            filename=filename,
-            content_type=content_type,
-        )
-        response = await self.http.post(
-            f"{base}{SMARTREADER_ENDPOINTS[document_type]}",
-            headers=headers,
-            json={
-                "file_hash": image_hash,
-                "file_type": "PDF" if is_pdf else "Image",
-                "token": uuid.uuid4().hex,
-                "client_session": self._client_session(),
-                "details": False,
-            },
-            timeout=90,
-        )
-        response.raise_for_status()
-        normalized = self._normalize(response.json(), document_type)
-        return OcrResult(
-            fields=normalized.fields,
-            avg_confidence=normalized.avg_confidence,
-            processing_time_ms=int((time.perf_counter() - started) * 1000),
-            liveness=None,
-            image_quality={**quality, "ocrConfidence": normalized.avg_confidence},
-        )
+
+        try:
+            image_hash = await self._upload(
+                image,
+                base,
+                headers,
+                filename=filename,
+                content_type=content_type,
+            )
+            response = await self.http.post(
+                f"{base}{SMARTREADER_ENDPOINTS[document_type]}",
+                headers=headers,
+                json={
+                    "file_hash": image_hash,
+                    "file_type": "PDF" if is_pdf else "Image",
+                    "token": uuid.uuid4().hex,
+                    "client_session": self._client_session(),
+                    "details": False,
+                },
+                timeout=90,
+            )
+            response.raise_for_status()
+            normalized = self._normalize(response.json(), document_type)
+            return OcrResult(
+                fields=normalized.fields,
+                avg_confidence=normalized.avg_confidence,
+                processing_time_ms=int((time.perf_counter() - started) * 1000),
+                liveness=None,
+                image_quality={**quality, "ocrConfidence": normalized.avg_confidence},
+            )
+        except Exception as e:
+            logger.warning(f"VNPT OCR failed for {document_type}: {e}")
+            return self._fallback(
+                document_type, quality, started,
+                f"VNPT SmartReader lỗi hoặc không đọc được ảnh ({e})", cause=e,
+            )
 
     async def _extract_qwen(
         self,
@@ -279,40 +345,74 @@ class OcrService:
         quality: dict[str, Any],
         started: float,
     ) -> OcrResult:
-        """OCR giấy tờ tùy thân qua eKYC path web (chỉ mặt trước, tự classify loại)."""
+        """OCR giấy tờ tùy thân qua eKYC path web (chỉ mặt trước, tự classify loại).
+
+        VNPT trả 400 khi từ chối ảnh (mờ, không phải mặt trước CCCD...) — đây là kết
+        quả OCR thất bại, KHÔNG phải lỗi hệ thống. Trước đây raise_for_status() thẳng
+        → route biến thành 502 Bad Gateway khó hiểu. Nay đi qua _fallback() giống
+        SmartReader: demo → mock, production → OcrUnavailableError (503, thông báo rõ)."""
         base = self.settings.VNPT_BASE_URL.rstrip("/")
         headers = self._ekyc_headers
         _, content_type, _ = self._detect_file(image)
-        image_hash = await self._upload(
-            image,
-            base,
-            headers,
-            filename="front.jpg",
-            content_type=content_type,
-        )
-        response = await self.http.post(
-            f"{base}/ai/v1/web/ocr/id",
-            headers=headers,
-            json={
-                "img_front": image_hash,
-                "step_id": 0,
-                "validate_postcode": False,
-                "crop_param": "0,0",
-                "client_session": self._client_session(web=True),
-                "token": uuid.uuid4().hex,
-                "type": -1,
-            },
-            timeout=90,
-        )
-        response.raise_for_status()
-        normalized = self._normalize_ekyc(response.json(), document_type)
-        return OcrResult(
-            fields=normalized.fields,
-            avg_confidence=normalized.avg_confidence,
-            processing_time_ms=int((time.perf_counter() - started) * 1000),
-            liveness=None,
-            image_quality={**quality, "ocrConfidence": normalized.avg_confidence},
-        )
+        try:
+            image_hash = await self._upload(
+                image,
+                base,
+                headers,
+                filename="front.jpg",
+                content_type=content_type,
+            )
+            response = await self.http.post(
+                f"{base}/ai/v1/web/ocr/id",
+                headers=headers,
+                json={
+                    "img_front": image_hash,
+                    "step_id": 0,
+                    "validate_postcode": False,
+                    "crop_param": "0,0",
+                    "client_session": self._client_session(web=True),
+                    "token": uuid.uuid4().hex,
+                    "type": -1,
+                },
+                timeout=90,
+            )
+            response.raise_for_status()
+            normalized = self._normalize_ekyc(response.json(), document_type)
+            return OcrResult(
+                fields=normalized.fields,
+                avg_confidence=normalized.avg_confidence,
+                processing_time_ms=int((time.perf_counter() - started) * 1000),
+                liveness=None,
+                image_quality={**quality, "ocrConfidence": normalized.avg_confidence},
+            )
+        except Exception as e:
+            logger.warning(f"VNPT eKYC OCR failed for {document_type}: {e}")
+            return self._fallback(
+                document_type, quality, started,
+                f"VNPT eKYC từ chối ảnh hoặc lỗi ({e}) — thử lại với ảnh CCCD rõ nét, đúng mặt trước",
+                cause=e,
+            )
+
+    def _fallback(
+        self,
+        document_type: str,
+        quality: dict[str, Any],
+        started: float,
+        reason: str,
+        cause: Exception | None = None,
+    ) -> OcrResult:
+        """Khi OCR thật không dùng được (thiếu token / VNPT lỗi / ảnh không đọc được):
+        - MOCK_OCR_FOR_DEMO=true  → trả mock (chạy demo offline không cần token).
+        - MOCK_OCR_FOR_DEMO=false → RAISE lỗi rõ ràng, KHÔNG im lặng trả mock che sự cố.
+        Mặc định là false → luôn ưu tiên OCR thật, lỗi hiện ra để người dùng đổi ảnh."""
+        if self.settings.MOCK_OCR_FOR_DEMO:
+            logger.warning(
+                f"MOCK_OCR_FOR_DEMO bật → trả mock cho {document_type}: {reason}"
+            )
+            return self._mock_result(document_type, quality, started)
+        raise OcrUnavailableError(
+            f"OCR không trích xuất được '{document_type}': {reason}"
+        ) from cause
 
     def _mock_result(self, document_type: str, quality: dict[str, Any], started: float) -> OcrResult:
         fields = self._mock_fields(document_type)
@@ -371,15 +471,24 @@ class OcrService:
                 "noiDangKy": "UBND phường Minh Khai",
                 "ngayDangKy": "01/06/2026",
             },
+            # Khớp anchor thật (giay-dang-ky-ho-kinh-doanh_sample.jpg VNPT đọc được)
+            # để cross-check nhất quán dù VNPT đọc thật hay fallback mock.
+            # Đủ field theo SMARTREADER_MAPPING["HO_KINH_DOANH"] (gồm noiThuongTruChuHo,
+            # vonKinhDoanh) — trước thiếu nên diaChiThuongTru chủ hộ cũ bị rỗng khi fallback.
             "HO_KINH_DOANH": {
-                "tenHoKinhDoanh": "Hộ kinh doanh An Phát",
-                "maSoHoKinhDoanh": "01A8001234",
-                "diaChiKinhDoanh": "12 Phố Huế, Hà Nội",
-                "hoTenChuHo": "NGUYEN VAN A",
-                "soGiayTo": "001234567890",
-                "ngaySinhChuHo": "01/01/2000",
-                "nganhNghe": "Bán lẻ thực phẩm",
-                "ngayCap": "01/01/2025",
+                "tenHoKinhDoanh": "LÊ THÁI HƯNG",
+                "maSoHoKinhDoanh": "12.A8.018999",
+                "diaChiKinhDoanh": "Số 043, Vương Thừa Vũ, phường Bình Minh, Tp Lào Cai, tỉnh Lào Cai",
+                "donViCap": "UBND THÀNH PHỐ LÀO CAI PHÒNG TÀI CHÍNH - KẾ HOẠCH",
+                "hoTenChuHo": "LÊ THÁI HƯNG",
+                "soGiayTo": "09165232001",
+                "ngaySinhChuHo": "10/09/1998",
+                "danTocChuHo": "Kinh",
+                "ngayCapCCCDChuHo": "02/10/2009",
+                "noiCapCCCDChuHo": "Công an tỉnh Lào Cai",
+                "noiThuongTruChuHo": "Tổ 15, phường Nam Cường, Tp Lào Cai, tỉnh Lào Cai",
+                "vonKinhDoanh": "300.000.000vnđ (Ba trăm triệu đồng chẵn)",
+                "nganhNghe": "Mua, bán và sửa chữa điện thoại, phụ kiện - linh kiện điện thoại",
             },
             "VAN_BAN_HANH_CHINH": {
                 "tenVanBan": "Văn bản ủy quyền",
@@ -393,6 +502,21 @@ class OcrService:
                 "diaChiNha": "Phường Minh Khai, Hà Nội",
                 "coQuanCap": "Sở Tài nguyên và Môi trường Hà Nội",
                 "ngayCap": "01/01/2020",
+            },
+            "GIAY_CHUNG_SINH": {
+                "hoTenCon": "NGUYEN VAN A",
+                "ngaySinhCon": "01/01/2026",
+                "gioiTinhCon": "Nam",
+                "canNang": "3.2 kg",
+                "chieuCao": "50 cm",
+                "noiSinh": "Bệnh viện Phụ sản Hà Nội",
+                "hoTenMe": "TRAN THI B",
+                "tuoiMe": "30",
+                "hoTenCha": "NGUYEN VAN C",
+                "tuoiCha": "32",
+                "diaChiMe": "Phường Minh Khai, Hà Nội",
+                "nguoiDoDe": "Bác sĩ Nguyễn Văn D",
+                "ngayCapGiay": "02/01/2026",
             },
         }
         return {

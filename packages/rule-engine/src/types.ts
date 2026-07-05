@@ -5,7 +5,7 @@
 
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type Grade = 'A' | 'B' | 'C' | 'D';
-export type MatchType = 'exact' | 'normalized' | 'fuzzy';
+export type MatchType = 'exact' | 'normalized' | 'fuzzy' | 'date' | 'semantic';
 
 export interface FieldValue {
   value: string;
@@ -38,6 +38,16 @@ export interface ChecklistItem {
   points?: number;
 }
 
+/**
+ * Căn cứ pháp lý cho một quy tắc đối chiếu — do người soạn thủ tục curate sẵn,
+ * KHÔNG do AI đoán. Giải thích vì sao 2 giấy tờ phải khớp thông tin ở góc độ pháp lý
+ * (vd "tên mẹ trên giấy chứng sinh phải trùng CCCD người yêu cầu").
+ */
+export interface LegalBasis {
+  article: string;          // "Điều 16 Luật Hộ tịch 2014"
+  note?: string;            // giải thích ngắn gọn cho người dân
+}
+
 export interface CrossCheckRule {
   name: string;
   left: string;             // "cccd_cha_me.hoTen"
@@ -46,6 +56,7 @@ export interface CrossCheckRule {
   tolerance?: number;       // ngưỡng fuzzy (0.0 – 1.0)
   severityIfMismatch: Severity;
   skipIfMissing?: string;
+  legalBasis?: LegalBasis;  // căn cứ pháp lý (tùy chọn) — hiện khi MISMATCH
 }
 
 export interface ScoreWeight {
@@ -76,16 +87,33 @@ export interface ProcedureTemplate {
 
 export type CheckStatus = 'MATCH' | 'MISMATCH' | 'MISSING' | 'SKIPPED';
 
+/**
+ * Kết quả bộ đối chiếu ngữ nghĩa (AI) cho 1 field — gắn kèm vào FieldCheck khi
+ * rule dùng matchType='semantic'. `equivalent`/`confidence`/`reason` là phán đoán
+ * của LLM; `canonicalLeft`/`canonicalRight` là dạng chuẩn hóa để cán bộ đối chiếu.
+ */
+export interface SemanticVerdict {
+  equivalent: boolean;
+  confidence: number;        // 0.0 – 1.0
+  reason: string;
+  canonicalLeft?: string;
+  canonicalRight?: string;
+}
+
 export interface FieldCheck {
   ruleName: string;
   field: string;
   left: string;             // checklistId.fieldKey
   right: string;
-  leftValue?: string;
-  rightValue?: string;
+  leftValue?: string | null;   // null = field OCR đọc được nhưng rỗng
+  rightValue?: string | null;
+  matchType?: MatchType;    // để orchestrator biết check nào cần escalate lên AI
   status: CheckStatus;
   severity: Severity;
   message: string;
+  needsSemanticReview?: boolean; // true = MISMATCH của rule 'semantic', chờ AI phán lại
+  ai?: SemanticVerdict;          // điền sau khi ai-svc trả verdict (pass 2)
+  legalBasis?: LegalBasis;       // căn cứ pháp lý (copy từ rule) — hiện khi MISMATCH
 }
 
 export interface CrossCheckResult {

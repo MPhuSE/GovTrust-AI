@@ -27,12 +27,16 @@ apiClient.interceptors.response.use(
     const status = err.response?.status;
     const message = err.response?.data?.message ?? err.message;
 
-    // Auto-redirect on 401 Unauthorized
+    // Auto-redirect on 401 Unauthorized (token expired or invalid)
     if (status === 401 && typeof window !== 'undefined') {
       localStorage.removeItem('govtrust_token');
       localStorage.removeItem('govtrust_user');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+
+      // Save current URL to redirect back after login
+      const currentPath = window.location.pathname + window.location.search;
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+        sessionStorage.setItem('govtrust_redirect', currentPath);
+        window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
       }
     }
 
@@ -73,15 +77,14 @@ export const proceduresApi = {
   /** GET /procedures */
   list: () => apiClient.get('/procedures'),
 
+  /** GET /procedures/by-id/:id */
+  get: (id: string) => apiClient.get(`/procedures/by-id/${id}`),
+
   /** GET /procedures/:code */
-  get: (code: string) => apiClient.get(`/procedures/${code}`),
+  getByCode: (code: string) => apiClient.get(`/procedures/${code}`),
 
   /** POST /procedures/identify — { userQuery } */
   identify: (userQuery: string) => apiClient.post('/procedures/identify', { userQuery }),
-
-  /** POST /procedures/consult — { question, procedureCode, topK? } */
-  consult: (question: string, procedureCode: string, topK?: number) =>
-    apiClient.post('/procedures/consult', { question, procedureCode, topK }),
 };
 
 // ─── Sessions ──────────────────────────────────────────
@@ -98,6 +101,9 @@ export const sessionsApi = {
 
   /** POST /sessions/:id/confirm */
   confirm: (id: string) => apiClient.post(`/sessions/${id}/confirm`),
+
+  /** DELETE /sessions/:id — xóa hồ sơ nháp (chưa nộp), chỉ chủ sở hữu */
+  remove: (id: string) => apiClient.delete(`/sessions/${id}`),
 };
 
 // ─── Documents ─────────────────────────────────────────
@@ -146,12 +152,6 @@ export const smartformApi = {
   /** POST /sessions/:id/smartform/render — { values: Record<string,string> } */
   render: (sessionId: string, values: Record<string, string>) =>
     apiClient.post(`/sessions/${sessionId}/smartform/render`, { values }),
-
-  /** GET /sessions/:id/smartform/:format — download docx or pdf */
-  download: (sessionId: string, format: 'docx' | 'pdf') =>
-    apiClient.get(`/sessions/${sessionId}/smartform/${format}`, {
-      responseType: 'blob',
-    }),
 };
 
 // ─── Recheck (mounted on sessions) ─────────────────────

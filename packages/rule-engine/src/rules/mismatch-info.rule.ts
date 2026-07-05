@@ -1,4 +1,5 @@
 import { ScoringContext, RuleResult, Severity } from '../types';
+import { labelForField } from '../field-labels';
 
 export class MismatchInfoRule {
   readonly id = 'mismatch-info';
@@ -17,7 +18,7 @@ export class MismatchInfoRule {
     const severity: Severity = highMismatches.length > 0 ? 'CRITICAL' : 'MEDIUM';
 
     const details = mismatches
-      .map(m => `${m.field}: "${m.leftValue}" ≠ "${m.rightValue}"`)
+      .map(m => `${labelForField(m.field)}: "${m.leftValue}" ≠ "${m.rightValue}"`)
       .join('; ');
 
     return {

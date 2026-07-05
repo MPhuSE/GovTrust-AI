@@ -26,12 +26,12 @@ export class RegisterDto {
   @IsNotEmpty()
   fullName: string;
 
-  @ApiPropertyOptional({ example: '0912345678', description: 'Số điện thoại liên hệ (không bắt buộc)' })
+  @ApiPropertyOptional({ example: '0912345678', description: 'Số điện thoại liên hệ' })
   @IsString()
   @IsOptional()
   phoneNumber?: string;
 
-  @ApiPropertyOptional({ example: 'nguyenvana@example.com', description: 'Email liên hệ (không bắt buộc)' })
+  @ApiPropertyOptional({ example: 'nguyenvana@example.com', description: 'Email liên hệ' })
   @IsEmail({}, { message: 'Email không hợp lệ' })
   @IsOptional()
   email?: string;

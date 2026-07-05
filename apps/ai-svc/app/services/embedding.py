@@ -76,6 +76,8 @@ class EmbeddingService:
                     self._model = await asyncio.to_thread(
                         sentence_transformers.SentenceTransformer,
                         self.model_name,
+                        local_files_only=False,  # Try local first, download if needed
+                        cache_folder=None,  # Use default ~/.cache/huggingface
                     )
 
         prepared = [self._prefix(text, kind) for text in texts]

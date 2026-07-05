@@ -1,9 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { User, Menu, X, Star, Home, HelpCircle, FileText, LayoutDashboard, CheckSquare, History } from 'lucide-react';
 
 interface HeaderProps {
   variant?: 'citizen' | 'officer';
@@ -13,6 +12,7 @@ interface HeaderProps {
 
 export function Header({ variant = 'citizen', userName, userRole }: HeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [localUser, setLocalUser] = useState<{ fullName?: string; kycStatus?: string } | null>(null);
@@ -23,20 +23,28 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
     } catch { /* ignore */ }
   }, []);
 
+  const handleLogout = () => {
+    localStorage.removeItem('govtrust_token');
+    localStorage.removeItem('govtrust_user');
+    setLocalUser(null);
+    router.push('/');
+    setMobileMenuOpen(false);
+  };
+
   const citizenNav = (userName || localUser) ? [
-    { href: '/', label: 'Trang chủ', icon: <Home className="w-4 h-4 mr-2" /> },
-    { href: '/services', label: 'Thông tin và dịch vụ', icon: <FileText className="w-4 h-4 mr-2" /> },
-    { href: '/history', label: 'Hồ sơ đã nộp', icon: <History className="w-4 h-4 mr-2" /> },
-    { href: '/support', label: 'Hỗ trợ', icon: <HelpCircle className="w-4 h-4 mr-2" /> },
+    { href: '/', label: 'Trang chủ' },
+    { href: '/services', label: 'Thông tin và dịch vụ' },
+    { href: '/history', label: 'Hồ sơ đã nộp' },
+    { href: '/support', label: 'Hỗ trợ' },
   ] : [
-    { href: '/', label: 'Trang chủ', icon: <Home className="w-4 h-4 mr-2" /> },
-    { href: '/support', label: 'Hỗ trợ', icon: <HelpCircle className="w-4 h-4 mr-2" /> },
+    { href: '/', label: 'Trang chủ' },
+    { href: '/support', label: 'Hỗ trợ' },
   ];
 
   const officerNav = [
-    { href: '/dashboard', label: 'Bảng điều khiển', icon: <LayoutDashboard className="w-4 h-4 mr-2" /> },
-    { href: '/queue', label: 'Kiểm duyệt', icon: <CheckSquare className="w-4 h-4 mr-2" /> },
-    { href: '/history', label: 'Lịch sử', icon: <History className="w-4 h-4 mr-2" /> },
+    { href: '/dashboard', label: 'Bảng điều khiển' },
+    { href: '/queue', label: 'Kiểm duyệt' },
+    { href: '/history', label: 'Lịch sử' },
   ];
 
   const navItems = variant === 'officer' ? officerNav : citizenNav;
@@ -54,17 +62,17 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
           >
             <div
               aria-label="GovTrust AI Logo"
-              className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full shadow-sm group-hover:scale-105 transition-transform duration-300 overflow-hidden"
+              className="w-16 h-16 md:w-20 md:h-20 flex items-center justify-center rounded-xl shadow-sm group-hover:scale-105 transition-transform duration-300 overflow-hidden"
             >
-              <img src="/logo.jpg" alt="GovTrust AI" className="w-full h-full object-cover" />
+              <img src="/logo.png" alt="GovTrust AI" className="w-full h-full object-cover" />
             </div>
             
             <div className="flex flex-col">
               <span className="text-emerald-700 font-extrabold text-xl md:text-2xl uppercase tracking-wide">
-                HỆ THỐNG GOVTRUST AI
+               GOVTRUST AI
               </span>
               <span className="text-gray-500 text-xs md:text-sm font-medium mt-0.5 hidden sm:block">
-                Kết nối, cung cấp thông tin và dịch vụ công mọi lúc, mọi nơi (GovTrust AI)
+                Kết nối cung cấp thông tin và dịch vụ công mọi lúc mọi nơi 
               </span>
             </div>
           </Link>
@@ -80,6 +88,12 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
                 >
                   Tài khoản
                 </Link>
+                <button
+                  onClick={handleLogout}
+                  className="px-6 py-2 border border-red-600 text-red-600 rounded-md font-bold hover:bg-red-50 transition-colors"
+                >
+                  Đăng xuất
+                </button>
               </div>
             ) : (
               <div className="flex items-center gap-3">
@@ -103,7 +117,7 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
             className="md:hidden text-gray-600 p-2"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
-            {mobileMenuOpen ? <X className="w-8 h-8" /> : <Menu className="w-8 h-8" />}
+            {mobileMenuOpen ? '✕' : '☰'}
           </button>
         </div>
       </div>
@@ -118,13 +132,12 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center px-5 py-2.5 rounded-full font-bold transition-all ${
+                  className={`px-5 py-2.5 rounded-full font-bold transition-all ${
                     isActive
                       ? 'bg-emerald-50 text-emerald-800'
                       : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
-                  {item.icon}
                   {item.label}
                 </Link>
               );
@@ -141,35 +154,55 @@ export function Header({ variant = 'citizen', userName, userRole }: HeaderProps)
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center px-4 py-3 font-bold rounded-lg ${
+                className={`block px-4 py-3 font-bold rounded-lg ${
                   pathname === item.href
                     ? 'text-emerald-700 bg-emerald-50'
                     : 'text-gray-700 hover:bg-gray-50'
                 }`}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                {item.icon}
                 {item.label}
               </Link>
             ))}
-            {!(userName || localUser) && (
-              <div className="border-t border-gray-100 pt-3 pb-3 flex flex-col gap-2">
-                <Link
-                  href="/login"
-                  className="block text-center px-4 py-3 rounded-lg font-bold text-white bg-emerald-700 shadow-sm"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Đăng nhập
-                </Link>
-                <Link
-                  href="/register"
-                  className="block text-center px-4 py-3 rounded-lg font-bold text-gray-700 border border-gray-200 shadow-sm"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Đăng ký
-                </Link>
-              </div>
-            )}
+            <div className="border-t border-gray-100 pt-3 pb-3 flex flex-col gap-2">
+              {(userName || localUser) ? (
+                <>
+                  <div className="px-4 py-2 text-sm font-bold text-gray-700">
+                    Xin chào, {userName || localUser?.fullName}
+                  </div>
+                  <Link
+                    href="/profile"
+                    className="block text-center px-4 py-3 rounded-lg font-bold text-emerald-700 border border-emerald-600 bg-emerald-50"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Tài khoản
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-center px-4 py-3 rounded-lg font-bold text-red-600 border border-red-600 hover:bg-red-50"
+                  >
+                    Đăng xuất
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="block text-center px-4 py-3 rounded-lg font-bold text-white bg-emerald-700 shadow-sm"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Đăng nhập
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="block text-center px-4 py-3 rounded-lg font-bold text-gray-700 border border-gray-200 shadow-sm"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Đăng ký
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
         </nav>
       )}

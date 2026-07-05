@@ -17,14 +17,18 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
+            // VNPT SmartBot (widget livechat client-side) nạp script/css từ livechat.vnpt.vn,
+            // ảnh từ *.vnpt.vn (ic-storage, storage-smartbot) và mở websocket tới *.vnpt.ai.
+            // Thiếu các domain này thì widget bị CSP chặn im lặng → nút chat không hiện.
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob:",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://livechat.vnpt.vn",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://livechat.vnpt.vn",
+              "font-src 'self' https://fonts.gstatic.com https://livechat.vnpt.vn data:",
+              "img-src 'self' data: blob: https://*.vnpt.vn",
               "media-src 'self' https://ic-smartvoice.vnpt.vn",
-              `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}`,
+              `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'} https://livechat.vnpt.vn https://*.vnpt.ai wss://*.vnpt.ai`,
+              "frame-src 'self' https://*.vnpt.vn",
               "frame-ancestors 'none'",
             ].join('; '),
           },

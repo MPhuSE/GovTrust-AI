@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { InjectModel } from '@nestjs/mongoose';
+import { ClientGrpc } from '@nestjs/microservices';
 import { Queue } from 'bull';
+import { firstValueFrom, Observable } from 'rxjs';
 import { Model, Types } from 'mongoose';
 import { Session, SessionDocument, SessionStatus } from '../../database/schemas/session.schema';
 import { Procedure, ProcedureDocument } from '../../database/schemas/procedure.schema';
@@ -14,10 +16,37 @@ import type {
   Severity,
   ExtractedDocument,
   CrossCheckResult,
+  FieldCheck,
   ImageQuality,
   FieldValue,
 } from '@govtrust/rule-engine';
 import { AI_JOB_OPTIONS, AI_TASKS_QUEUE, AiJobName } from '../../queue/ai-tasks.queue';
+import { AI_SERVICE_GRPC } from '../../grpc/grpc.constants';
+
+/** Verdict đối chiếu ngữ nghĩa trả về từ ai-svc (pass 2 của cross-check). */
+interface SemanticVerdictGrpc {
+  field: string;
+  equivalent: boolean;
+  confidence: number;
+  reason: string;
+  canonicalLeft?: string;
+  canonicalRight?: string;
+}
+
+interface SemanticCheckGrpcClient {
+  SemanticFieldCheck(req: {
+    pairs: Array<{ field: string; left: string; right: string; kind: string }>;
+  }): Observable<{ verdicts: SemanticVerdictGrpc[] }>;
+}
+
+/** Đoán "kind" cho LLM từ tên field — giúp prompt neo đúng luật đối chiếu. */
+function inferKind(fieldKey: string): string {
+  const key = fieldKey.toLowerCase();
+  if (key.includes('diachi') || key.includes('thuadat') || key.includes('noicutru')) return 'address';
+  if (key.includes('hoten') || key.includes('ten') && !key.includes('tenho')) return 'name';
+  if (key.includes('tenho') || key.includes('coquan') || key.includes('donvi')) return 'org';
+  return 'generic';
+}
 
 /** Shape của 1 giấy tờ trong session.aiResult.ocrData (ghi bởi BullMQ consumer). */
 interface OcrDataEntry {
@@ -50,6 +79,7 @@ function toTemplate(p: ProcedureDocument): ProcedureTemplate {
     tolerance: r.tolerance,
     severityIfMismatch: r.severityIfMismatch as Severity,
     skipIfMissing: r.skipIfMissing,
+    legalBasis: r.legalBasis,
   }));
   return {
     code: p.code,
@@ -61,13 +91,21 @@ function toTemplate(p: ProcedureDocument): ProcedureTemplate {
 }
 
 @Injectable()
-export class ScoringService {
+export class ScoringService implements OnModuleInit {
+  private readonly logger = new Logger(ScoringService.name);
+  private semanticGrpc: SemanticCheckGrpcClient;
+
   constructor(
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     @InjectModel(Procedure.name) private procedureModel: Model<ProcedureDocument>,
     @InjectModel(Job.name) private jobModel: Model<JobDocument>,
     @InjectQueue(AI_TASKS_QUEUE) private aiQueue: Queue,
+    @Inject(AI_SERVICE_GRPC) private readonly aiClient: ClientGrpc,
   ) {}
+
+  onModuleInit() {
+    this.semanticGrpc = this.aiClient.getService<SemanticCheckGrpcClient>('AIService');
+  }
 
   async crosscheck(sessionId: string) {
     return this.enqueueSessionJob(sessionId, JobType.CROSSCHECK, AiJobName.CROSSCHECK, 'crosscheck');
@@ -87,8 +125,13 @@ export class ScoringService {
       fields: d.fields ?? {},
     }));
 
+    // Pass 1 — code thuần (tất định, miễn phí).
     const checker = new CrossChecker();
     const crosscheckResult = checker.run(toTemplate(procedure), documents);
+
+    // Pass 2 — chỉ những check 'semantic' mà pass 1 chưa khẳng định được khớp mới
+    // gửi sang ai-svc để LLM phán "cùng thực thể hay không". Các check còn lại giữ nguyên.
+    await this.applySemanticReview(crosscheckResult);
 
     await this.sessionModel.findByIdAndUpdate(sessionId, {
       $set: {
@@ -100,6 +143,64 @@ export class ScoringService {
     });
 
     return crosscheckResult;
+  }
+
+  /**
+   * Pass 2 của cross-check: đối chiếu ngữ nghĩa cho các field 'semantic' còn MISMATCH.
+   * Chỉ gọi AI cho phần nhỏ (không gọi lại các check đã MATCH) → kiểm soát chi phí.
+   * Mutate crosscheckResult tại chỗ: nếu AI phán tương đương → lật về MATCH và hạ severity.
+   * Lỗi gRPC không làm hỏng cross-check — giữ nguyên kết quả code thuần (an toàn).
+   */
+  private async applySemanticReview(result: CrossCheckResult): Promise<void> {
+    const pending = result.checks.filter(c => c.needsSemanticReview);
+    if (pending.length === 0) return;
+
+    const pairs = pending.map(c => ({
+      field: c.field,
+      left: String(c.leftValue ?? ''),
+      right: String(c.rightValue ?? ''),
+      kind: inferKind(c.field),
+    }));
+
+    let verdicts: SemanticVerdictGrpc[];
+    try {
+      const res = await firstValueFrom(this.semanticGrpc.SemanticFieldCheck({ pairs }));
+      verdicts = res.verdicts ?? [];
+    } catch (error) {
+      this.logger.warn(
+        `SemanticFieldCheck lỗi — giữ kết quả cross-check thuần: ${(error as Error).message}`,
+      );
+      return;
+    }
+
+    pending.forEach((check, index) => {
+      const verdict = verdicts[index];
+      if (!verdict) return;
+      this.mergeVerdict(check, verdict);
+    });
+
+    // Cập nhật lại summary sau khi có thể đã lật MISMATCH → MATCH.
+    result.summary.matches = result.checks.filter(c => c.status === 'MATCH').length;
+    result.summary.mismatches = result.checks.filter(c => c.status === 'MISMATCH').length;
+  }
+
+  private mergeVerdict(check: FieldCheck, verdict: SemanticVerdictGrpc): void {
+    check.ai = {
+      equivalent: verdict.equivalent,
+      confidence: verdict.confidence,
+      reason: verdict.reason,
+      canonicalLeft: verdict.canonicalLeft,
+      canonicalRight: verdict.canonicalRight,
+    };
+    check.needsSemanticReview = false;
+
+    if (verdict.equivalent) {
+      check.status = 'MATCH';
+      check.severity = 'LOW';
+      check.message = `Khớp theo ngữ nghĩa (AI, độ tin cậy ${(verdict.confidence * 100).toFixed(0)}%): ${verdict.reason}`;
+    } else {
+      check.message = `Không khớp theo ngữ nghĩa (AI): ${verdict.reason}`;
+    }
   }
 
   async score(sessionId: string) {
@@ -147,10 +248,31 @@ export class ScoringService {
     if (!session) throw new NotFoundException('Phiên không tồn tại');
 
     const procedure = session.procedureId as unknown as ProcedureDocument;
+
+    // LawGuard chỉ trích căn cứ pháp lý cho giấy tờ CÒN THIẾU (theo CrossCheck).
+    // Hồ sơ đủ giấy → không cần cảnh báo pháp lý gì cả → alerts rỗng, khỏi gọi ai-svc.
+    // CrossCheck luôn chạy trước LawGuard trong pipeline nên missingDocuments đã sẵn sàng.
+    const crossCheck = session.aiResult?.crossCheck as CrossCheckResult | undefined;
+    const missingIds = new Set(crossCheck?.missingDocuments ?? []);
+    const missingChecklist = procedure.checklist.filter(c => missingIds.has(c.id));
+
+    if (missingChecklist.length === 0) {
+      await this.sessionModel.findByIdAndUpdate(sessionId, {
+        $set: {
+          'aiResult.lawGuardAlerts': [],
+          'pipeline.steps.lawguard': 'done',
+          'pipeline.step': 'LAWGUARD',
+          'pipeline.updatedAt': new Date(),
+        },
+      });
+      return { jobId: null, status: 'skipped', reason: 'Đủ giấy tờ — không cần căn cứ pháp lý' };
+    }
+
     const payload = {
       procedureCode: procedure.code,
+      procedureName: procedure.name ?? '',
       category: procedure.category ?? '',
-      checklist: procedure.checklist.map(c => ({ id: c.id, roleInProcedure: c.roleInProcedure ?? '' })),
+      checklist: missingChecklist.map(c => ({ id: c.id, roleInProcedure: c.roleInProcedure ?? '' })),
     };
     return this.enqueueSessionJob(sessionId, JobType.LAWGUARD, AiJobName.LAWGUARD, 'lawguard', payload, {
       pipelineStep: 'LAWGUARD',

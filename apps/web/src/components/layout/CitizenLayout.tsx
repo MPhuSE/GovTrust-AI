@@ -2,7 +2,6 @@
 
 import { Header } from './Header';
 import { Footer } from './Footer';
-import { ChatWidget } from '../chat/ChatWidget';
 
 interface CitizenLayoutProps {
   children: React.ReactNode;
@@ -10,6 +9,7 @@ interface CitizenLayoutProps {
   showFooter?: boolean;
 }
 
+// Tư vấn thủ tục dùng VNPT SmartBot (nhúng ở root layout.tsx); hero mở panel bot qua openVnptSmartBot().
 export function CitizenLayout({ children, showHeader = true, showFooter = true }: CitizenLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col bg-[#FBFBFA]">
@@ -18,7 +18,6 @@ export function CitizenLayout({ children, showHeader = true, showFooter = true }
         {children}
       </main>
       {showFooter && <Footer />}
-      <ChatWidget />
     </div>
   );
 }

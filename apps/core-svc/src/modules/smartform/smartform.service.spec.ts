@@ -34,6 +34,7 @@ describe('SmartFormService', () => {
       {} as Model<ProcedureDocument>,
       {} as never,
       {} as never,
+      {} as never,
       {} as FormDocumentRenderer,
     );
 
@@ -45,7 +46,7 @@ describe('SmartFormService', () => {
     expect(result.missingFields).toEqual([]);
   });
 
-  it('builds a smartForm view splitting auto-filled (OCR/default) from manual fields', async () => {
+  it('builds a seamless smartForm view: one editable field list in template order, flagging AI-filled', async () => {
     const procedure = {
       code: 'TEST',
       name: 'Thủ tục kiểm thử',
@@ -74,19 +75,27 @@ describe('SmartFormService', () => {
       {} as Model<ProcedureDocument>,
       {} as never,
       {} as never,
+      {} as never,
       {} as FormDocumentRenderer,
     );
 
     const result = await service.runGenerateNow('session-id');
 
-    // OCR-filled + default → autoFilledFields (không sửa được)
+    // UI liền mạch: `fields` là một danh sách DUY NHẤT theo đúng thứ tự template,
+    // mọi ô đều editable; `filled` cho biết AI đã điền hay chưa.
+    expect(result.smartForm.fields).toEqual([
+      expect.objectContaining({ key: 'coQuan', value: 'UBND cấp xã', source: 'auto', editable: true, filled: true }),
+      expect.objectContaining({ key: 'hoTen', value: 'Nguyễn Văn An', source: 'ocr', editable: true, filled: true }),
+      expect.objectContaining({ key: 'ghiChu', value: '', source: 'manual', editable: true, filled: false, required: false }),
+    ]);
+
+    // autoFilledFields/manualFields vẫn giữ để tương thích ngược (phản ánh cùng dữ liệu).
     expect(result.smartForm.autoFilledFields).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ key: 'hoTen', value: 'Nguyễn Văn An', source: 'ocr', editable: false }),
-        expect.objectContaining({ key: 'coQuan', value: 'UBND cấp xã', source: 'auto', editable: false }),
+        expect.objectContaining({ key: 'hoTen', value: 'Nguyễn Văn An', source: 'ocr' }),
+        expect.objectContaining({ key: 'coQuan', value: 'UBND cấp xã', source: 'auto' }),
       ]),
     );
-    // Trường trống → manualFields (người dùng tự nhập)
     expect(result.smartForm.manualFields).toEqual([
       expect.objectContaining({ key: 'ghiChu', value: '', source: 'manual', editable: true, required: false }),
     ]);

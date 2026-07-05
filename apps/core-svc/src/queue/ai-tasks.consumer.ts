@@ -38,6 +38,7 @@ interface AiServiceGrpcClient {
   }): Observable<OcrGrpcResponse>;
   CheckLawGuard(req: {
     procedureCode: string;
+    procedureName: string;
     category: string;
     checklist: Array<{ id: string; roleInProcedure: string }>;
   }): Observable<{ alerts: unknown[]; disclaimer: string }>;
@@ -60,6 +61,7 @@ interface LawGuardJobData {
   jobId: string;
   sessionId: string;
   procedureCode: string;
+  procedureName: string;
   category: string;
   checklist: Array<{ id: string; roleInProcedure: string }>;
 }
@@ -150,13 +152,13 @@ export class AiTasksConsumer implements OnModuleInit {
 
   @Process(AiJobName.LAWGUARD)
   async handleLawGuard(job: BullJob<LawGuardJobData>) {
-    const { jobId, sessionId, procedureCode, category, checklist } = job.data;
+    const { jobId, sessionId, procedureCode, procedureName, category, checklist } = job.data;
     await this.markJob(jobId, JobState.PROCESSING);
     await this.setStep(sessionId, 'lawguard', 'processing');
 
     try {
       const result = await firstValueFrom(
-        this.aiGrpc.CheckLawGuard({ procedureCode, category, checklist }),
+        this.aiGrpc.CheckLawGuard({ procedureCode, procedureName, category, checklist }),
       );
       const alerts = result.alerts ?? [];
       await this.sessionModel.findByIdAndUpdate(sessionId, {

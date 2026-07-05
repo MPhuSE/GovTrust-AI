@@ -57,6 +57,7 @@ async def start_grpc_server(container: AppContainer) -> aio.Server:
                     ],
                     request.procedure_code,
                     request.category or None,
+                    request.procedure_name or None,
                 )
                 return pb2.LawGuardResponse(
                     alerts=[
@@ -89,29 +90,31 @@ async def start_grpc_server(container: AppContainer) -> aio.Server:
             except Exception as exc:
                 await context.abort(grpc.StatusCode.INTERNAL, str(exc))
 
-        async def ConsultSmartBot(self, request, context):
+        async def SemanticFieldCheck(self, request, context):
             try:
-                result = await container.smartbot.consult(
-                    request.question,
-                    request.procedure_code,
-                    request.top_k or 5,
-                    request.procedure_context or "",
+                verdicts = await container.semantic.check(
+                    [
+                        {
+                            "field": pair.field,
+                            "left": pair.left,
+                            "right": pair.right,
+                            "kind": pair.kind or "generic",
+                        }
+                        for pair in request.pairs
+                    ]
                 )
-                return pb2.SmartBotResponse(
-                    answer=result["answer"],
-                    procedure_code=result["procedureCode"],
-                    sources=[
-                        pb2.SmartBotSource(
-                            content=s["content"],
-                            relevance_score=s["relevanceScore"],
-                            title=s["source"]["title"],
-                            article=s["source"]["article"],
-                            url=s["source"]["url"],
-                            source_version=s["source"]["sourceVersion"],
+                return pb2.SemanticCheckResponse(
+                    verdicts=[
+                        pb2.SemanticVerdict(
+                            field=v.field,
+                            equivalent=v.equivalent,
+                            confidence=v.confidence,
+                            reason=v.reason,
+                            canonical_left=v.canonical_left,
+                            canonical_right=v.canonical_right,
                         )
-                        for s in result["sources"]
+                        for v in verdicts
                     ],
-                    disclaimer=result["disclaimer"],
                 )
             except Exception as exc:
                 await context.abort(grpc.StatusCode.INTERNAL, str(exc))

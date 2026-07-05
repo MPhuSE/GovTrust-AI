@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { Providers } from '@/components/layout/Providers';
+import { VnptSmartBot } from '@/components/layout/VnptSmartBot';
 import '@/styles/globals.css';
 
 const inter = Inter({
@@ -16,13 +17,14 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'GovTrust AI — Kiểm tra hồ sơ dịch vụ công',
+  title: 'GovTrust AI',
   description:
     'Hệ thống hỗ trợ tiền kiểm hồ sơ dịch vụ công — kiểm tra giấy tờ trước khi nộp, phát hiện lỗi ngay tại nhà. Vietnamese Student HackAIthon 2026.',
   keywords: 'dịch vụ công, kiểm tra hồ sơ, AI, GovTrust, tiền kiểm',
   robots: 'noindex, nofollow',
   icons: {
-    icon: '/logo.jpg',
+    icon: '/logo.png',
+    shortcut: '/favicon.ico',
   },
 };
 
@@ -44,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           {children}
         </Providers>
+        <VnptSmartBot />
       </body>
     </html>
   );

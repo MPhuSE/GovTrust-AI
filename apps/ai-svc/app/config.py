@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     QWEN_OCR_API_KEY: str = ""
     QWEN_OCR_BASE_URL: str = "https://api.shopaikey.com/v1"
 
+    # Qwen text model — LawGuard dùng để TRÍCH nguyên văn điều luật từ chunk Qdrant thô
+    # (bỏ quốc hiệu/chữ ký số/điều lân cận). Dùng chung key + base URL với Qwen OCR.
+    # Rỗng → RAGEngine fallback về regex _clean_excerpt (không vỡ khi thiếu model).
+    QWEN_LLM_MODEL: str = "qwen3-max"
+
     @field_validator("EMBEDDING_DIMENSIONS", mode="before")
     @classmethod
     def empty_dimension_is_none(cls, value):

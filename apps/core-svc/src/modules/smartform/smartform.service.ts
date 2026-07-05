@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -6,6 +6,7 @@ import { Queue } from 'bull';
 import { Session, SessionDocument } from '../../database/schemas/session.schema';
 import { Procedure, ProcedureDocument } from '../../database/schemas/procedure.schema';
 import { Job, JobDocument, JobState, JobType } from '../../database/schemas/job.schema';
+import { User, UserDocument } from '../../database/schemas/user.schema';
 import { AI_JOB_OPTIONS, AI_TASKS_QUEUE, AiJobName } from '../../queue/ai-tasks.queue';
 import { FormDocumentRenderer } from './form-document.renderer';
 
@@ -22,15 +23,23 @@ export interface SmartFormFieldView {
   key: string;
   label: string;
   value: string;
-  source: 'ocr' | 'auto' | 'manual';
+  source: 'ocr' | 'auto' | 'manual' | 'user';
   editable: boolean;
   required: boolean;
+  /** Có giá trị hay chưa — dùng cho badge "AI điền" / "Cần nhập" ở UI liền mạch. */
+  filled?: boolean;
 }
 
 export interface SmartFormView {
   procedureName: string;
   autoFilledFields: SmartFormFieldView[];
   manualFields: SmartFormFieldView[];
+  /**
+   * Danh sách trường duy nhất theo đúng thứ tự template — tất cả đều editable.
+   * UI liền mạch (không tách "AI điền" / "nhập tay") đọc mảng này; giữ 2 mảng trên
+   * để tương thích ngược với phiên cũ.
+   */
+  fields: SmartFormFieldView[];
 }
 
 @Injectable()
@@ -40,6 +49,7 @@ export class SmartFormService {
     @InjectModel(Procedure.name) private procedureModel: Model<ProcedureDocument>,
     @InjectModel(Job.name) private jobModel: Model<JobDocument>,
     @InjectQueue(AI_TASKS_QUEUE) private aiQueue: Queue,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly renderer: FormDocumentRenderer,
   ) {}
 
@@ -79,16 +89,21 @@ export class SmartFormService {
   async runGenerateNow(sessionId: string, overrides: Record<string, string> = {}) {
     const session = await this.sessionModel.findById(sessionId).populate('procedureId');
     if (!session) throw new NotFoundException('Phiên không tồn tại');
-    const score = session.aiResult?.score as { canSubmit?: boolean } | undefined;
-    if (!score?.canSubmit) {
-      throw new UnprocessableEntityException('Hồ sơ còn lỗi cần sửa trước khi tạo tờ khai');
-    }
 
     const procedure = session.procedureId as unknown as ProcedureDocument;
     const ocrData = session.aiResult?.ocrData as Record<string, {
       fields: Record<string, { value: string; confidence: number }>;
     }> ?? {};
     const existing = session.aiResult?.formData as Record<string, FormFieldValue> | undefined;
+
+    // Field có autofillFromUser (dienThoai/email) lấy thẳng từ hồ sơ tài khoản.
+    const user = session.userId ? await this.userModel.findById(session.userId).lean() : null;
+    const userValue = (key?: string): string | undefined => {
+      if (!key || !user) return undefined;
+      const v = (user as Record<string, unknown>)[key];
+      return typeof v === 'string' && v ? v : undefined;
+    };
+
     const formData: Record<string, FormFieldValue> = {};
     let filledCount = 0;
     const missingFields: string[] = [];
@@ -126,6 +141,15 @@ export class SmartFormService {
         }
       }
 
+      // Điền từ hồ sơ tài khoản (dienThoai/email) khi OCR không có nguồn.
+      if (!value && field.autofillFromUser) {
+        const fromUser = userValue(field.autofillFromUser);
+        if (fromUser) {
+          value = fromUser;
+          source = 'USER_PROFILE';
+        }
+      }
+
       if (!value && field.defaultValue) {
         value = field.defaultValue;
         source = 'PROCEDURE_DEFAULT';
@@ -143,37 +167,42 @@ export class SmartFormService {
       else if (field.required) missingFields.push(field.id);
     }
 
-    // View cho web: tách field đã tự điền (từ OCR/mặc định) và field cần nhập tay.
+    // View cho web: một danh sách trường DUY NHẤT theo đúng thứ tự template.
+    // Mọi trường đều editable — AI điền sẵn giá trị, người dùng có thể chỉnh trực tiếp.
+    // `filled` cho biết AI đã điền hay chưa (để UI gắn badge "AI điền" / "Cần nhập").
+    // autoFilledFields/manualFields giữ lại để tương thích ngược nhưng phản ánh cùng dữ liệu.
+    const fields: SmartFormFieldView[] = [];
     const autoFilledFields: SmartFormFieldView[] = [];
     const manualFields: SmartFormFieldView[] = [];
     for (const field of procedure.formFields) {
       const entry = formData[field.id];
       const hasValue = Boolean(entry.value);
-      const isUserSource = entry.source === 'USER';
-      if (hasValue && !isUserSource) {
-        autoFilledFields.push({
-          key: field.id,
-          label: field.label,
-          value: entry.value ?? '',
-          source: entry.source === 'PROCEDURE_DEFAULT' ? 'auto' : 'ocr',
-          editable: false,
-          required: field.required,
-        });
-      } else {
-        manualFields.push({
-          key: field.id,
-          label: field.label,
-          value: entry.value ?? '',
-          source: 'manual',
-          editable: true,
-          required: field.required,
-        });
-      }
+      const source: SmartFormFieldView['source'] =
+        entry.source === 'USER'
+          ? 'user'
+          : entry.source === 'PROCEDURE_DEFAULT'
+            ? 'auto'
+            : hasValue
+              ? 'ocr'
+              : 'manual';
+      const view: SmartFormFieldView = {
+        key: field.id,
+        label: field.label,
+        value: entry.value ?? '',
+        source,
+        editable: true, // luôn cho phép chỉnh sửa — UI liền mạch
+        required: field.required,
+        filled: hasValue,
+      };
+      fields.push(view);
+      if (hasValue && entry.source !== 'USER') autoFilledFields.push(view);
+      else manualFields.push(view);
     }
     const smartForm: SmartFormView = {
       procedureName: procedure.name,
       autoFilledFields,
       manualFields,
+      fields,
     };
 
     const result = {
@@ -205,7 +234,10 @@ export class SmartFormService {
   }
 
   async render(sessionId: string, values: Record<string, string>) {
-    return this.generate(sessionId, values);
+    // Đồng bộ: ghi thẳng formData/smartForm vào DB rồi mới trả, để bước tải file
+    // (getDocument) đọc được đúng giá trị user vừa nhập/sửa. KHÔNG dùng generate()
+    // (enqueue job async 202) vì gây race: tải ngay sau lưu → file thiếu dữ liệu vừa sửa.
+    return this.runGenerateNow(sessionId, values);
   }
 
   async getDocument(sessionId: string, format: 'docx' | 'pdf') {

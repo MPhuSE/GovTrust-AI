@@ -19,10 +19,13 @@ export default function LoginPage() {
       if (userStr) {
         try {
           const user = JSON.parse(userStr);
+          const redirectUrl = sessionStorage.getItem('govtrust_redirect') || '/';
+          sessionStorage.removeItem('govtrust_redirect');
+
           if (user.role === 'OFFICER' || user.role === 'ADMIN') {
             router.push('/dashboard');
           } else {
-            router.push('/');
+            router.push(redirectUrl);
           }
         } catch (e) {
           // invalid json, ignore
@@ -45,12 +48,17 @@ export default function LoginPage() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('govtrust_token', result.access_token);
         localStorage.setItem('govtrust_user', JSON.stringify(result.user));
-      }
-      // Redirect based on role
-      if (result.user.role === 'OFFICER' || result.user.role === 'ADMIN') {
-        router.push('/dashboard');
-      } else {
-        router.push('/');
+
+        // Get redirect URL from sessionStorage
+        const redirectUrl = sessionStorage.getItem('govtrust_redirect') || '/';
+        sessionStorage.removeItem('govtrust_redirect');
+
+        // Redirect based on role or saved URL
+        if (result.user.role === 'OFFICER' || result.user.role === 'ADMIN') {
+          router.push('/dashboard');
+        } else {
+          router.push(redirectUrl);
+        }
       }
     } catch (e) {
       setError((e as Error).message || 'Sai tên đăng nhập hoặc mật khẩu');
@@ -68,8 +76,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10 animate-scale-in">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center shadow-sm relative overflow-hidden mx-auto mb-4">
-            <img src="/logo.jpg" alt="GovTrust AI" className="w-full h-full object-cover" />
+          <div className="w-20 h-20 rounded-xl flex items-center justify-center shadow-sm relative overflow-hidden mx-auto mb-4">
+            <img src="/logo.png" alt="GovTrust AI" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-extrabold text-teal-700 mb-2 tracking-tight">Cổng Dịch Vụ Công <span className="text-teal-700">AI</span></h1>
           <p className="text-gray-500 font-medium">Đăng nhập để quản lý hồ sơ của bạn</p>

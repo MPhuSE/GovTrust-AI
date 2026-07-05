@@ -1,5 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
@@ -10,7 +10,14 @@ import { HealthController } from './health.controller';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['../../.env', '.env'] }),
-    JwtModule.register({}),
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        // api-gateway chỉ verify, không ký → chỉ cần publicKey
+        publicKey: config.get<string>('JWT_ACCESS_PUBLIC_KEY'),
+        verifyOptions: { algorithms: ['RS256'] },
+      }),
+    }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 120 }]),
   ],
   controllers: [HealthController],
@@ -29,3 +36,4 @@ export class AppModule implements NestModule {
       .forRoutes('*');
   }
 }
+

@@ -112,3 +112,53 @@ def _four_point_transform(image, pts, cv2, np):
     )
     matrix = cv2.getPerspectiveTransform(rect, dst)
     return cv2.warpPerspective(image, matrix, (width, height))
+
+
+def is_pdf(data: bytes) -> bool:
+    """Nhận diện PDF qua magic byte (khớp OcrService._detect_file)."""
+    return data[:5].lower().startswith(b"%pdf")
+
+
+# Giới hạn số trang render để chặn PDF quá lớn làm nghẽn OCR (mỗi trang = 1 lượt
+# gọi Qwen). Hợp đồng/sổ đỏ thực tế hiếm khi quá số này; trang dư bị bỏ (log rõ).
+_MAX_PDF_PAGES = 8
+# 200 DPI đủ nét cho VL model đọc chữ hợp đồng mà không phình payload quá mức.
+_PDF_RENDER_DPI = 200
+
+
+def pdf_to_images(data: bytes, max_pages: int = _MAX_PDF_PAGES) -> list[bytes]:
+    """Render mỗi trang PDF thành 1 ảnh JPEG (bytes) bằng pypdfium2.
+
+    Dùng cho các giấy đi Qwen VL (sổ đỏ, hợp đồng chuyển nhượng...) khi người dùng
+    nộp PDF nhiều trang: Qwen chỉ nhận ảnh raster, không đọc trực tiếp PDF. Trả về
+    list ảnh theo thứ tự trang; người gọi OCR từng trang rồi hợp nhất field.
+
+    pypdfium2 là wheel tự chứa (không cần poppler hệ thống) → an toàn cho Docker/prod.
+    Lỗi render (PDF hỏng, mã hóa) → raise để luồng OCR báo lỗi rõ, KHÔNG nuốt lặng.
+    """
+    import pypdfium2 as pdfium
+
+    scale = _PDF_RENDER_DPI / 72.0  # pypdfium2 tính theo point (72 DPI gốc)
+    images: list[bytes] = []
+    pdf = pdfium.PdfDocument(data)
+    try:
+        total = len(pdf)
+        pages = min(total, max_pages)
+        if total > max_pages:
+            logger.warning(
+                "PDF có %d trang, chỉ render %d trang đầu (giới hạn OCR)", total, max_pages
+            )
+        for i in range(pages):
+            page = pdf[i]
+            try:
+                pil_image = page.render(scale=scale).to_pil().convert("RGB")
+            finally:
+                page.close()
+            buf = io.BytesIO()
+            pil_image.save(buf, format="JPEG", quality=95)
+            images.append(buf.getvalue())
+    finally:
+        pdf.close()
+    if not images:
+        raise ValueError("PDF không có trang nào để render")
+    return images

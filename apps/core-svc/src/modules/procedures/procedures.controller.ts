@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Param, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { ProceduresService } from './procedures.service';
-import { IdentifyDto, ConsultDto } from './procedures.dto';
+import { IdentifyDto } from './procedures.dto';
 
 @ApiTags('Procedures')
 @Controller('procedures')
@@ -14,6 +14,12 @@ export class ProceduresController {
     return this.proceduresService.findAll();
   }
 
+  @Get('by-id/:id')
+  @ApiOperation({ summary: 'Chi tiết thủ tục theo MongoDB ID' })
+  findById(@Param('id') id: string) {
+    return this.proceduresService.findById(id);
+  }
+
   @Get(':code')
   @ApiOperation({ summary: 'Chi tiết thủ tục + checklist giấy tờ' })
   findOne(@Param('code') code: string) {
@@ -24,11 +30,5 @@ export class ProceduresController {
   @ApiOperation({ summary: 'HoSoBot — nhận diện thủ tục từ câu hỏi tự nhiên (Bước 1)' })
   identify(@Body() body: IdentifyDto) {
     return this.proceduresService.identify(body.userQuery);
-  }
-
-  @Post('consult')
-  @ApiOperation({ summary: 'SmartBot — tư vấn thủ tục từ Qdrant RAG khi người dân đã chọn thủ tục' })
-  consult(@Body() body: ConsultDto) {
-    return this.proceduresService.consult(body.question, body.procedureCode, body.topK);
   }
 }

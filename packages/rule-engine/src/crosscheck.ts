@@ -6,6 +6,54 @@ import {
   CheckStatus,
   Severity,
 } from './types';
+import { labelForField, labelForDocument } from './field-labels';
+
+// Tháng viết chữ tiếng Việt → số. "tháng ba" hiếm gặp trên giấy tờ nên chỉ cần số.
+const _VN_MONTHS: Record<string, number> = {
+  '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
+  '7': 7, '8': 8, '9': 9, '10': 10, '11': 11, '12': 12,
+  '01': 1, '02': 2, '03': 3, '04': 4, '05': 5, '06': 6,
+  '07': 7, '08': 8, '09': 9,
+};
+
+/**
+ * Chuẩn hóa ngày tháng (nhiều định dạng phổ biến trên giấy tờ VN) về dạng chuẩn
+ * "YYYY-MM-DD" bằng code thuần — KHÔNG dùng AI. Grammar ngày là hữu hạn, tất định,
+ * nên LLM ở đây chỉ thêm độ trễ + chi phí + phi tất định mà không lợi ích.
+ * Nhận: DD/MM/YYYY, DD-MM-YYYY, "ngày 15 tháng 3 năm 2020", ISO YYYY-MM-DD.
+ * Trả null nếu không parse được (để CrossChecker rơi về so sánh chuỗi thô).
+ */
+export function canonicalizeDate(raw: string): string | null {
+  if (!raw) return null;
+  const text = raw.trim().toLowerCase();
+
+  // "ngày 15 tháng 3 năm 2020" (chấp nhận thiếu chữ "ngày"/"năm").
+  const vn = text.match(
+    /(?:ngày\s*)?(\d{1,2})\s*tháng\s*(\d{1,2})\s*(?:năm\s*)?(\d{4})/,
+  );
+  if (vn) return buildDate(vn[1], vn[2], vn[3]);
+
+  // ISO: 2020-03-15 (year trước).
+  const iso = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (iso) return buildDate(iso[3], iso[2], iso[1]);
+
+  // DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY (day trước).
+  const dmy = text.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (dmy) return buildDate(dmy[1], dmy[2], dmy[3]);
+
+  return null;
+}
+
+function buildDate(dayStr: string, monthStr: string, yearStr: string): string | null {
+  const day = parseInt(dayStr, 10);
+  const month = _VN_MONTHS[monthStr] ?? parseInt(monthStr, 10);
+  const year = parseInt(yearStr, 10);
+  if (!day || !month || !year) return null;
+  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
+  const dd = String(day).padStart(2, '0');
+  const mm = String(month).padStart(2, '0');
+  return `${year}-${mm}-${dd}`;
+}
 
 function normalize(value: string): string {
   return value
@@ -65,7 +113,7 @@ function parseDate(dateStr: string): Date | null {
 function getFieldValue(
   docs: ExtractedDocument[],
   ref: string,
-): string | undefined {
+): string | null | undefined {
   const [checklistId, fieldKey] = ref.split('.');
   const doc = docs.find(d => d.checklistId === checklistId);
   return doc?.fields[fieldKey]?.value;
@@ -125,7 +173,18 @@ export class CrossChecker {
       const leftValue = getFieldValue(documents, rule.left);
       const rightValue = getFieldValue(documents, rule.right);
 
-      if (leftValue === undefined || rightValue === undefined) {
+      // == null bắt cả null (field OCR đọc được nhưng rỗng) lẫn undefined (thiếu field).
+      // Nếu chỉ chặn undefined, giá trị null lọt xuống normalize()/trim() → crash toLowerCase.
+      if (leftValue == null || rightValue == null) {
+        // Nêu ĐÚNG field + giấy tờ nào chưa đọc được (thay vì "Không đọc được dữ liệu"
+        // mù mờ) + hướng khắc phục. Xác định vế nào thiếu để chỉ đúng giấy cần tải lại.
+        const missingRefs: string[] = [];
+        if (leftValue == null) missingRefs.push(rule.left);
+        if (rightValue == null) missingRefs.push(rule.right);
+        const fieldName = labelForField(rule.right);
+        const docList = [...new Set(missingRefs.map(labelForDocument))].join(' và ');
+        const missingFieldNames = [...new Set(missingRefs.map(labelForField))].join(', ');
+
         checks.push({
           ruleName: rule.name,
           field: rule.right.split('.')[1] ?? rule.right,
@@ -135,7 +194,10 @@ export class CrossChecker {
           rightValue,
           status: 'MISSING',
           severity: rule.severityIfMismatch,
-          message: `Không đọc được dữ liệu để so sánh`,
+          message:
+            `Chưa đọc được "${missingFieldNames}" từ ${docList} để đối chiếu ${fieldName}. ` +
+            `Hãy tải lại ảnh ${docList} rõ nét (đủ sáng, không mờ, không che), ` +
+            `hoặc bổ sung thông tin này ở bước điền form.`,
         });
         continue;
       }
@@ -155,10 +217,25 @@ export class CrossChecker {
             rule.tolerance ?? 0.8,
           );
           break;
+        case 'date': {
+          // Canonicalize bằng code thuần rồi so timestamp. Nếu 1 bên không parse
+          // được, rơi về so chuỗi chuẩn hóa (không im lặng coi là khớp).
+          const l = canonicalizeDate(leftValue);
+          const r = canonicalizeDate(rightValue);
+          matched = l && r ? l === r : normalize(leftValue) === normalize(rightValue);
+          break;
+        }
+        case 'semantic':
+          // Pass 1 (code thuần): nếu chuẩn hóa đã khớp thì KHỎI hỏi AI (rẻ + tất định).
+          // Nếu không, để MISMATCH nhưng gắn cờ chờ AI phán lại ở pass 2.
+          matched = normalize(leftValue) === normalize(rightValue);
+          break;
       }
 
       const status: CheckStatus = matched ? 'MATCH' : 'MISMATCH';
       const severity: Severity = matched ? 'LOW' : rule.severityIfMismatch;
+      // Chỉ escalate lên AI khi rule là 'semantic' VÀ code thuần chưa khẳng định được khớp.
+      const needsSemanticReview = rule.matchType === 'semantic' && !matched;
 
       checks.push({
         ruleName: rule.name,
@@ -167,11 +244,17 @@ export class CrossChecker {
         right: rule.right,
         leftValue,
         rightValue,
+        matchType: rule.matchType,
         status,
         severity,
+        ...(needsSemanticReview ? { needsSemanticReview: true } : {}),
+        // Căn cứ pháp lý (curate sẵn ở rule) — copy vào check để UI hiện khi MISMATCH.
+        ...(rule.legalBasis ? { legalBasis: rule.legalBasis } : {}),
         message: matched
           ? `Khớp: "${leftValue}"`
-          : `Không khớp — "${leftValue}" ≠ "${rightValue}"`,
+          : needsSemanticReview
+            ? `Chưa khớp theo ký tự — chờ đối chiếu ngữ nghĩa: "${leftValue}" ≠ "${rightValue}"`
+            : `Không khớp — "${leftValue}" ≠ "${rightValue}"`,
       });
     }
 

@@ -19,6 +19,7 @@ class LawGuardRequest(BaseModel):
     procedure_code: str = Field(alias="procedureCode")
     checklist: list[LawGuardChecklistItem]
     category: str | None = None
+    procedure_name: str | None = Field(default=None, alias="procedureName")
 
     model_config = {"populate_by_name": True}
 
@@ -63,15 +64,6 @@ class LegalAskRequest(BaseModel):
 class EmbeddingRequest(BaseModel):
     texts: list[str] = Field(min_length=1, max_length=128)
     kind: Literal["query", "passage"] = "passage"
-
-
-class SmartBotConsultRequest(BaseModel):
-    question: str = Field(min_length=2, max_length=20_000)
-    procedure_code: str = Field(alias="procedureCode")
-    top_k: int = Field(default=5, ge=1, le=12)
-    procedure_context: str = Field(default="", alias="procedureContext")
-
-    model_config = {"populate_by_name": True}
 
 
 class HoSoBotRequest(BaseModel):

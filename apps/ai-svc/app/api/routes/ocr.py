@@ -3,7 +3,11 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from app.api.dependencies import get_container
 from app.container import AppContainer
-from app.services.ocr import OcrUnavailableError, UnsupportedDocumentType
+from app.services.ocr import (
+    DocumentTypeMismatch,
+    OcrUnavailableError,
+    UnsupportedDocumentType,
+)
 
 
 router = APIRouter(prefix="/ocr")
@@ -13,7 +17,7 @@ router = APIRouter(prefix="/ocr")
 async def extract_document(
     file: UploadFile = File(...),
     document_type_code: str = Form("GIAY_KHAI_SINH"),
-    checklist_id: str = Form(...),
+    checklist_id: str = Form("auto"),
     container: AppContainer = Depends(get_container),
 ):
     try:
@@ -27,6 +31,9 @@ async def extract_document(
             "imageQuality": result.image_quality,
             "processingTimeMs": result.processing_time_ms,
         }
+    except DocumentTypeMismatch as exc:
+        # 422: ảnh sai loại giấy tờ — core-svc bắt mã này để buộc upload lại.
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except UnsupportedDocumentType as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except OcrUnavailableError as exc:

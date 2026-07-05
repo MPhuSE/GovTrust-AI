@@ -63,13 +63,19 @@ export class User {
   cccdValidDate?: string;
 
   @Prop()
+  cccdIssueDate?: string;   // Ngày cấp CCCD (eKYC trả issue_date) — không nhạy cảm, lưu plaintext
+
+  @Prop()
+  cccdIssuePlace?: string;  // Nơi cấp CCCD (eKYC trả issue_place)
+
+  @Prop()
   kycFaceMatchProb?: number;
 
   @Prop()
   kycVerifiedAt?: Date;
 
-  @Prop({ required: true })
-  phoneNumber: string;
+  @Prop()
+  phoneNumber?: string;
 
   @Prop()
   email?: string;

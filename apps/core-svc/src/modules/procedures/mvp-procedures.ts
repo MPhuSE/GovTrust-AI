@@ -64,7 +64,7 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
       version: 'Luật Hộ tịch 2014', outputFormats: ['docx', 'pdf'],
     },
     checklist: [
-      { ...verifiedIdentity, label: 'Người yêu cầu (eKYC — tái sử dụng từ tài khoản)', roleInProcedure: 'Định danh người nộp hồ sơ — đã xác thực eKYC khi lập tài khoản, giới tính xác định vai trò Mẹ/Cha' },
+      { ...verifiedIdentity, label: 'Người yêu cầu (eKYC — tái sử dụng từ tài khoản)', roleInProcedure: 'Định danh người nộp hồ sơ — đã xác thực eKYC khi lập tài khoản, giới tính xác định vai trò Mẹ/Cha (Đ.9 NĐ 123/2015)' },
       {
         // Slot này là CCCD của phụ huynh CÒN LẠI (không phải người yêu cầu)
         // Nếu người yêu cầu là Mẹ (Nữ) → đây là CCCD cha (tùy chọn)
@@ -73,14 +73,14 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
         id: 'cccd_phu_huynh_con_lai', documentTypeCode: 'CCCD',
         acceptedCodes: ['CCCD', 'CMND'],
         label: 'CCCD của phụ huynh còn lại (nếu có)',
-        roleInProcedure: 'Bổ sung số CCCD của cha hoặc mẹ không phải người yêu cầu — hệ thống tự xác định dựa vào giới tính eKYC',
+        roleInProcedure: 'Bổ sung số CCCD của cha hoặc mẹ không phải người yêu cầu — giấy tờ tùy thân nộp kèm khi đăng ký khai sinh (Đ.9 NĐ 123/2015)',
         inputMode: 'UPLOAD', isRequired: false, conditionalOn: 'muốn bổ sung đầy đủ số CCCD phụ huynh còn lại', quantity: 1, points: 15,
       },
       {
         id: 'giay_chung_sinh', documentTypeCode: 'GIAY_CHUNG_SINH',
         label: 'Giấy chứng sinh',
-        roleInProcedure: 'Chứng minh trẻ đã sinh tại cơ sở y tế (Phụ lục 5 - Thông tư 56/2017/TT-BYT)',
-        inputMode: 'UPLOAD', isRequired: false, quantity: 1, points: 35, // TEMPORARY: false for demo without giay_chung_sinh
+        roleInProcedure: 'Chứng minh trẻ đã sinh tại cơ sở y tế, là căn cứ nộp kèm tờ khai đăng ký khai sinh (Đ.16 Luật Hộ tịch 2014)',
+        inputMode: 'UPLOAD', isRequired: true, quantity: 1, points: 35, // Giấy chứng sinh là căn cứ BẮT BUỘC để đăng ký khai sinh (Đ.16 Luật Hộ tịch 2014)
       },
       {
         id: 'giay_chung_nhan_ket_hon', documentTypeCode: 'GIAY_KET_HON',
@@ -94,16 +94,19 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
 
       // Thông tin người yêu cầu (mẹ)
       { id: 'nguoiYeuCau.hoTen', label: 'Họ tên người yêu cầu', required: true, sourceMap: ['cccd_nguoi_yeu_cau.hoTen'] },
+      { id: 'nguoiYeuCau.ngaySinh', label: 'Ngày sinh người yêu cầu', required: false, sourceMap: ['cccd_nguoi_yeu_cau.ngaySinh'] },
       { id: 'nguoiYeuCau.soCCCD', label: 'Số CCCD người yêu cầu', required: true, sourceMap: ['cccd_nguoi_yeu_cau.soCCCD'] },
       { id: 'nguoiYeuCau.noiCuTru', label: 'Nơi cư trú người yêu cầu', required: false, sourceMap: ['cccd_nguoi_yeu_cau.noiThuongTru'] },
+      { id: 'nguoiYeuCau.danToc', label: 'Dân tộc người yêu cầu', required: false, sourceMap: [], defaultValue: 'Kinh' },
+      { id: 'nguoiYeuCau.quocTich', label: 'Quốc tịch người yêu cầu', required: false, sourceMap: ['cccd_nguoi_yeu_cau.quocTich'], defaultValue: 'Việt Nam' },
       { id: 'nguoiYeuCau.quanHe', label: 'Quan hệ với trẻ', required: true, sourceMap: ['cccd_nguoi_yeu_cau.gioiTinh'], defaultValue: 'Mẹ' }, // tự xác định từ giới tính eKYC: Nữ → Mẹ, Nam → Cha
       { id: 'nguoiYeuCau.dienThoai', label: 'Số điện thoại', required: true, sourceMap: [], autofillFromUser: 'phoneNumber' },
       { id: 'nguoiYeuCau.email', label: 'Email', required: false, sourceMap: [], autofillFromUser: 'email' },
 
       // Thông tin trẻ em (từ Giấy chứng sinh - Qwen OCR)
-      { id: 'treEm.hoTen', label: 'Họ tên trẻ', required: true, sourceMap: ['giay_chung_sinh.tenDuDinh'], defaultValue: '(Chưa đặt tên)' },
+      { id: 'treEm.hoTen', label: 'Họ tên trẻ', required: true, sourceMap: ['giay_chung_sinh.hoTenCon'], defaultValue: '(Chưa đặt tên)' },
       { id: 'treEm.gioiTinh', label: 'Giới tính', required: true, sourceMap: ['giay_chung_sinh.gioiTinhCon'], defaultValue: 'Nam' },
-      { id: 'treEm.ngaySinh', label: 'Ngày sinh', required: true, sourceMap: ['giay_chung_sinh.thoiGianSinh'], defaultValue: '01/01/2026' },
+      { id: 'treEm.ngaySinh', label: 'Ngày sinh', required: true, sourceMap: ['giay_chung_sinh.ngaySinhCon'], defaultValue: '01/01/2026' },
       { id: 'treEm.noiSinh', label: 'Nơi sinh', required: true, sourceMap: ['giay_chung_sinh.noiSinh'], defaultValue: 'Bệnh viện' },
       { id: 'treEm.canNang', label: 'Cân nặng (kg)', required: false, sourceMap: ['giay_chung_sinh.canNang'] },
       { id: 'treEm.soGiayChungSinh', label: 'Số giấy chứng sinh', required: false, sourceMap: ['giay_chung_sinh.so'] },
@@ -121,15 +124,18 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
       { id: 'phuHuynh2.noiThuongTru', label: 'Nơi thường trú phụ huynh còn lại', required: false, sourceMap: ['cccd_phu_huynh_con_lai.noiThuongTru'] },
 
       // Thông tin kết hôn (từ GCN kết hôn - VNPT OCR)
-      { id: 'ketHon.so', label: 'Số GCN kết hôn', required: false, sourceMap: ['giay_chung_nhan_ket_hon.so'] },
+      { id: 'ketHon.so', label: 'Số GCN kết hôn', required: false, sourceMap: ['giay_chung_nhan_ket_hon.soGiayTo'] },
       { id: 'ketHon.quyenSo', label: 'Quyển số GCN kết hôn', required: false, sourceMap: ['giay_chung_nhan_ket_hon.quyenSo'] },
       { id: 'ketHon.ngayDangKy', label: 'Ngày đăng ký kết hôn', required: false, sourceMap: ['giay_chung_nhan_ket_hon.ngayDangKy'] },
       { id: 'ketHon.noiDangKy', label: 'Nơi đăng ký kết hôn', required: false, sourceMap: ['giay_chung_nhan_ket_hon.noiDangKy'] },
     ],
     crossCheckRules: [
-      { name: 'Họ tên người yêu cầu khớp với Giấy chứng sinh', left: 'cccd_nguoi_yeu_cau.hoTen', right: 'giay_chung_sinh.hoTenMe', matchType: 'normalized', severityIfMismatch: 'HIGH', skipIfMissing: 'giay_chung_sinh' },
-      { name: 'Họ tên phụ huynh còn lại trên CCCD khớp với Giấy chứng sinh', left: 'cccd_phu_huynh_con_lai.hoTen', right: 'giay_chung_sinh.hoTenCha', matchType: 'normalized', severityIfMismatch: 'MEDIUM', skipIfMissing: 'cccd_phu_huynh_con_lai' },
-      { name: 'Họ tên vợ/chồng trên GCN kết hôn khớp với người yêu cầu', left: 'giay_chung_nhan_ket_hon.hoTenVo', right: 'cccd_nguoi_yeu_cau.hoTen', matchType: 'normalized', severityIfMismatch: 'LOW', skipIfMissing: 'giay_chung_nhan_ket_hon' },
+      { name: 'Họ tên người yêu cầu khớp với Giấy chứng sinh', left: 'cccd_nguoi_yeu_cau.hoTen', right: 'giay_chung_sinh.hoTenMe', matchType: 'normalized', severityIfMismatch: 'HIGH', skipIfMissing: 'giay_chung_sinh',
+        legalBasis: { article: 'Điều 16 Luật Hộ tịch 2014', note: 'Thông tin cha mẹ trong tờ khai đăng ký khai sinh phải khớp với giấy chứng sinh để xác định đúng quan hệ và nhân thân.' } },
+      { name: 'Họ tên phụ huynh còn lại trên CCCD khớp với Giấy chứng sinh', left: 'cccd_phu_huynh_con_lai.hoTen', right: 'giay_chung_sinh.hoTenCha', matchType: 'normalized', severityIfMismatch: 'MEDIUM', skipIfMissing: 'cccd_phu_huynh_con_lai',
+        legalBasis: { article: 'Điều 16 Luật Hộ tịch 2014', note: 'Họ tên cha/mẹ trên CCCD phải trùng với giấy chứng sinh để chứng minh quan hệ cha mẹ – con.' } },
+      { name: 'Họ tên vợ/chồng trên GCN kết hôn khớp với người yêu cầu', left: 'giay_chung_nhan_ket_hon.hoTenVo', right: 'cccd_nguoi_yeu_cau.hoTen', matchType: 'normalized', severityIfMismatch: 'LOW', skipIfMissing: 'giay_chung_nhan_ket_hon',
+        legalBasis: { article: 'Điều 15 Nghị định 123/2015/NĐ-CP', note: 'Giấy chứng nhận kết hôn dùng để xác định quan hệ hôn nhân của cha mẹ khi đăng ký khai sinh.' } },
     ],
     scoringRules, priorityConfig, isActive: true,
   },
@@ -167,7 +173,7 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
       },
     ],
     formFields: [
-      { id: 'coQuanTiepNhan', label: 'Cơ quan đăng ký kinh doanh', required: true, sourceMap: [], defaultValue: 'Cơ quan đăng ký kinh doanh cấp xã' },
+      { id: 'coQuanTiepNhan', label: 'Cơ quan đăng ký kinh doanh', required: true, sourceMap: ['giay_hkd.donViCap'], defaultValue: 'Cơ quan đăng ký kinh doanh cấp xã' },
       { id: 'hoKinhDoanh.tenHoKinhDoanh', label: 'Tên hộ kinh doanh', required: true, sourceMap: ['giay_hkd.tenHoKinhDoanh', 'van_ban_uy_quyen_hgd.tenHoKinhDoanh'] },
       { id: 'hoKinhDoanh.maSo', label: 'Mã số/Số ĐKHKD', required: true, sourceMap: ['giay_hkd.maSoHoKinhDoanh'] },
       { id: 'hoKinhDoanh.dienThoai', label: 'Điện thoại hộ kinh doanh', required: false, sourceMap: ['giay_hkd.dienThoai'] },
@@ -176,14 +182,15 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
 
       // Chủ hộ cũ (TRƯỚC khi thay đổi) - lấy từ Giấy ĐKHKD
       { id: 'chuHoCu.hoTen', label: 'Họ tên chủ hộ trước khi thay đổi', required: true, sourceMap: ['giay_hkd.hoTenChuHo', 'van_ban_uy_quyen_hgd.tenNguoiUyQuyen'] },
-      { id: 'chuHoCu.soCCCD', label: 'Số CCCD chủ hộ cũ', required: true, sourceMap: ['giay_hkd.soCCCDChuHo'] },
+      { id: 'chuHoCu.soCCCD', label: 'Số CCCD chủ hộ cũ', required: true, sourceMap: ['giay_hkd.soGiayTo'] },
       { id: 'chuHoCu.ngaySinh', label: 'Ngày sinh chủ hộ cũ', required: false, sourceMap: ['giay_hkd.ngaySinhChuHo'] },
       { id: 'chuHoCu.gioiTinh', label: 'Giới tính chủ hộ cũ', required: false, sourceMap: ['giay_hkd.gioiTinhChuHo'] },
       { id: 'chuHoCu.danToc', label: 'Dân tộc chủ hộ cũ', required: false, sourceMap: ['giay_hkd.danTocChuHo'] },
       { id: 'chuHoCu.quocTich', label: 'Quốc tịch chủ hộ cũ', required: false, sourceMap: ['giay_hkd.quocTichChuHo'], defaultValue: 'Việt Nam' },
       { id: 'chuHoCu.ngayCap', label: 'Ngày cấp CCCD chủ hộ cũ', required: false, sourceMap: ['giay_hkd.ngayCapCCCDChuHo'] },
       { id: 'chuHoCu.noiCap', label: 'Nơi cấp CCCD chủ hộ cũ', required: false, sourceMap: ['giay_hkd.noiCapCCCDChuHo'] },
-      { id: 'chuHoCu.diaChiThuongTru', label: 'Địa chỉ thường trú chủ hộ cũ', required: false, sourceMap: ['giay_hkd.diaChiThuongTruChuHo'] },
+      { id: 'chuHoCu.hanSuDung', label: 'CCCD chủ hộ cũ có giá trị đến', required: false, sourceMap: [] },
+      { id: 'chuHoCu.diaChiThuongTru', label: 'Địa chỉ thường trú chủ hộ cũ', required: false, sourceMap: ['giay_hkd.noiThuongTruChuHo'] },
       { id: 'chuHoCu.dienThoai', label: 'Điện thoại chủ hộ cũ', required: false, sourceMap: ['giay_hkd.dienThoaiChuHo'] },
       { id: 'chuHoCu.email', label: 'Email chủ hộ cũ', required: false, sourceMap: ['giay_hkd.emailChuHo'] },
 
@@ -192,7 +199,7 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
       { id: 'chuHoMoi.soCCCD', label: 'Số CCCD chủ hộ mới', required: true, sourceMap: ['cccd_nguoi_yeu_cau.soCCCD'] },
       { id: 'chuHoMoi.ngaySinh', label: 'Ngày sinh chủ hộ mới', required: false, sourceMap: ['cccd_nguoi_yeu_cau.ngaySinh'] },
       { id: 'chuHoMoi.gioiTinh', label: 'Giới tính chủ hộ mới', required: false, sourceMap: ['cccd_nguoi_yeu_cau.gioiTinh'] },
-      { id: 'chuHoMoi.danToc', label: 'Dân tộc chủ hộ mới', required: false, sourceMap: ['cccd_nguoi_yeu_cau.danToc'] },
+      { id: 'chuHoMoi.danToc', label: 'Dân tộc chủ hộ mới', required: false, sourceMap: ['cccd_nguoi_yeu_cau.danToc'], defaultValue: 'Kinh' },
       { id: 'chuHoMoi.quocTich', label: 'Quốc tịch chủ hộ mới', required: false, sourceMap: ['cccd_nguoi_yeu_cau.quocTich'], defaultValue: 'Việt Nam' },
       { id: 'chuHoMoi.ngayCap', label: 'Ngày cấp CCCD chủ hộ mới', required: false, sourceMap: ['cccd_nguoi_yeu_cau.ngayCap'] },
       { id: 'chuHoMoi.noiCap', label: 'Nơi cấp CCCD chủ hộ mới', required: false, sourceMap: ['cccd_nguoi_yeu_cau.noiCap'] },
@@ -205,16 +212,20 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
     ],
     crossCheckRules: [
       // Cross-check chủ hộ mới
-      { name: 'Chủ hộ mới trên CCCD khớp người được ủy quyền trong văn bản ủy quyền HGĐ', left: 'cccd_nguoi_yeu_cau.hoTen', right: 'van_ban_uy_quyen_hgd.tenNguoiDuocUyQuyen', matchType: 'normalized', severityIfMismatch: 'HIGH', skipIfMissing: 'van_ban_uy_quyen_hgd' },
+      { name: 'Chủ hộ mới trên CCCD khớp người được ủy quyền trong văn bản ủy quyền HGĐ', left: 'cccd_nguoi_yeu_cau.hoTen', right: 'van_ban_uy_quyen_hgd.tenNguoiDuocUyQuyen', matchType: 'normalized', severityIfMismatch: 'HIGH', skipIfMissing: 'van_ban_uy_quyen_hgd',
+        legalBasis: { article: 'Điều 100 khoản 3 NĐ 168/2025/NĐ-CP', note: 'Chủ hộ mới phải đúng là người được các thành viên hộ gia đình ủy quyền — tên trên CCCD phải khớp văn bản ủy quyền.' } },
 
       // Cross-check chủ hộ cũ (từ Giấy ĐKHKD)
-      { name: 'Chủ hộ cũ trên Giấy ĐKHKD khớp người ủy quyền trong văn bản ủy quyền HGĐ', left: 'giay_hkd.hoTenChuHo', right: 'van_ban_uy_quyen_hgd.tenNguoiUyQuyen', matchType: 'normalized', severityIfMismatch: 'HIGH', skipIfMissing: 'van_ban_uy_quyen_hgd' },
+      { name: 'Chủ hộ cũ trên Giấy ĐKHKD khớp người ủy quyền trong văn bản ủy quyền HGĐ', left: 'giay_hkd.hoTenChuHo', right: 'van_ban_uy_quyen_hgd.tenNguoiUyQuyen', matchType: 'normalized', severityIfMismatch: 'HIGH', skipIfMissing: 'van_ban_uy_quyen_hgd',
+        legalBasis: { article: 'Điều 85 NĐ 168/2025/NĐ-CP', note: 'Chủ hộ hiện tại trên Giấy chứng nhận ĐKHKD phải là người ký ủy quyền thì việc thay đổi mới hợp lệ.' } },
 
       // Cross-check tên hộ kinh doanh
-      { name: 'Tên hộ kinh doanh trên văn bản ủy quyền khớp Giấy chứng nhận ĐKHKD', left: 'van_ban_uy_quyen_hgd.tenHoKinhDoanh', right: 'giay_hkd.tenHoKinhDoanh', matchType: 'normalized', severityIfMismatch: 'MEDIUM', skipIfMissing: 'van_ban_uy_quyen_hgd' },
+      { name: 'Tên hộ kinh doanh trên văn bản ủy quyền khớp Giấy chứng nhận ĐKHKD', left: 'van_ban_uy_quyen_hgd.tenHoKinhDoanh', right: 'giay_hkd.tenHoKinhDoanh', matchType: 'normalized', severityIfMismatch: 'MEDIUM', skipIfMissing: 'van_ban_uy_quyen_hgd',
+        legalBasis: { article: 'Điều 85 NĐ 168/2025/NĐ-CP', note: 'Tên hộ kinh doanh phải đồng nhất giữa văn bản ủy quyền và giấy chứng nhận để xác định đúng hộ kinh doanh cần thay đổi.' } },
 
       // Cross-check văn bản ủy quyền thủ tục (nếu có)
-      { name: 'Người ủy quyền nộp thủ tục khớp chủ hộ mới trên CCCD', left: 'van_ban_uy_quyen_thu_tuc.tenNguoiUyQuyen', right: 'cccd_nguoi_yeu_cau.hoTen', matchType: 'normalized', severityIfMismatch: 'LOW', skipIfMissing: 'van_ban_uy_quyen_thu_tuc' },
+      { name: 'Người ủy quyền nộp thủ tục khớp chủ hộ mới trên CCCD', left: 'van_ban_uy_quyen_thu_tuc.tenNguoiUyQuyen', right: 'cccd_nguoi_yeu_cau.hoTen', matchType: 'normalized', severityIfMismatch: 'LOW', skipIfMissing: 'van_ban_uy_quyen_thu_tuc',
+        legalBasis: { article: 'Điều 93 khoản 1 NĐ 168/2025/NĐ-CP', note: 'Khi nhờ người khác nộp hồ sơ thay, người ủy quyền phải đúng là chủ hộ mới đứng tên trên CCCD.' } },
     ],
     scoringRules, priorityConfig, isActive: true,
   },
@@ -304,7 +315,7 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
       { id: 'thuaDat.suDungChung', label: 'Diện tích sử dụng chung (m²)', required: false, sourceMap: ['hop_dong_chuyen_nhuong.suDungChung'], defaultValue: '0' },
       { id: 'thuaDat.mucDichSuDung', label: 'Mục đích sử dụng', required: true, sourceMap: ['hop_dong_chuyen_nhuong.mucDichSuDung'], defaultValue: 'Đất ở' },
       { id: 'thuaDat.thoiHan', label: 'Thời hạn sử dụng', required: true, sourceMap: ['hop_dong_chuyen_nhuong.thoiHanSuDung'], defaultValue: 'Lâu dài' },
-      { id: 'thuaDat.nguonGoc', label: 'Nguồn gốc sử dụng đất', required: true, sourceMap: ['hop_dong_chuyen_nhuong.nguonGocSuDung'] },
+      { id: 'thuaDat.nguonGoc', label: 'Nguồn gốc sử dụng đất', required: true, sourceMap: ['hop_dong_chuyen_nhuong.nguonGocSuDung'], defaultValue: 'Nhận chuyển nhượng quyền sử dụng đất' },
       { id: 'thuaDat.hanCheQuyen', label: 'Hạn chế quyền sử dụng', required: false, sourceMap: ['hop_dong_chuyen_nhuong.hanCheQuyen'], defaultValue: 'Không có' },
       { id: 'thuaDat.soGiayChungNhan', label: 'Số GCN QSDĐ hiện tại', required: false, sourceMap: ['so_do_ben_chuyen_nhuong.soGiayChungNhan'] },
 
@@ -329,10 +340,16 @@ export const MVP_PROCEDURES: ProcedureSeed[] = [
       { id: 'deNghiKhac', label: 'Đề nghị khác (nếu có)', required: false, sourceMap: [], defaultValue: '' },
     ],
     crossCheckRules: [
-      { name: 'Bên nhận chuyển nhượng trên CCCD khớp với hợp đồng', left: 'cccd_nguoi_yeu_cau.hoTen', right: 'hop_dong_chuyen_nhuong.benNhanChuyenNhuong', matchType: 'normalized', severityIfMismatch: 'HIGH', skipIfMissing: 'hop_dong_chuyen_nhuong' },
-      { name: 'Bên chuyển nhượng trên sổ đỏ khớp với hợp đồng', left: 'so_do_ben_chuyen_nhuong.tenChuSoHuu', right: 'hop_dong_chuyen_nhuong.benChuyenNhuong', matchType: 'normalized', severityIfMismatch: 'HIGH', skipIfMissing: 'hop_dong_chuyen_nhuong' },
-      { name: 'Địa chỉ thửa đất trên sổ đỏ khớp với hợp đồng', left: 'so_do_ben_chuyen_nhuong.diaChiNha', right: 'hop_dong_chuyen_nhuong.diaChiThuaDat', matchType: 'fuzzy', tolerance: 0.6, severityIfMismatch: 'MEDIUM', skipIfMissing: 'hop_dong_chuyen_nhuong' },
-      { name: 'Diện tích trên sổ đỏ khớp với hợp đồng', left: 'so_do_ben_chuyen_nhuong.dienTich', right: 'hop_dong_chuyen_nhuong.dienTich', matchType: 'normalized', severityIfMismatch: 'MEDIUM', skipIfMissing: 'hop_dong_chuyen_nhuong' },
+      { name: 'Bên nhận chuyển nhượng trên CCCD khớp với hợp đồng', left: 'cccd_nguoi_yeu_cau.hoTen', right: 'hop_dong_chuyen_nhuong.benNhanChuyenNhuong', matchType: 'normalized', severityIfMismatch: 'HIGH', skipIfMissing: 'hop_dong_chuyen_nhuong',
+        legalBasis: { article: 'Điều 188 khoản 1 Luật Đất đai 2024', note: 'Người nhận chuyển nhượng đứng tên trên CCCD phải trùng bên nhận trong hợp đồng để xác định đúng chủ thể giao dịch.' } },
+      { name: 'Bên chuyển nhượng trên sổ đỏ khớp với hợp đồng', left: 'so_do_ben_chuyen_nhuong.tenChuSoHuu', right: 'hop_dong_chuyen_nhuong.benChuyenNhuong', matchType: 'normalized', severityIfMismatch: 'HIGH', skipIfMissing: 'hop_dong_chuyen_nhuong',
+        legalBasis: { article: 'Điều 188 khoản 1 điểm a Luật Đất đai 2024', note: 'Người chuyển nhượng phải là chủ sở hữu ghi trên sổ đỏ thì mới có quyền chuyển nhượng.' } },
+      // 'semantic': địa chỉ hay khác cách ghi ("123 Lê Lợi, P.1, Q.1" vs "Số 123 đường Lê Lợi, Phường 1, Quận 1")
+      // mà fuzzy ký tự bắt sai. Pass 1 chuẩn hóa; không khớp → AI (ai-svc) phán "cùng thửa đất hay không".
+      { name: 'Địa chỉ thửa đất trên sổ đỏ khớp với hợp đồng', left: 'so_do_ben_chuyen_nhuong.diaChiNha', right: 'hop_dong_chuyen_nhuong.diaChiThuaDat', matchType: 'semantic', severityIfMismatch: 'MEDIUM', skipIfMissing: 'hop_dong_chuyen_nhuong',
+        legalBasis: { article: 'Điều 188 Luật Đất đai 2024', note: 'Thửa đất trong hợp đồng phải đúng là thửa đất ghi trên sổ đỏ để bảo đảm chuyển nhượng đúng đối tượng.' } },
+      { name: 'Diện tích trên sổ đỏ khớp với hợp đồng', left: 'so_do_ben_chuyen_nhuong.dienTich', right: 'hop_dong_chuyen_nhuong.dienTich', matchType: 'normalized', severityIfMismatch: 'MEDIUM', skipIfMissing: 'hop_dong_chuyen_nhuong',
+        legalBasis: { article: 'Điều 188 Luật Đất đai 2024', note: 'Diện tích chuyển nhượng phải khớp với diện tích ghi trên sổ đỏ để tránh sai lệch về đối tượng giao dịch.' } },
     ],
     scoringRules,
     priorityConfig,

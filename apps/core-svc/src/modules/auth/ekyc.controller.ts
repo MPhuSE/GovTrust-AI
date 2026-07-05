@@ -17,6 +17,7 @@ import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 
 import { User, UserDocument, KycStatus } from '../../database/schemas/user.schema';
+import { encryptPii } from '../../common/utils/pii-crypto.util';
 
 @ApiTags('Auth — eKYC')
 @Controller('auth/ekyc')
@@ -103,19 +104,24 @@ export class EkycController {
     const cccdOriginLocation = aiResult.ocrFields?.originLocation?.value;
     const cccdRecentLocation = aiResult.ocrFields?.recentLocation?.value;
     const cccdValidDate = aiResult.ocrFields?.validDate?.value;
+    const cccdIssueDate = aiResult.ocrFields?.issueDate?.value;
+    const cccdIssuePlace = aiResult.ocrFields?.issuePlace?.value;
 
     await this.userModel.updateOne(
       { _id: userId },
       {
         kycStatus,
-        ...(cccdNumber && { cccdNumber }),
+        // Mã hóa PII nhạy cảm (AES) — nhất quán với auth.service register path.
+        ...(cccdNumber && { cccdNumber: encryptPii(cccdNumber) }),
         ...(cccdFullName && { cccdFullName }),
         ...(cccdBirthDay && { cccdBirthDay }),
         ...(cccdGender && { cccdGender }),
         ...(cccdNationality && { cccdNationality }),
-        ...(cccdOriginLocation && { cccdOriginLocation }),
-        ...(cccdRecentLocation && { cccdRecentLocation }),
+        ...(cccdOriginLocation && { cccdOriginLocation: encryptPii(cccdOriginLocation) }),
+        ...(cccdRecentLocation && { cccdRecentLocation: encryptPii(cccdRecentLocation) }),
         ...(cccdValidDate && { cccdValidDate }),
+        ...(cccdIssueDate && { cccdIssueDate }),
+        ...(cccdIssuePlace && { cccdIssuePlace }),
         kycFaceMatchProb: aiResult.faceMatchProb ?? 0,
         ...(kycStatus === KycStatus.VERIFIED && { kycVerifiedAt: new Date() }),
       },

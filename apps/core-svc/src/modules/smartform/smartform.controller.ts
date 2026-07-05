@@ -16,6 +16,12 @@ export class SmartFormController {
     return this.smartFormService.generate(id);
   }
 
+  @Get(':id/smartform')
+  @ApiOperation({ summary: 'Lấy form view để hiển thị trên UI (chưa render DOCX)' })
+  async getFormView(@Param('id') id: string) {
+    return this.smartFormService.runGenerateNow(id);
+  }
+
   @Post(':id/smartform/render')
   @ApiOperation({ summary: 'Lưu phần người dùng chỉnh sửa trước khi xuất tờ khai' })
   render(@Param('id') id: string, @Body() body: RenderSmartFormDto) {

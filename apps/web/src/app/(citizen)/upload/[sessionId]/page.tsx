@@ -171,6 +171,7 @@ export default function UploadPage() {
   const router = useRouter();
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [uploadedDocs, setUploadedDocs] = useState<Record<string, { fileName: string; preview?: string; documentTypeCode: string }>>({});
+  const [uploadingSlots, setUploadingSlots] = useState<Record<string, boolean>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [procedureName, setProcedureName] = useState('');
@@ -183,20 +184,24 @@ export default function UploadPage() {
   const [cameraField, setCameraField] = useState<ChecklistItem | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // Slot đang được kéo file qua (để highlight dropzone) — key theo checklist item.id
+  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
+
   // ── Chuyển schema backend → ChecklistItem frontend ──
   const mapChecklist = (raw: BackendChecklistItem[]): ChecklistItem[] =>
     raw
       .filter(item => item.inputMode !== 'REFERENCE') // bỏ loại REFERENCE (pre-filled)
+      .filter(item => item.inputMode !== 'EKYC')       // bỏ loại EKYC (đã xác thực từ tài khoản)
       .map(item => ({
         id: item.id,
         documentTypeCode: item.documentTypeCode,
         label: item.label || item.documentTypeCode,
-        required: item.isRequired,           // isRequired → required
+        required: item.isRequired ?? (item as any).required ?? false,
         hint: item.roleInProcedure,
         inputMode: item.inputMode,
       }));
 
-  // ── Load session → procedure (đã populate) → checklist ──
+  // ── Load session → procedure (đã populate) → checklist + AI consultation ──
   useEffect(() => {
     sessionsApi
       .get(sessionId)
@@ -229,6 +234,7 @@ export default function UploadPage() {
 
         if (proc) {
           setProcedureName(proc.name);
+
           if (proc.checklist && proc.checklist.length > 0) {
             setChecklist(mapChecklist(proc.checklist));
             setLoadingChecklist(false);
@@ -251,37 +257,74 @@ export default function UploadPage() {
       });
   }, [sessionId]);
 
-  // ── Xử lý file (từ file input hoặc camera confirm) ──
+  // ── Xử lý file (từ file input, kéo-thả hoặc camera confirm) ──
   const handleFile = useCallback(async (file: File, documentTypeCode: string, checklistId: string) => {
-    if (file.size > 10 * 1024 * 1024) return;
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('sessionId', sessionId);
-    formData.append('documentTypeCode', documentTypeCode);
-    formData.append('checklistId', checklistId);
-    await documentsApi.upload(formData);
-    const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
-    setUploadedDocs(prev => ({ ...prev, [checklistId]: { fileName: file.name, preview, documentTypeCode } }));
+    // Kéo-thả bỏ qua thuộc tính accept của input → phải tự kiểm tra loại + kích thước.
+    const isAllowedType = file.type.startsWith('image/') || file.type === 'application/pdf';
+    if (!isAllowedType) {
+      setStatusMsg('Chỉ chấp nhận tệp ảnh (JPG, PNG) hoặc PDF.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setStatusMsg('Tệp vượt quá 10MB, vui lòng chọn tệp nhỏ hơn.');
+      return;
+    }
+    setStatusMsg('');
+    // OCR chạy inline ở backend (~3-4s/ảnh) → bật loading cho slot này để user không tưởng treo
+    setUploadingSlots(prev => ({ ...prev, [checklistId]: true }));
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('sessionId', sessionId);
+      formData.append('documentTypeCode', documentTypeCode);
+      formData.append('checklistId', checklistId);
+      await documentsApi.upload(formData);
+      const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
+      setUploadedDocs(prev => ({ ...prev, [checklistId]: { fileName: file.name, preview, documentTypeCode } }));
+    } catch (e) {
+      // Ảnh sai loại giấy tờ (422) hoặc lỗi upload khác: báo rõ, KHÔNG đánh dấu slot đã
+      // upload (setUploadedDocs không chạy vì throw trước) → buộc người dùng chọn ảnh khác.
+      setStatusMsg((e as Error).message || 'Không tải được ảnh. Vui lòng thử lại với ảnh khác.');
+    } finally {
+      setUploadingSlots(prev => {
+        const next = { ...prev };
+        delete next[checklistId];
+        return next;
+      });
+    }
   }, [sessionId]);
+
+  // Các bước pipeline đều là job async (202). Backend cập nhật pipeline.steps.<step>
+  // = queued → processing → done|failed. Phải chờ 'done' trước khi enqueue bước kế
+  // vì chúng phụ thuộc nhau: score cần crossCheck xong, smartform cần score xong.
+  const waitForStep = async (step: string, label: string) => {
+    setStatusMsg(label);
+    for (let attempts = 0; attempts < 60; attempts++) { // ~2 phút timeout
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const session = await sessionsApi.get(sessionId) as any;
+      const status = session.pipeline?.steps?.[step];
+      if (status === 'done') return;
+      if (status === 'failed') throw new Error(`Bước "${label}" thất bại, vui lòng thử lại`);
+    }
+    throw new Error(`Bước "${label}" quá thời gian chờ`);
+  };
 
   const handleRunPipeline = async () => {
     setIsProcessing(true);
     try {
-      setStatusMsg('Đang bóc tách thông tin từ giấy tờ...');
-      for (const [checklistId, doc] of Object.entries(uploadedDocs))
-        await documentsApi.triggerOcr(sessionId, doc.documentTypeCode, checklistId);
+      // OCR đã chạy inline khi upload từng file — bỏ qua bước triggerOcr riêng
 
-      setStatusMsg('Đang kiểm tra chéo thông tin...');
       await scoringApi.crosscheck(sessionId);
+      await waitForStep('crosscheck', 'Đang kiểm tra chéo thông tin...');
 
-      setStatusMsg('Đang chấm điểm hồ sơ...');
       await scoringApi.score(sessionId);
+      await waitForStep('score', 'Đang chấm điểm hồ sơ...');
 
-      setStatusMsg('Đang tra cứu căn cứ pháp lý...');
       await scoringApi.lawguard(sessionId);
+      await waitForStep('lawguard', 'Đang tra cứu căn cứ pháp lý...');
 
-      setStatusMsg('Đang chuẩn bị form tự điền...');
       await smartformApi.generate(sessionId);
+      await waitForStep('smartform', 'Đang chuẩn bị form tự điền...');
 
       router.push(`/result/${sessionId}`);
     } catch (e) {
@@ -310,10 +353,10 @@ export default function UploadPage() {
       )}
 
       <CitizenLayout>
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10 animate-fade-in">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 animate-fade-in">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-teal-700 mb-6 transition-colors"
+            className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-teal-700 mb-3 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -322,28 +365,13 @@ export default function UploadPage() {
           </button>
 
           {/* Title — hiển thị tên thủ tục thật từ backend */}
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-teal-700 mb-2 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-teal-700 mb-1 tracking-tight">
             {procedureName || (loadingChecklist ? '...' : 'Tải lên giấy tờ')}
           </h1>
-          <p className="text-gray-500 text-base font-medium mb-8">Bước 2: Hệ thống AI sẽ tự động trích xuất thông tin</p>
+          <p className="text-gray-500 text-sm font-medium mb-4">Bước 2: Hệ thống AI sẽ tự động trích xuất thông tin</p>
 
-          <div className="mb-10">
-            <Progress steps={CITIZEN_STEPS} currentIndex={1} totalLabel="2 / 5" />
-          </div>
-
-          {/* Mẹo chụp ảnh */}
-          <div className="bg-gray-50/50 -sm border border-teal-600/60 rounded-md p-5 mb-8 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-              <span className="text-emerald-700 font-bold">i</span>
-            </div>
-            <div>
-              <p className="font-bold text-teal-700 mb-1.5">Mẹo chụp ảnh để AI nhận diện tốt nhất</p>
-              <ul className="text-sm space-y-1 text-emerald-800/80 font-medium">
-                <li>• Đặt giấy tờ trên mặt phẳng tối màu, nơi có đủ ánh sáng.</li>
-                <li>• Giữ điện thoại song song với giấy tờ, lấy trọn 4 góc.</li>
-                <li>• Tránh lóa sáng (flash) hoặc bóng đen che khuất chữ.</li>
-              </ul>
-            </div>
+          <div className="mb-6">
+            <Progress steps={CITIZEN_STEPS} currentIndex={1} />
           </div>
 
           {/* Checklist */}
@@ -353,32 +381,41 @@ export default function UploadPage() {
               <LoadingSkeleton variant="card" className="rounded-md" />
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {checklist.map((item) => {
                 const uploaded = uploadedDocs[item.id];
                 const prefilled = prefilledSlots[item.id];
+                const uploading = uploadingSlots[item.id];
                 return (
                   <div
                     key={item.id}
-                    className={`rounded-md p-6 border shadow-[0_4px_20px_rgb(0,0,0,0.02)] ${
+                    className={`rounded-md p-4 border shadow-[0_4px_20px_rgb(0,0,0,0.02)] ${
                       prefilled ? 'bg-gray-50/40 border-teal-600' : 'bg-white border-gray-100'
                     }`}
                   >
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="font-bold text-teal-700 text-lg flex items-center gap-2">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-teal-700 text-base flex items-center gap-2 flex-wrap">
                           {item.label}
                           {item.required ? (
-                            <span className="px-2 py-0.5 rounded-md bg-red-50 text-red-600 text-xs font-bold uppercase tracking-wider">Bắt buộc</span>
+                            <span className="px-2 py-0.5 rounded-md bg-red-50 text-red-600 text-[10px] font-bold uppercase tracking-wider">Bắt buộc</span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-wider">Tùy chọn</span>
+                            <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-wider">Nếu có</span>
                           )}
                         </h3>
-                        {item.hint && <p className="text-sm text-gray-500 mt-1 font-medium">{item.hint}</p>}
+                        {item.hint && <p className="text-xs text-gray-500 mt-0.5 font-medium">{item.hint}</p>}
                       </div>
                       {prefilled ? (
                         <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full border border-teal-600 flex items-center gap-1 shrink-0">
                           ✓ Từ hồ sơ eKYC
+                        </span>
+                      ) : uploading ? (
+                        <span className="px-3 py-1 bg-cyan-50 text-cyan-700 text-xs font-bold rounded-full border border-cyan-200 flex items-center gap-1.5">
+                          <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          AI đang đọc…
                         </span>
                       ) : uploaded ? (
                         <span className="px-3 py-1 bg-gray-50 text-emerald-700 text-xs font-bold rounded-full border border-teal-600 flex items-center gap-1">
@@ -404,6 +441,26 @@ export default function UploadPage() {
                           </p>
                         </div>
                         <span className="text-xs text-teal-600 font-bold shrink-0">Không cần upload</span>
+                      </div>
+                    ) : uploading ? (
+                      // Đang upload + OCR inline — animation để user biết AI đang xử lý
+                      <div className="flex items-center gap-4 rounded-lg p-5 border border-cyan-100 bg-gradient-to-r from-cyan-50/60 to-teal-50/40 overflow-hidden relative">
+                        <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.6s_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent" style={{ backgroundSize: '200% 100%' }} />
+                        <div className="w-11 h-11 rounded-full bg-cyan-100 flex items-center justify-center shrink-0 relative z-10">
+                          <svg className="w-6 h-6 text-cyan-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0 relative z-10">
+                          <p className="text-sm font-bold text-cyan-800">AI đang trích xuất thông tin…</p>
+                          <p className="text-xs text-cyan-600/80 font-medium mt-0.5">Đang đọc giấy tờ, giữ nguyên trang trong giây lát</p>
+                        </div>
+                        <div className="flex items-center gap-1 relative z-10 shrink-0">
+                          <span className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
                       </div>
                     ) : uploaded ? (
                       // Hiện preview + nút đổi file
@@ -432,48 +489,53 @@ export default function UploadPage() {
                         </button>
                       </div>
                     ) : (
-                      // Upload / Camera buttons
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* File upload */}
-                        <label className="flex flex-col items-center justify-center gap-2 p-5 rounded border-2 border-dashed border-gray-300 hover:border-teal-600 hover:bg-gray-50/30 transition-all cursor-pointer text-gray-700">
-                          <input
-                            ref={el => { fileRefs.current[item.documentTypeCode] = el; }}
-                            type="file"
-                            accept="image/*,.pdf"
-                            className="hidden"
-                            onChange={async e => {
-                              const f = e.target.files?.[0];
-                              if (f) await handleFile(f, item.documentTypeCode, item.id);
-                            }}
-                          />
-                          <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center">
-                            <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                            </svg>
-                          </div>
-                          <div className="text-center">
-                            <span className="block font-bold text-sm">Tải tệp lên</span>
-                            <span className="block text-xs text-gray-500 mt-0.5">PDF, JPG, PNG (Max 10MB)</span>
-                          </div>
-                        </label>
-
-                        {/* Camera — mở CameraCapture fullscreen */}
-                        <button
-                          onClick={() => setCameraField(item)}
-                          className="flex flex-col items-center justify-center gap-2 p-5 rounded border-2 border-teal-600 bg-gray-50 hover:bg-emerald-100/50 hover:border-teal-600 transition-all text-emerald-800"
-                        >
-                          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-                            <svg className="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                          </div>
-                          <div className="text-center">
-                            <span className="block font-bold text-sm">Chụp ảnh ngay</span>
-                            <span className="block text-xs font-medium opacity-80 mt-0.5">Có khung căn chỉnh + xem lại</span>
-                          </div>
-                        </button>
-                      </div>
+                      // Kéo-thả hoặc bấm để chọn tệp
+                      <label
+                        onDragOver={e => {
+                          e.preventDefault();
+                          if (dragOverSlot !== item.id) setDragOverSlot(item.id);
+                        }}
+                        onDragLeave={e => {
+                          e.preventDefault();
+                          // Chỉ bỏ highlight khi rời hẳn vùng dropzone (không phải sang con)
+                          if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverSlot(null);
+                        }}
+                        onDrop={async e => {
+                          e.preventDefault();
+                          setDragOverSlot(null);
+                          const f = e.dataTransfer.files?.[0];
+                          if (f) await handleFile(f, item.documentTypeCode, item.id);
+                        }}
+                        className={`flex items-center gap-3 p-3.5 rounded-lg border-2 border-dashed transition-all cursor-pointer text-gray-700 w-full ${
+                          dragOverSlot === item.id
+                            ? 'border-teal-600 bg-teal-50/60 scale-[1.01]'
+                            : 'border-gray-300 hover:border-teal-600 hover:bg-teal-50/30'
+                        }`}
+                      >
+                        <input
+                          ref={el => { fileRefs.current[item.documentTypeCode] = el; }}
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={async e => {
+                            const f = e.target.files?.[0];
+                            if (f) await handleFile(f, item.documentTypeCode, item.id);
+                          }}
+                        />
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                          dragOverSlot === item.id ? 'bg-teal-200' : 'bg-teal-100'
+                        }`}>
+                          <svg className="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                        </div>
+                        <div className="min-w-0">
+                          <span className="block font-bold text-sm text-gray-900">
+                            {dragOverSlot === item.id ? 'Thả tệp vào đây' : 'Kéo thả hoặc bấm để tải tệp'}
+                          </span>
+                          <span className="block text-xs text-gray-500 mt-0.5">PDF, JPG, PNG (Max 10MB)</span>
+                        </div>
+                      </label>
                     )}
                   </div>
                 );
@@ -481,28 +543,37 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Processing status */}
+          {/* Trạng thái: đang chạy pipeline → spinner cyan; ngược lại → thông báo lỗi amber */}
           {statusMsg && (
-            <div className="mt-8 bg-cyan-50/50 -md border border-cyan-100 rounded p-4 text-cyan-800 text-sm font-semibold flex items-center gap-3 animate-slide-up shadow-sm">
-              <svg className="w-5 h-5 animate-spin text-cyan-600 shrink-0" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              {statusMsg}
-            </div>
+            isProcessing ? (
+              <div className="mt-6 bg-cyan-50/50 border border-cyan-100 rounded p-4 text-cyan-800 text-sm font-semibold flex items-center gap-3 animate-slide-up shadow-sm">
+                <svg className="w-5 h-5 animate-spin text-cyan-600 shrink-0" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                {statusMsg}
+              </div>
+            ) : (
+              <div className="mt-6 bg-amber-50 border border-amber-200 rounded p-4 text-amber-800 text-sm font-semibold flex items-center gap-3 animate-slide-up shadow-sm">
+                <svg className="w-5 h-5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                {statusMsg}
+              </div>
+            )
           )}
 
           {/* Actions */}
-          <div className="mt-10 flex flex-col sm:flex-row gap-4">
+          <div className="mt-6 flex flex-col sm:flex-row gap-3">
             <button
-              className="px-6 py-4 rounded font-bold border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all flex-1 text-center"
+              className="px-6 py-3.5 rounded font-bold border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all flex-1 text-center"
               onClick={() => router.back()}
               disabled={isProcessing}
             >
               Lưu nháp
             </button>
             <button
-              className="px-6 py-4 rounded font-bold bg-teal-700 text-white hover:bg-teal-800 transition-all flex-[2] text-center shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+              className="px-6 py-3.5 rounded font-bold bg-teal-700 text-white hover:bg-teal-800 transition-all flex-[2] text-center shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
               onClick={handleRunPipeline}
               disabled={isProcessing || !requiredUploaded}
             >
@@ -510,8 +581,7 @@ export default function UploadPage() {
             </button>
           </div>
 
-          <div className="mt-8 space-y-4">
-            <Disclaimer />
+          <div className="mt-5">
             <TrustSignal />
           </div>
         </div>

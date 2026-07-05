@@ -19,7 +19,17 @@ interface RecheckSession {
   score: number;
   grade: string;
   breakdown: Array<{ ruleId: string; detail: string; impact: number; severity: string }>;
-  crossCheckResults: Array<{ field: string; status: string; detail?: string }>;
+  crossCheckResults: Array<{
+    ruleName?: string;
+    field: string;
+    left?: string;
+    right?: string;
+    leftValue?: string | null;
+    rightValue?: string | null;
+    status: string;
+    message?: string;
+    legalBasis?: { article: string; note?: string };
+  }>;
   lawGuardAlerts: Array<{
     type: string;
     message: string;
@@ -51,7 +61,7 @@ export default function RecheckPage() {
           score: s.aiResult?.score?.score || 0,
           grade: s.aiResult?.score?.grade || 'D',
           breakdown: (s.aiResult?.score?.breakdown || []) as RecheckSession['breakdown'],
-          crossCheckResults: (s.aiResult?.crossCheck?.results || []) as RecheckSession['crossCheckResults'],
+          crossCheckResults: (s.aiResult?.crossCheck?.checks || []) as RecheckSession['crossCheckResults'],
           lawGuardAlerts: (s.aiResult?.lawGuardAlerts || []) as RecheckSession['lawGuardAlerts'],
           riskFlags: s.recheckResult?.riskFlags || [],
         });
@@ -160,7 +170,7 @@ export default function RecheckPage() {
                       {session?.breakdown.map((b) => (
                         <div key={b.ruleId} className="flex items-center justify-between text-sm py-2 border-b border-navy/5 last:border-0 gap-4">
                           <span className="text-navy/80 font-medium">{b.detail}</span>
-                          <Badge variant="destructive" animate={false} className="shrink-0 font-mono">-{b.impact}đ</Badge>
+                          <Badge variant="destructive" animate={false} className="shrink-0 font-mono">-{Math.abs(b.impact)}đ</Badge>
                         </div>
                       ))}
                       {(!session?.breakdown || session.breakdown.length === 0) && (
@@ -198,7 +208,16 @@ export default function RecheckPage() {
                           <span className="mt-0.5 shrink-0">
                             {r.status === 'MATCH' ? <CheckCircle2 className="w-5 h-5 text-teal-600" /> : r.status === 'MISMATCH' ? <AlertTriangle className="w-5 h-5 text-red-600" /> : <AlertTriangle className="w-5 h-5 text-amber-600" />}
                           </span>
-                          <span className="font-semibold leading-relaxed">{r.detail || r.field}</span>
+                          <div className="flex-1">
+                            <p className="font-semibold leading-relaxed">{r.ruleName || r.field}</p>
+                            {r.message && <p className="text-xs opacity-80 mt-0.5 leading-relaxed">{r.message}</p>}
+                            {r.status === 'MISMATCH' && r.legalBasis && (
+                              <p className="text-xs mt-1.5 flex items-start gap-1">
+                                <span className="leading-none">⚖️</span>
+                                <span><span className="font-bold">Căn cứ:</span> {r.legalBasis.article}{r.legalBasis.note ? ` — ${r.legalBasis.note}` : ''}</span>
+                              </p>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

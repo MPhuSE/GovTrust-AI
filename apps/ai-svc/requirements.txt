@@ -12,3 +12,4 @@ protobuf
 Pillow==12.2.0
 pillow-heif==1.4.0
 opencv-python-headless==4.10.0.84
+pypdfium2==4.30.0

@@ -104,6 +104,33 @@ describe('maskScoreResult', () => {
     expect(masked.recommendation).toContain('"Nguyễn V. A." ≠ "Lê T. H."');
     expect(JSON.stringify(masked)).not.toContain('Nguyễn Văn An');
   });
+
+  it('masks values when field is a multi-word Vietnamese label (rule-engine mới)', () => {
+    const masked = maskScoreResult({
+      score: 82,
+      breakdown: [
+        { ruleId: 'mismatch-info', severity: 'HIGH', detail: 'Thông tin không khớp — Tên người được ủy quyền: "Đinh Ngọc Anh" ≠ "Nguyễn Đăng Kiên"' },
+      ],
+      recommendation: 'Cần khắc phục: Thông tin không khớp — Tên người được ủy quyền: "Đinh Ngọc Anh" ≠ "Nguyễn Đăng Kiên".',
+    }) as any;
+    expect(masked.breakdown[0].detail).toBe('Thông tin không khớp — Tên người được ủy quyền: "Đinh N. A." ≠ "Nguyễn Đ. K."');
+    // PII gốc không được lọt ra ngoài với người xem không phải chủ hồ sơ.
+    expect(JSON.stringify(masked)).not.toContain('Đinh Ngọc Anh');
+    expect(JSON.stringify(masked)).not.toContain('Nguyễn Đăng Kiên');
+  });
+
+  it('masks multiple mismatches separated by "; " independently', () => {
+    const masked = maskScoreResult({
+      score: 70,
+      breakdown: [
+        { ruleId: 'mismatch-info', severity: 'HIGH', detail: 'Thông tin không khớp — Họ tên chủ hộ: "Nguyễn Văn An" ≠ "Lê Thái Hưng"; Địa chỉ thửa đất: "12 Lê Lợi, Huế" ≠ "12 Lê Lai, Huế"' },
+      ],
+    }) as any;
+    expect(masked.breakdown[0].detail).toContain('Họ tên chủ hộ: "Nguyễn V. A." ≠ "Lê T. H."');
+    expect(masked.breakdown[0].detail).toContain('Địa chỉ thửa đất: "***, Huế" ≠ "***, Huế"');
+    expect(JSON.stringify(masked)).not.toContain('Nguyễn Văn An');
+    expect(JSON.stringify(masked)).not.toContain('Lê Lợi');
+  });
 });
 
 describe('maskFormData', () => {

@@ -9,7 +9,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
 import {
   KycStatus,
   User,
@@ -17,11 +16,7 @@ import {
   UserRole,
 } from '../../database/schemas/user.schema';
 import { EkycFiles, EkycVerificationService } from './ekyc-verification.service';
-
-/** Hash sensitive PII using SHA-256 (one-way). Used for CCCD number and addresses. */
-function hashPii(value: string): string {
-  return crypto.createHash('sha256').update(value).digest('hex');
-}
+import { encryptPii, decryptPii } from '../../common/utils/pii-crypto.util';
 
 /** Mask CCCD: giữ 3 số đầu và 3 số cuối, che phần giữa.
  *  Ví dụ: "034095012345" → "034******345"
@@ -105,6 +100,8 @@ export class AuthService {
     const cccdOriginLocation = ekyc.ocrFields?.originLocation?.value;
     const cccdRecentLocation = ekyc.ocrFields?.recentLocation?.value;
     const cccdValidDate = ekyc.ocrFields?.validDate?.value;
+    const cccdIssueDate = ekyc.ocrFields?.issueDate?.value;
+    const cccdIssuePlace = ekyc.ocrFields?.issuePlace?.value;
 
     let user: UserDocument;
     try {
@@ -116,15 +113,17 @@ export class AuthService {
         email: dto.email,
         role: UserRole.CITIZEN,
         kycStatus: KycStatus.VERIFIED,
-        // Hash sensitive PII before storing
-        cccdNumber: hashPii(cccdNumber),
-        ...(cccdFullName && { cccdFullName }), // Name is not hashed for display
+        // Mã hóa PII (AES-256-GCM, giải ngược được) để hiển thị lại cho chính chủ + cross-check.
+        cccdNumber: encryptPii(cccdNumber),
+        ...(cccdFullName && { cccdFullName }), // Tên không mã hóa — dùng để hiển thị
         ...(cccdBirthDay && { cccdBirthDay }),
         ...(cccdGender && { cccdGender }),
         ...(cccdNationality && { cccdNationality }),
-        ...(cccdOriginLocation && { cccdOriginLocation: hashPii(cccdOriginLocation) }),
-        ...(cccdRecentLocation && { cccdRecentLocation: hashPii(cccdRecentLocation) }),
+        ...(cccdOriginLocation && { cccdOriginLocation: encryptPii(cccdOriginLocation) }),
+        ...(cccdRecentLocation && { cccdRecentLocation: encryptPii(cccdRecentLocation) }),
         ...(cccdValidDate && { cccdValidDate }),
+        ...(cccdIssueDate && { cccdIssueDate }),
+        ...(cccdIssuePlace && { cccdIssuePlace }),
         kycFaceMatchProb: ekyc.faceMatchProb ?? 0,
         kycVerifiedAt: new Date(),
       });
@@ -164,6 +163,9 @@ export class AuthService {
     const user = await this.userModel.findById(userId).select('-passwordHash').lean();
     if (!user) throw new NotFoundException('Người dùng không tồn tại');
 
+    // Giải mã 1 lần; dữ liệu hash cũ (chưa migrate) → null → fallback '***'.
+    const cccdPlain = user.cccdNumber ? decryptPii(user.cccdNumber) : null;
+
     return {
       id: user._id,
       username: user.username,
@@ -172,14 +174,16 @@ export class AuthService {
       kycStatus: user.kycStatus ?? KycStatus.NONE,
       kycVerifiedAt: user.kycVerifiedAt ?? null,
       kycFaceMatchProb: user.kycFaceMatchProb ?? null,
-      // CCCD — already hashed in DB, display masked placeholder
-      cccdNumber:        user.cccdNumber    ? '***' : null, // Hashed in DB, show placeholder
+      // CCCD mã hóa trong DB. Đây là hồ sơ của chính chủ (JWT) → giải mã để hiển thị.
+      // Số CCCD vẫn mask phần giữa (034******345) cho an toàn hiển thị; địa chỉ giải mã đầy đủ.
+      // decryptPii trả null với dữ liệu hash cũ (chưa migrate) → fallback '***'.
+      cccdNumber:        user.cccdNumber ? (cccdPlain ? maskCccd(cccdPlain) : '***') : null,
       cccdFullName:      user.cccdFullName  ?? null,
       cccdBirthDay:      user.cccdBirthDay  ?? null,
       cccdGender:        user.cccdGender    ?? null,
       cccdNationality:   user.cccdNationality ?? null,
-      cccdOriginLocation: user.cccdOriginLocation ? '***' : null, // Hashed in DB
-      cccdRecentLocation: user.cccdRecentLocation ? '***' : null, // Hashed in DB
+      cccdOriginLocation: user.cccdOriginLocation ? (decryptPii(user.cccdOriginLocation) ?? '***') : null,
+      cccdRecentLocation: user.cccdRecentLocation ? (decryptPii(user.cccdRecentLocation) ?? '***') : null,
       cccdValidDate:     user.cccdValidDate ?? null,
     };
   }

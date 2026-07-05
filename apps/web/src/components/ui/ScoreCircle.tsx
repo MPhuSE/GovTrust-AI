@@ -86,13 +86,9 @@ export function ScoreCircle({ score, grade, size = 180 }: ScoreCircleProps) {
 
       {/* Grade badge */}
       <div
-        className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold ${config.bgClass}`}
+        className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-semibold ${config.bgClass}`}
         style={{ color: config.color }}
       >
-        {grade === 'A' && '✅'}
-        {grade === 'B' && 'ℹ️'}
-        {grade === 'C' && '⚠️'}
-        {grade === 'D' && '❌'}
         {config.label}
       </div>
     </div>

@@ -177,6 +177,57 @@ class HybridLegalSearch:
         )
         return self._rrf(dense_ids, lexical_ids, top_k)
 
+    async def fetch_by_article(
+        self,
+        article_num: str,
+        category: str | None = None,
+        doc_hint: str | None = None,
+    ) -> LegalChunk | None:
+        """Lấy CHÍNH XÁC 1 điều luật theo số điều (deterministic, không semantic).
+        Role text trong checklist thường ghi sẵn căn cứ (vd 'Đ.85 NĐ 168/2025') —
+        đây là tín hiệu mạnh hơn hẳn RAG mờ. `doc_hint` (vd '168/2025') để chọn đúng
+        văn bản khi nhiều luật cùng có 'Điều 85'. Trả None nếu không tìm thấy → caller
+        fallback sang semantic search."""
+        target = f"Điều {article_num}"
+        conditions = [FieldCondition(key="article", match=MatchValue(value=target))]
+        resolved = self._resolve_category(category)
+        if resolved:
+            conditions.append(
+                FieldCondition(key="category", match=MatchValue(value=resolved))
+            )
+        try:
+            points, _ = await asyncio.to_thread(
+                self.client.scroll,
+                collection_name=self.settings.QDRANT_COLLECTION,
+                scroll_filter=Filter(must=conditions),
+                limit=16,
+                with_payload=True,
+                with_vectors=False,
+            )
+        except Exception as exc:
+            logger.warning("fetch_by_article lỗi (Điều %s): %s", article_num, exc)
+            return None
+        chunks = [LegalChunk.from_dict(p.payload) for p in points if p.payload]
+        if not chunks:
+            return None
+        # Ưu tiên đúng văn bản (doc_hint) trước khi chọn chunk.
+        if doc_hint:
+            preferred = [c for c in chunks if doc_hint in c.title]
+            if preferred:
+                chunks = preferred
+        # Cùng 1 điều có thể có nhiều chunk: 1 chunk mở đầu đúng "Điều N. <tiêu đề>"
+        # (nội dung đầy đủ) và các mảnh vỡ ranh giới (đuôi điều trước bị dán nhầm nhãn,
+        # mở đầu giữa câu như "Điều N của Luật này..."). Chọn chunk mở đầu chuẩn nhất.
+        heading = re.compile(rf"^\s*Điều\s+{re.escape(article_num)}\s*\.")
+        best = max(
+            chunks,
+            key=lambda c: (
+                1 if heading.match(c.text or "") else 0,   # mở đầu đúng tiêu đề điều
+                len(c.text or ""),                          # nội dung dài hơn = đầy đủ hơn
+            ),
+        )
+        return replace(best, score=1.0)
+
     async def ingest(self, records: list[dict]) -> int:
         """Embed and upsert legal chunks while keeping BM25 state in sync."""
         documents = [LegalChunk.from_dict(record) for record in records]

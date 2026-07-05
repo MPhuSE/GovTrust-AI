@@ -8,13 +8,18 @@ describe('ScoringService LawGuard queue', () => {
   const jobId = new Types.ObjectId();
   const procedure = {
     code: 'HKD-01',
+    name: 'Thủ tục hộ kinh doanh',
     category: 'business',
     checklist: [{ id: 'cccd', roleInProcedure: 'identity' }],
   };
 
-  function setup(queueError?: Error) {
+  // LawGuard chỉ chạy cho giấy CÒN THIẾU — mặc định mock crossCheck báo thiếu 'cccd'.
+  function setup(queueError?: Error, missingDocuments: string[] = ['cccd']) {
     const sessionQuery = {
-      populate: jest.fn().mockResolvedValue({ procedureId: procedure }),
+      populate: jest.fn().mockResolvedValue({
+        procedureId: procedure,
+        aiResult: { crossCheck: { missingDocuments } },
+      }),
     };
     const sessionModel = {
       findById: jest.fn().mockReturnValue(sessionQuery),
@@ -32,6 +37,7 @@ describe('ScoringService LawGuard queue', () => {
       {} as never,
       jobModel as never,
       queue as never,
+      { getService: jest.fn() } as never,
     );
     return { service, sessionModel, jobModel, queue };
   }
@@ -47,6 +53,7 @@ describe('ScoringService LawGuard queue', () => {
       state: JobState.PENDING,
       payload: {
         procedureCode: 'HKD-01',
+        procedureName: 'Thủ tục hộ kinh doanh',
         category: 'business',
         checklist: [{ id: 'cccd', roleInProcedure: 'identity' }],
       },
@@ -55,6 +62,7 @@ describe('ScoringService LawGuard queue', () => {
       jobId: String(jobId),
       sessionId,
       procedureCode: 'HKD-01',
+      procedureName: 'Thủ tục hộ kinh doanh',
       category: 'business',
       checklist: [{ id: 'cccd', roleInProcedure: 'identity' }],
     }, AI_JOB_OPTIONS);
@@ -69,6 +77,26 @@ describe('ScoringService LawGuard queue', () => {
     await expect(service.lawguard(sessionId)).resolves.toEqual({ jobId, status: 'queued' });
     expect(jobModel.findByIdAndUpdate).toHaveBeenCalledWith(jobId, {
       $set: { state: JobState.PENDING, lastError: 'Enqueue thất bại: ECONNREFUSED' },
+    });
+  });
+
+  it('skips LawGuard (no job, empty alerts) when no documents are missing', async () => {
+    const { service, sessionModel, jobModel, queue } = setup(undefined, []);
+
+    await expect(service.lawguard(sessionId)).resolves.toEqual({
+      jobId: null,
+      status: 'skipped',
+      reason: 'Đủ giấy tờ — không cần căn cứ pháp lý',
+    });
+
+    // Không tạo job, không đẩy queue — chỉ ghi alerts rỗng + đánh dấu bước xong.
+    expect(jobModel.create).not.toHaveBeenCalled();
+    expect(queue.add).not.toHaveBeenCalled();
+    expect(sessionModel.findByIdAndUpdate).toHaveBeenCalledWith(sessionId, {
+      $set: expect.objectContaining({
+        'aiResult.lawGuardAlerts': [],
+        'pipeline.steps.lawguard': 'done',
+      }),
     });
   });
 });

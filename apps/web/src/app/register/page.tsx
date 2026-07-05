@@ -175,7 +175,7 @@ const CameraCapture = ({
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('info');
-  const [form, setForm] = useState({ fullName: '', password: '', confirmPassword: '' });
+  const [form, setForm] = useState({ fullName: '', phoneNumber: '', email: '', password: '', confirmPassword: '' });
   const [files, setFiles] = useState<{ front: File | null; back: File | null; selfie: File | null }>({ front: null, back: null, selfie: null });
   const [previews, setPreviews] = useState<{ front: string; back: string; selfie: string }>({ front: '', back: '', selfie: '' });
   const [error, setError] = useState<string | null>(null);
@@ -201,6 +201,19 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
     if (form.fullName.trim().length < 1) { setError('Vui lòng nhập họ tên'); return; }
+
+    // Validate phone number (optional but must be valid if provided)
+    if (form.phoneNumber && !/^0\d{9}$/.test(form.phoneNumber)) {
+      setError('Số điện thoại phải có 10 chữ số và bắt đầu bằng 0');
+      return;
+    }
+
+    // Validate email (optional but must be valid if provided)
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setError('Email không hợp lệ');
+      return;
+    }
+
     if (form.password.length < 8) { setError('Mật khẩu phải có ít nhất 8 ký tự'); return; }
 
     // Validate password strength
@@ -228,6 +241,8 @@ export default function RegisterPage() {
     // username sẽ được backend tự động điền từ CCCD number
     fd.append('password', form.password);
     fd.append('fullName', form.fullName);
+    if (form.phoneNumber) fd.append('phoneNumber', form.phoneNumber);
+    if (form.email) fd.append('email', form.email);
     fd.append('front', files.front);
     fd.append('back', files.back);
     fd.append('selfie', files.selfie);
@@ -462,7 +477,7 @@ export default function RegisterPage() {
             <span className="text-gray-500 font-medium">Đối chiếu khuôn mặt</span>
             <span className={`font-extrabold ${ekycResult.faceMatch ? 'text-teal-600' : 'text-red-500'}`}>
               {ekycResult.faceMatch
-                ? `✓ Khớp (${Math.round(ekycResult.faceMatchProb * 100)}%)`
+                ? `✓ Khớp (${Math.round(ekycResult.faceMatchProb > 1 ? ekycResult.faceMatchProb : ekycResult.faceMatchProb * 100)}%)`
                 : '✗ Không khớp'}
             </span>
           </div>
@@ -505,6 +520,8 @@ export default function RegisterPage() {
               <p className="text-sm text-gray-500 font-medium mt-1">Xác minh danh tính bằng CCCD gắn chip</p>
             </div>
             <Field id="fullName" label="Họ và Tên" placeholder="NGUYEN VAN A" value={form.fullName} onChange={v => setForm(p => ({ ...p, fullName: v }))} />
+            <Field id="phoneNumber" label="Số điện thoại" placeholder="0912345678" value={form.phoneNumber} onChange={v => setForm(p => ({ ...p, phoneNumber: v }))} />
+            <Field id="email" label="Email" placeholder="nguyenvana@example.com" type="email" value={form.email} onChange={v => setForm(p => ({ ...p, email: v }))} autoComplete="email" />
             <Field id="password" label="Mật khẩu" placeholder="••••••••" type="password" value={form.password} onChange={v => setForm(p => ({ ...p, password: v }))} autoComplete="new-password" hint="Tối thiểu 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt" />
             <Field id="confirmPassword" label="Xác nhận mật khẩu" placeholder="••••••••" type="password" value={form.confirmPassword} onChange={v => setForm(p => ({ ...p, confirmPassword: v }))} autoComplete="new-password" />
             <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-800 font-medium">

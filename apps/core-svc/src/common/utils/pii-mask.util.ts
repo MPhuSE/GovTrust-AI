@@ -33,10 +33,13 @@ export function maskAddress(value: string): string {
   return `***, ${parts[parts.length - 1]}`;
 }
 
-const ID_PATTERN = /so(CCCD|CMND|GiayTo|DinhDanh)|cccd|cmnd|maSo/i;
-const NAME_PATTERN = /hoTen|tenNguoi|nguoiDaiDien|chuHo$/i;
-const DATE_PATTERN = /ngaySinh/i;
-const ADDRESS_PATTERN = /noiThuongTru|queQuan|diaChi|hoKhau|noiSinh|choO|diaDiem|noiCuTru/i;
+// Nhận diện theo CẢ key thô (camelCase) LẪN nhãn tiếng Việt (rule-engine nay
+// nhúng nhãn "Tên người được ủy quyền" thay vì key "tenNguoiDuocUyQuyen" vào
+// breakdown.detail) — nếu chỉ khớp key thô thì nhãn TV lọt qua và lộ PII.
+const ID_PATTERN = /so(CCCD|CMND|GiayTo|DinhDanh)|cccd|cmnd|maSo|số cccd|số cmnd/i;
+const NAME_PATTERN = /hoTen|tenNguoi|nguoiDaiDien|chuHo$|họ tên|tên chủ sở hữu|tên người|tên bên/i;
+const DATE_PATTERN = /ngaySinh|ngày sinh/i;
+const ADDRESS_PATTERN = /noiThuongTru|queQuan|diaChi|hoKhau|noiSinh|choO|diaDiem|noiCuTru|địa chỉ/i;
 
 /** Mask một giá trị theo ngữ nghĩa của tên field OCR. */
 export function maskFieldValue(fieldKey: string, value: unknown): unknown {
@@ -83,12 +86,20 @@ interface CrossCheckLike {
     rightValue?: string;
     status?: string;
     message?: string;
+    ai?: {
+      equivalent?: boolean;
+      confidence?: number;
+      reason?: string;
+      canonicalLeft?: string;
+      canonicalRight?: string;
+      [key: string]: unknown;
+    };
     [key: string]: unknown;
   }>;
   [key: string]: unknown;
 }
 
-/** Mask leftValue/rightValue + message trong kết quả cross-check. */
+/** Mask leftValue/rightValue + message + verdict AI trong kết quả cross-check. */
 export function maskCrossCheck(crossCheck: unknown): unknown {
   const cc = crossCheck as CrossCheckLike | undefined;
   if (!cc || typeof cc !== 'object' || !Array.isArray(cc.checks)) return crossCheck;
@@ -105,18 +116,39 @@ export function maskCrossCheck(crossCheck: unknown): unknown {
       : check.status === 'MISMATCH'
         ? `Không khớp — "${leftValue}" ≠ "${rightValue}"`
         : check.message;
-    return { ...check, leftValue, rightValue, message };
+    // Verdict AI ('semantic') chứa dạng chuẩn hóa + reason là free-text có thể nhúng
+    // giá trị gốc (địa chỉ/tên) → mask canonical, bỏ reason (không thể strip PII đáng tin).
+    const ai = check.ai && typeof check.ai === 'object'
+      ? {
+          ...check.ai,
+          reason: 'Đã ẩn để bảo vệ dữ liệu cá nhân.',
+          ...(typeof check.ai.canonicalLeft === 'string' && {
+            canonicalLeft: maskFieldValue(field, check.ai.canonicalLeft) as string,
+          }),
+          ...(typeof check.ai.canonicalRight === 'string' && {
+            canonicalRight: maskFieldValue(field, check.ai.canonicalRight) as string,
+          }),
+        }
+      : check.ai;
+    return { ...check, leftValue, rightValue, message, ...(ai !== undefined && { ai }) };
   });
   return { ...cc, checks };
 }
 
 // MismatchInfoRule nhúng giá trị gốc vào detail/recommendation theo dạng
 // `<field>: "<trái>" ≠ "<phải>"` — mask cả hai vế theo ngữ nghĩa của field.
-const MISMATCH_DETAIL_PATTERN = /([\w]+): "([^"]+)" ≠ "([^"]+)"/g;
+// Nhãn có thể là key thô ("hoTenChuHo") HOẶC nhãn tiếng Việt nhiều từ
+// ("Tên người được ủy quyền") — nên phần field khớp mọi ký tự trừ dấu ngăn
+// ("—" đứng trước field đầu, ";" ngăn các mismatch) rồi trim khoảng trắng.
+const MISMATCH_DETAIL_PATTERN = /([^";—]+?): "([^"]+)" ≠ "([^"]+)"/g;
 
 function maskMismatchText(text: string): string {
-  return text.replace(MISMATCH_DETAIL_PATTERN, (_m, field: string, left: string, right: string) =>
-    `${field}: "${maskFieldValue(field, left)}" ≠ "${maskFieldValue(field, right)}"`);
+  return text.replace(MISMATCH_DETAIL_PATTERN, (_m, field: string, left: string, right: string) => {
+    // `field` giữ nguyên khoảng trắng ngăn cách ("— " / "; ") để không dính chữ;
+    // `key` (đã trim) chỉ dùng để suy ra kiểu mask (tên/địa chỉ/số).
+    const key = field.trim();
+    return `${field}: "${maskFieldValue(key, left)}" ≠ "${maskFieldValue(key, right)}"`;
+  });
 }
 
 interface ScoreLike {
@@ -166,21 +198,35 @@ interface SmartFormFieldSlot {
 }
 
 /**
- * Mask PII trong aiResult.smartForm (view mà web đọc). autoFilledFields chứa
- * giá trị bóc từ CCCD (số, họ tên, ngày sinh, địa chỉ) nên phải che trước khi
- * trả ra public; manualFields do người dùng tự nhập, giữ nguyên để họ sửa.
+ * Mask PII trong aiResult.smartForm (view mà web đọc). autoFilledFields và
+ * mảng hợp nhất `fields` chứa giá trị bóc từ CCCD (số, họ tên, ngày sinh, địa chỉ)
+ * nên phải che trước khi trả ra public; manualFields do người dùng tự nhập,
+ * giữ nguyên để họ sửa.
  */
 export function maskSmartForm(smartForm: unknown): unknown {
   if (!smartForm || typeof smartForm !== 'object') return smartForm;
-  const sf = smartForm as { autoFilledFields?: SmartFormFieldSlot[]; [k: string]: unknown };
-  if (!Array.isArray(sf.autoFilledFields)) return smartForm;
-  return {
-    ...sf,
-    autoFilledFields: sf.autoFilledFields.map((field) => ({
-      ...field,
-      value: maskFieldValue(field.key ?? '', field.value),
-    })),
+  const sf = smartForm as {
+    autoFilledFields?: SmartFormFieldSlot[];
+    fields?: SmartFormFieldSlot[];
+    [k: string]: unknown;
   };
+  if (!Array.isArray(sf.autoFilledFields) && !Array.isArray(sf.fields)) return smartForm;
+
+  const maskField = (field: SmartFormFieldSlot) => ({
+    ...field,
+    value: maskFieldValue(field.key ?? '', field.value),
+  });
+
+  const masked: typeof sf = { ...sf };
+  if (Array.isArray(sf.autoFilledFields)) masked.autoFilledFields = sf.autoFilledFields.map(maskField);
+  // Mảng hợp nhất: chỉ che các ô AI điền (filled), giữ nguyên ô người dùng tự nhập.
+  if (Array.isArray(sf.fields)) {
+    masked.fields = sf.fields.map((field) => {
+      const isFilled = field.filled ?? Boolean(field.value);
+      return isFilled ? maskField(field) : field;
+    });
+  }
+  return masked;
 }
 
 /** Ẩn danh sessionId cho InsightLog — hash một chiều, không truy ngược được. */

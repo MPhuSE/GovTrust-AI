@@ -61,10 +61,11 @@ export class Procedure {
     name: string;
     left: string;
     right: string;
-    matchType: 'exact' | 'normalized' | 'fuzzy';
+    matchType: 'exact' | 'normalized' | 'fuzzy' | 'date' | 'semantic';
     tolerance?: number;
     severityIfMismatch: string;
     skipIfMissing?: string;
+    legalBasis?: { article: string; note?: string };
   }>;
 
   @Prop({

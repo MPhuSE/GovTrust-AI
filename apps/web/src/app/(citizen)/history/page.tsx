@@ -8,7 +8,7 @@ import { sessionsApi } from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
-import { Clock, FileText, ChevronRight, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Clock, FileText, ChevronRight, CheckCircle, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface SessionHistory {
@@ -17,6 +17,9 @@ interface SessionHistory {
   status: string;
   createdAt: string;
 }
+
+// Hồ sơ đã nộp thì không được xóa (phải giữ cho cán bộ xử lý). Còn lại là nháp.
+const SUBMITTED_STATUSES = new Set(['CONFIRMED', 'RECHECKED', 'REJECTED']);
 
 const STATUS_MAP: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   INIT: { label: 'Đang soạn thảo', color: 'bg-gray-100 text-gray-700 border-gray-200', icon: <Clock className="w-4 h-4" /> },
@@ -33,6 +36,8 @@ export default function HistoryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOfficer, setIsOfficer] = useState(false);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -60,6 +65,20 @@ export default function HistoryPage() {
       })
       .finally(() => setIsLoading(false));
   }, [router]);
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await sessionsApi.remove(id);
+      setSessions(prev => prev.filter(s => s._id !== id));
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg || 'Không thể xóa hồ sơ. Vui lòng thử lại.');
+    } finally {
+      setDeletingId(null);
+      setConfirmId(null);
+    }
+  };
 
   const Layout = isOfficer ? OfficerLayout : CitizenLayout;
 
@@ -117,7 +136,7 @@ export default function HistoryPage() {
                   >
                     <Card 
                       className="hover:shadow-lg transition-all duration-300 cursor-pointer border-gray-100 bg-white rounded-xl overflow-hidden group"
-                      onClick={() => router.push(isOfficer ? `/recheck/${session._id}` : `/result/${session._id}`)}
+                      onClick={() => router.push(isOfficer ? `/recheck/${session._id}` : `/track/${session._id}`)}
                     >
                       <CardContent className="p-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                         <div className="flex items-start gap-4 flex-1">
@@ -137,11 +156,22 @@ export default function HistoryPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-4 sm:pt-0 border-gray-100 mt-2 sm:mt-0">
+                        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-4 sm:pt-0 border-gray-100 mt-2 sm:mt-0">
                           <Badge className={`px-3 py-1.5 flex items-center gap-1.5 rounded-full border ${statusMeta.color}`}>
                             {statusMeta.icon}
                             {statusMeta.label}
                           </Badge>
+                          {/* Hồ sơ nháp (chưa nộp) → cho xóa hẳn. Đã nộp thì giữ cho cán bộ xử lý. */}
+                          {!isOfficer && !SUBMITTED_STATUSES.has(session.status) && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setConfirmId(session._id); }}
+                              disabled={deletingId === session._id}
+                              className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                              title="Xóa hồ sơ nháp"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          )}
                           <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-emerald-600 transition-colors" />
                         </div>
                       </CardContent>
@@ -153,6 +183,40 @@ export default function HistoryPage() {
           )}
         </div>
       </div>
+
+      {/* Modal xác nhận xóa hồ sơ nháp */}
+      {confirmId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => deletingId ? null : setConfirmId(null)}
+        >
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-7 h-7 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-2">Xóa hồ sơ nháp?</h3>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              Hồ sơ chưa nộp này sẽ bị xóa vĩnh viễn cùng toàn bộ giấy tờ đã tải lên. Hành động không thể hoàn tác.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmId(null)}
+                disabled={Boolean(deletingId)}
+                className="flex-1 px-4 py-2.5 rounded-lg font-bold border-2 border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => handleDelete(confirmId)}
+                disabled={Boolean(deletingId)}
+                className="flex-1 px-4 py-2.5 rounded-lg font-bold bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {deletingId ? 'Đang xóa...' : 'Xóa hẳn'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

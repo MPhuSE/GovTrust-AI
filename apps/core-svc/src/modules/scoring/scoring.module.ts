@@ -7,6 +7,7 @@ import { Procedure, ProcedureSchema } from '../../database/schemas/procedure.sch
 import { Job, JobSchema } from '../../database/schemas/job.schema';
 import { BullModule } from '@nestjs/bull';
 import { AI_TASKS_QUEUE } from '../../queue/ai-tasks.queue';
+import { AiGrpcModule } from '../../grpc/ai-grpc.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { AI_TASKS_QUEUE } from '../../queue/ai-tasks.queue';
       { name: Job.name, schema: JobSchema },
     ]),
     BullModule.registerQueue({ name: AI_TASKS_QUEUE }),
+    AiGrpcModule,
   ],
   controllers: [ScoringController],
   providers: [ScoringService],

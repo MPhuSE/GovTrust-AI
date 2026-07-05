@@ -145,6 +145,16 @@ export class FormDocumentRenderer {
   ): Record<string, any> {
     const result: Record<string, any> = { ...values };
 
+    // Suy các placeholder docx không có formField tương ứng (me/cha, địa chỉ tách,
+    // ngày/số văn bản). formData keyed phẳng theo field.id; các key suy ra dưới đây
+    // được tổng hợp lúc render để docx điền đủ mà UI không lòi ô trùng.
+    if (templateKey === 'KHAI_SINH') {
+      Object.assign(result, this.expandKhaiSinh(values));
+    }
+    if (templateKey === 'HKD_THAY_DOI') {
+      Object.assign(result, this.expandHkdThayDoi(values));
+    }
+
     // Template DKDD_CHUYEN_NHUONG: xử lý phần 3 (công trình)
     if (templateKey === 'DKDD_CHUYEN_NHUONG') {
       const dangKyCongTrinh = values['congTrinh.dangKy']?.toLowerCase() === 'true';
@@ -169,6 +179,81 @@ export class FormDocumentRenderer {
     }
 
     return result;
+  }
+
+  /**
+   * KHAI_SINH: docx có 2 khối cố định me.* và cha.* nhưng form thu theo
+   * người-yêu-cầu + phụ-huynh-còn-lại. Định tuyến theo giới tính người yêu cầu
+   * (Nữ/Mẹ → điền me.*, phụ huynh còn lại → cha.*; Nam → ngược lại).
+   */
+  private expandKhaiSinh(values: Record<string, string>): Record<string, string> {
+    const v = (k: string) => values[k] ?? '';
+    const quanHe = v('nguoiYeuCau.quanHe');
+    const requesterIsMother = /mẹ|^n[ữu]$|female|^f$/i.test(quanHe);
+
+    // Bên "mẹ" và bên "cha" trỏ tới nguồn nào tùy giới tính người yêu cầu.
+    // Người yêu cầu dùng key noiCuTru; phụ huynh còn lại dùng noiThuongTru — chuẩn hoá.
+    const requester = {
+      hoTen: v('nguoiYeuCau.hoTen'),
+      ngaySinh: v('nguoiYeuCau.ngaySinh'),
+      danToc: v('nguoiYeuCau.danToc'),
+      quocTich: v('nguoiYeuCau.quocTich'),
+      noiCuTru: v('nguoiYeuCau.noiCuTru'),
+      soCCCD: v('nguoiYeuCau.soCCCD'),
+    };
+    const other = {
+      hoTen: v('phuHuynh2.hoTen'),
+      ngaySinh: v('phuHuynh2.ngaySinh'),
+      danToc: v('phuHuynh2.danToc'),
+      quocTich: v('phuHuynh2.quocTich'),
+      noiCuTru: v('phuHuynh2.noiThuongTru'),
+      soCCCD: v('phuHuynh2.soCCCD'),
+    };
+    const me = requesterIsMother ? requester : other;
+    const cha = requesterIsMother ? other : requester;
+
+    const out: Record<string, string> = {};
+    for (const key of ['hoTen', 'ngaySinh', 'danToc', 'quocTich', 'noiCuTru', 'soCCCD'] as const) {
+      out[`me.${key}`] = me[key];
+      out[`cha.${key}`] = cha[key];
+    }
+    return out;
+  }
+
+  /**
+   * HKD_THAY_DOI: suy các placeholder docx không có formField:
+   * - địa chỉ thường trú tách 4 phần hành chính (từ 1 chuỗi chuHoCu.diaChiThuongTru)
+   * - mã số đăng ký (= mã số HKD), số văn bản (từ sessionId), ngày tháng (hôm nay)
+   */
+  private expandHkdThayDoi(values: Record<string, string>): Record<string, string> {
+    const v = (k: string) => values[k] ?? '';
+    const parts = v('chuHoCu.diaChiThuongTru').split(',').map(p => p.trim()).filter(Boolean);
+    const now = new Date();
+    const sessionId = v('__sessionId');
+
+    const out: Record<string, string> = {
+      'hoKinhDoanh.maSoDangKy': v('hoKinhDoanh.maSo'),
+      'diaChiThuongTru.soNha': parts[0] ?? '',
+      'diaChiThuongTru.xaPhuong': parts[1] ?? '',
+      'diaChiThuongTru.quanHuyen': parts[2] ?? '',
+      'diaChiThuongTru.tinhThanh': parts.slice(3).join(', ') || '',
+      soVanBan: sessionId ? sessionId.slice(-6).toUpperCase() : '',
+      ngayThang: `Ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`,
+    };
+
+    // Mục 2 (chủ hộ MỚI): docx đã đổi placeholder sang chuHoMoi.*/diaChiThuongTruMoi.*
+    // (patch-hkd-template.py) để không lặp dữ liệu chủ hộ cũ. Điền từ nguồn chuHoMoi.*.
+    const newParts = v('chuHoMoi.diaChiThuongTru').split(',').map(p => p.trim()).filter(Boolean);
+    out['chuHoMoi.soCCCD'] = v('chuHoMoi.soCCCD');
+    out['chuHoMoi.hanSuDung'] = v('chuHoMoi.hanSuDung');
+    out['chuHoMoi.ngayCap'] = v('chuHoMoi.ngayCap');
+    out['chuHoMoi.noiCap'] = v('chuHoMoi.noiCap');
+    out['diaChiThuongTruMoi.soNha'] = newParts[0] ?? '';
+    out['diaChiThuongTruMoi.xaPhuong'] = newParts[1] ?? '';
+    out['diaChiThuongTruMoi.quanHuyen'] = newParts[2] ?? '';
+    out['diaChiThuongTruMoi.tinhThanh'] = newParts.slice(3).join(', ') || '';
+
+    return out;
   }
 
   async renderPdf(procedure: ProcedureDocument, values: Record<string, string>): Promise<Buffer> {

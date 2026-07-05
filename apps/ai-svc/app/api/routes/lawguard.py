@@ -23,6 +23,7 @@ async def check(
         [item.model_dump(by_alias=True) for item in request.checklist],
         request.procedure_code,
         request.category,
+        request.procedure_name,
     )
     return LawGuardResponse(alerts=alerts, disclaimer=DISCLAIMER)
 

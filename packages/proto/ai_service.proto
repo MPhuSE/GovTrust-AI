@@ -7,7 +7,37 @@ service AIService {
   rpc CheckLawGuard (LawGuardRequest) returns (LawGuardResponse);
   rpc IdentifyProcedure (IdentifyRequest) returns (IdentifyResponse);
   rpc ConsultSmartBot (SmartBotRequest) returns (SmartBotResponse);
+  rpc ConsultSmartBotStream (SmartBotRequest) returns (stream SmartBotStreamChunk);
   rpc IngestEmbeddings (EmbeddingIngestRequest) returns (EmbeddingIngestResponse);
+  rpc SemanticFieldCheck (SemanticCheckRequest) returns (SemanticCheckResponse);
+}
+
+// ---- Semantic field cross-check (đối chiếu ngữ nghĩa) ----
+// Pass 2 của cross-check: chỉ những field 'semantic' mà code thuần chưa khẳng định
+// được khớp mới gửi sang đây để LLM phán "cùng một thực thể hay không".
+
+message FieldPair {
+  string field = 1;   // tên trường, vd "diaChiThuongTru"
+  string left  = 2;   // giá trị từ giấy tờ A
+  string right = 3;   // giá trị từ giấy tờ B
+  string kind  = 4;   // gợi ý loại: "address" | "name" | "org" | "generic"
+}
+
+message SemanticCheckRequest {
+  repeated FieldPair pairs = 1;
+}
+
+message SemanticVerdict {
+  string field          = 1;
+  bool   equivalent     = 2;   // true = cùng một thực thể
+  double confidence     = 3;   // 0.0 – 1.0
+  string reason         = 4;   // giải thích ngắn (tiếng Việt) cho cán bộ
+  string canonical_left  = 5;  // dạng chuẩn hóa của left
+  string canonical_right = 6;  // dạng chuẩn hóa của right
+}
+
+message SemanticCheckResponse {
+  repeated SemanticVerdict verdicts = 1;
 }
 
 // ---- Async embedding ingestion ----
@@ -69,6 +99,7 @@ message LawGuardRequest {
   string procedure_code  = 1;
   string category        = 2;
   repeated ChecklistItem checklist = 3;
+  string procedure_name  = 4;
 }
 
 message LawGuardResponse {
@@ -127,4 +158,17 @@ message SmartBotResponse {
   string procedure_code            = 2;
   repeated SmartBotSource sources  = 3;
   string disclaimer                = 4;
+}
+
+message SmartBotStreamChunk {
+  oneof chunk {
+    string text_delta = 1;
+    SmartBotMetadata metadata = 2;
+  }
+}
+
+message SmartBotMetadata {
+  string procedure_code            = 1;
+  repeated SmartBotSource sources  = 2;
+  string disclaimer                = 3;
 }

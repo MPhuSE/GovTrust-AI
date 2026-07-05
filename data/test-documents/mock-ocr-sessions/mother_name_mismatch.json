@@ -1,0 +1,89 @@
+{
+  "procedureCode": "DANG_KY_KHAI_SINH",
+  "description": "Họ tên mẹ không khớp (HIGH severity)",
+  "ocrData": {
+    "cccd_nguoi_yeu_cau": {
+      "documentTypeCode": "CCCD",
+      "fields": {
+        "hoTen": "Nguyễn Thị Lan Anh",
+        "ngaySinh": "15/03/1995",
+        "gioiTinh": "Nữ",
+        "soCCCD": "001095012345",
+        "queQuan": "Xã Tân Lập, Huyện Đan Phượng, Hà Nội",
+        "diaChiThuongTru": "Số 10, Ngõ 5, Đường Láng, Phường Láng Thượng, Quận Đống Đa, Hà Nội",
+        "ngayCap": "10/05/2020",
+        "noiCap": "Cục Cảnh sát ĐKQL cư trú và DLQG về dân cư"
+      },
+      "imageQuality": {
+        "brightness": 0.85,
+        "sharpness": 0.9,
+        "overall": "good"
+      }
+    },
+    "cccd_cha": {
+      "documentTypeCode": "CCCD",
+      "fields": {
+        "hoTen": "Trần Văn Minh",
+        "ngaySinh": "20/08/1993",
+        "gioiTinh": "Nam",
+        "soCCCD": "001093098765",
+        "queQuan": "Thôn Đông, Xã Hòa Bình, Huyện Chương Mỹ, Hà Nội",
+        "diaChiThuongTru": "Số 10, Ngõ 5, Đường Láng, Phường Láng Thượng, Quận Đống Đa, Hà Nội",
+        "ngayCap": "15/06/2019",
+        "noiCap": "Cục Cảnh sát ĐKQL cư trú và DLQG về dân cư"
+      },
+      "imageQuality": {
+        "brightness": 0.8,
+        "sharpness": 0.85,
+        "overall": "good"
+      }
+    },
+    "giay_chung_sinh": {
+      "documentTypeCode": "GIAY_CHUNG_SINH",
+      "fields": {
+        "tenDuDinh": "Trần Minh An",
+        "gioiTinhTreEm": "Nam",
+        "ngayThangNamSinh": "05/01/2026",
+        "gioSinh": "08:30",
+        "noiSinh": "Bệnh viện Phụ sản Hà Nội",
+        "canNang": "3.2",
+        "hoTenMe": "Nguyễn Thị Lan",
+        "ngaySinhMe": "15/03/1995",
+        "danTocMe": "Kinh",
+        "quocTichMe": "Việt Nam",
+        "loaiGiayToMe": "CCCD",
+        "soGiayToMe": "001095012345",
+        "hoTenCha": "Trần Văn Minh",
+        "ngaySinhCha": "20/08/1993",
+        "danTocCha": "Kinh",
+        "quocTichCha": "Việt Nam",
+        "loaiGiayToCha": "CCCD",
+        "soGiayToCha": "001093098765",
+        "nguoiKhai": "Nguyễn Thị Lan",
+        "quanHeVoiTreEm": "Mẹ"
+      },
+      "imageQuality": {
+        "brightness": 0.75,
+        "sharpness": 0.7,
+        "overall": "acceptable"
+      }
+    },
+    "giay_chung_nhan_ket_hon": {
+      "documentTypeCode": "GIAY_CHUNG_NHAN_KET_HON",
+      "fields": {
+        "hoTenChong": "Trần Văn Minh",
+        "ngaySinhChong": "20/08/1993",
+        "hoTenVo": "Nguyễn Thị Lan",
+        "ngaySinhVo": "15/03/1995",
+        "ngayDangKy": "10/05/2024",
+        "coQuanDangKy": "UBND Phường Láng Thượng, Quận Đống Đa, Hà Nội",
+        "soGiayChungNhan": "KH-2024-001234"
+      },
+      "imageQuality": {
+        "brightness": 0.82,
+        "sharpness": 0.88,
+        "overall": "good"
+      }
+    }
+  }
+}

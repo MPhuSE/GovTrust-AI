@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { labelForField } from '@govtrust/rule-engine';
 import { Session, SessionDocument, SessionStatus } from '../../database/schemas/session.schema';
 
 type RiskFlagType = 'SUSPECTED_EDIT' | 'NAME_MISMATCH_MULTI' | 'FRAUD_SUSPECTED' | 'MANUAL_REVIEW';
@@ -60,7 +61,7 @@ export class RecheckService {
     if (highMismatches.length === 1) {
       flags.push({
         type: 'MANUAL_REVIEW',
-        message: `Phát hiện 1 trường thông tin không khớp: ${highMismatches[0].field}`,
+        message: `Phát hiện 1 trường thông tin không khớp: ${labelForField(highMismatches[0].field)}`,
         severity: 'MEDIUM',
       });
     }
