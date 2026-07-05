@@ -29,7 +29,7 @@ interface TrackSession {
     riskFlags?: Array<{ type?: string; message?: string; severity?: string }>;
     reviewedAt?: string;
   };
-  priority?: { level?: string; reason?: string; slaDeadline?: string };
+  priority?: { level?: string; reason?: string; slaDeadline?: string; finalDecisionByOfficer?: string };
 }
 
 // Trạng thái nào coi là "đã nộp" — chỉ khi đó form mới được lưu & xem read-only.
