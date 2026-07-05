@@ -5,7 +5,7 @@
 - `02_hop-dong-chuyen-nhuong.jpg → slot 'Hợp đồng chuyển nhượng' (Qwen)`
 
 ## Kết quả cross-check / điền form DỰ KIẾN
-- Người yêu cầu (eKYC) = bên nhận/mua = NGUYỄN ĐĂNG KIÊN (account demo NGUYỄN ĐĂNG KIÊN đã eKYC VERIFIED)
+- Người yêu cầu (eKYC) = bên nhận/mua = NGUYỄN ĐĂNG PHÚ (account demo NGUYỄN ĐĂNG PHÚ đã eKYC VERIFIED)
 - R2 MISMATCH HIGH: sổ đỏ đứng tên 'LÊ VĂN HÙNG' nhưng hợp đồng ghi bên chuyển nhượng 'TRẦN VĂN MINH' → dấu hiệu bán đất không thuộc quyền sở hữu, cảnh báo đỏ, trừ điểm nặng
 - R1, R3, R4 vẫn MATCH
 

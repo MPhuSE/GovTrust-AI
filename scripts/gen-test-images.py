@@ -42,7 +42,7 @@ FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 HKD_CHU_HO = "LÊ THÁI HƯNG"
 HKD_TEN = "LÊ THÁI HƯNG"
 # Tên tài khoản eKYC đang đăng nhập (chủ hộ MỚI). Đổi cho khớp tài khoản test của bạn.
-ACCOUNT_NAME = "NGUYỄN ĐĂNG KIÊN"
+ACCOUNT_NAME = "NGUYỄN ĐĂNG PHÚ"
 
 
 def _font(bold: bool, size: int) -> ImageFont.FreeTypeFont:
@@ -377,7 +377,7 @@ def gen_ket_hon_cases():
 #   R4 so_do.dienTich           == hop_dong.dienTich             (MEDIUM)
 # Cả 2 giấy đều Qwen (ta điều khiển) → tạo mọi tổ hợp MATCH/MISMATCH.
 # ─────────────────────────────────────────────────────────────────────────────
-CN_BEN_NHAN = ACCOUNT_NAME          # bên mua = eKYC account (NGUYỄN ĐĂNG KIÊN) → R1 MATCH
+CN_BEN_NHAN = ACCOUNT_NAME          # bên mua = eKYC account (NGUYỄN ĐĂNG PHÚ) → R1 MATCH
 CN_BEN_CHUYEN = "TRẦN VĂN MINH"     # bên bán = chủ sổ đỏ
 CN_DIA_CHI = "Số 12 đường Nguyễn Trãi, phường Thanh Xuân, TP Hà Nội"
 CN_DIEN_TICH = "120 m²"
@@ -469,7 +469,7 @@ def hop_dong(case_dir: str, ben_chuyen: str, ben_nhan: str, dia_chi: str, dien_t
 def gen_chuyen_nhuong_cases():
     print("CHUYEN_NHUONG_QSDD (sổ đỏ + hợp đồng — cả 2 Qwen VL):")
     note = (f"Người yêu cầu (eKYC) = bên nhận/mua = {CN_BEN_NHAN} "
-            "(account demo NGUYỄN ĐĂNG KIÊN đã eKYC VERIFIED)")
+            "(account demo NGUYỄN ĐĂNG PHÚ đã eKYC VERIFIED)")
 
     # CASE 1 — happy: mọi cross-check MATCH
     c = os.path.join(CASES_DIR, "CHUYENNHUONG_01_happy")

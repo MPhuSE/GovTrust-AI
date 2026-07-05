@@ -97,9 +97,6 @@ export default function ConfirmPage() {
             <button className="btn-secondary" onClick={() => router.push('/')}>
               Về trang chủ
             </button>
-            <button className="btn-primary" onClick={() => window.print()}>
-              In kết quả
-            </button>
           </div>
 
           <div className="mt-8">
