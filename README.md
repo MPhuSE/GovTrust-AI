@@ -1,121 +1,132 @@
-# GovTrust AI - Hệ thống Tiền kiểm Hồ sơ Dịch vụ công
+# GovTrust AI — Hệ thống Tiền kiểm Hồ sơ Dịch vụ công
 
-**GovTrust AI** là nền tảng số hóa và tự động hóa quy trình tiền kiểm hồ sơ dịch vụ công trực tuyến. Hệ thống ứng dụng công nghệ AI (OCR, NLP, RAG) để tự động bóc tách thông tin, đối chiếu chéo, đánh giá tính hợp lệ của giấy tờ và tự động điền Tờ khai, giúp giảm thiểu thời gian xử lý thủ tục hành chính.
+**GovTrust AI** là nền tảng số hóa và tự động hóa quy trình tiền kiểm hồ sơ dịch vụ công trực tuyến. Hệ thống ứng dụng AI (OCR, NLP, RAG) để tự động bóc tách thông tin, đối chiếu chéo, chấm điểm tính hợp lệ của giấy tờ và tự động điền Tờ khai — giúp giảm thời gian xử lý thủ tục hành chính và hỗ trợ cán bộ ra quyết định.
 
 Dự án tham gia: **Vietnamese Student HackAIthon 2026 | Bảng B — Challenger**
+
+🌐 Demo trực tuyến: **https://govtrust.site**
+
+---
+
+## ⚡ Cài đặt & Chạy — 1 lệnh duy nhất
+
+Yêu cầu: **Docker + Docker Compose (v2) + openssl**. Không cần cài Node/Python/pnpm trên máy.
+
+```bash
+git clone https://github.com/MPhuSE/GovTrust-AI.git
+cd GovTrust-AI
+bash scripts/quickstart.sh
+```
+
+Script `quickstart.sh` tự động:
+1. Tạo `.env` từ `.env.example` (nếu chưa có).
+2. **Tự sinh JWT RSA keypair (RS256) + PII encryption key** — thay các chỗ `AUTO_GENERATE`. *(Đây là lý do các bản clone trước đây đăng nhập lỗi: thiếu keypair.)*
+3. Dựng toàn bộ stack qua Docker Compose: `web · api-gateway · core-svc · ai-svc · mongo · redis · qdrant`.
+
+Sau khi chạy xong:
+
+| Thành phần | URL |
+|---|---|
+| Cổng người dân | http://localhost:3000 |
+| API Gateway (health) | http://localhost:8080/health |
+| Swagger API | http://localhost:4000/api/docs |
+
+> **⚠️ OCR chạy API THẬT (không mock).** Nếu tạo `.env` mới, cần điền các API key trước khi OCR/tra cứu pháp luật hoạt động: `VNPT_*` (eKYC, SmartReader), `QWEN_OCR_API_KEY`, `QDRANT_API_KEY`. Script sẽ **nhắc và cho dừng** để bạn điền. Phần đăng nhập/RBAC vẫn chạy được ngay cả khi chưa có key OCR.
+
+**Lệnh vận hành:**
+```bash
+docker compose -f infra/docker-compose.yml logs -f    # xem log
+docker compose -f infra/docker-compose.yml down       # dừng toàn bộ
+node scripts/seed-officer.js                          # tạo tài khoản cán bộ (canbo_test / CanBo@1234)
+```
 
 ---
 
 ## 🌟 Tính năng Nổi bật
 
 ### Dành cho Người dân (Citizen)
-- **Tích hợp eKYC:** Tự động lấy thông tin định danh (CCCD) từ tài khoản eKYC, không cần nộp lại.
-- **HoSoBot (AI Chatbot):** Hỗ trợ giải đáp thủ tục, tự động nhận diện loại thủ tục cần thực hiện.
-- **Bóc tách tự động (OCR):** Tự động đọc và trích xuất dữ liệu từ các loại giấy tờ (Giấy chứng sinh, Giấy kết hôn, Sổ đỏ...).
-- **SmartForm:** Tự động mapping dữ liệu từ các giấy tờ vào biểu mẫu Tờ khai, xuất file PDF/Docx hoàn chỉnh.
+- **Tích hợp eKYC:** Tự động lấy thông tin định danh (CCCD) từ tài khoản đã xác thực, không cần nộp lại.
+- **Ảnh mẫu 1-chạm:** Mỗi ô tải giấy tờ có nút "Dùng ảnh mẫu" với nhiều biến thể (hợp lệ / sai lệch) — nạp thẳng vào form để demo nhanh.
+- **Bóc tách tự động (OCR):** Đọc và trích xuất dữ liệu từ Giấy chứng sinh, Giấy kết hôn, Sổ đỏ, Hợp đồng, ĐKHKD… (định tuyến VNPT SmartReader / Qwen VL theo loại giấy).
+- **SmartForm:** Tự động mapping dữ liệu vào biểu mẫu Tờ khai, xuất PDF/DOCX hoàn chỉnh.
 
 ### Dành cho Cán bộ (Officer)
-- **Dashboard Thống kê (InsightMap):** Trực quan hóa dữ liệu điểm nghẽn, thời gian xử lý hồ sơ.
-- **AI Tiền kiểm (Score Engine):** Tự động chấm điểm hồ sơ (0-100), phân loại "Hợp lệ" hoặc "Cần bổ sung".
-- **Kiểm tra chéo (CrossCheck):** Phát hiện sự sai lệch dữ liệu giữa các giấy tờ với nhau.
-- **LawGuard (Pháp chế AI):** Truy xuất và đối chiếu văn bản pháp luật (RAG) để đưa ra căn cứ và cảnh báo từ chối.
-- **SLA & Priority:** Tự động đánh giá độ ưu tiên và thời gian cam kết xử lý hồ sơ.
+- **Hàng chờ ưu tiên (SLA & Priority):** Tự động xếp hạng hồ sơ **A/B/C/D** theo điểm số, mức độ rủi ro và hạn xử lý.
+- **AI Tiền kiểm (Score Engine):** Chấm điểm 0–100, phân loại "Hợp lệ" / "Cần bổ sung".
+- **Kiểm tra chéo (CrossCheck):** Phát hiện sai lệch dữ liệu giữa các giấy tờ, kèm căn cứ pháp lý.
+- **Xem tờ khai công dân đã nộp:** Trang tái kiểm hiển thị đầy đủ biểu mẫu người dân gửi lên (ẩn PII theo chính sách).
+- **LawGuard (Pháp chế AI):** Truy xuất văn bản pháp luật (RAG/Qdrant) để đưa căn cứ và cảnh báo.
+- **Dashboard thống kê (InsightMap):** Trực quan hóa điểm nghẽn — **chỉ tính hồ sơ đã nộp**, ẩn danh dữ liệu.
 
 ---
 
 ## 🏗️ Kiến trúc Hệ thống (4 Services)
 
-Hệ thống được thiết kế theo kiến trúc Microservices với 4 service chính:
-
 ```text
 web (:3000)  Next.js (Frontend)
    │ HTTP
    ▼
-api-gateway (:8080)  NestJS (Bảo mật: verify JWT, RBAC, Rate-limit, Proxy)
+api-gateway (:8080)  NestJS — cổng public DUY NHẤT (verify JWT RS256, RBAC, rate-limit, proxy)
    │ HTTP
    ▼
-core-svc (:4000)  NestJS (Orchestrator Pipeline, Business Logic)
+core-svc (:4000)  NestJS — Orchestrator pipeline, business logic, MongoDB
    │ gRPC (:50051)  +  BullMQ (Redis, async)
    ▼
-ai-svc (:50051/:8000)  FastAPI (AI Engine: OCR, HoSoBot, RAG, LawGuard)
+ai-svc (:8000/:50051)  FastAPI — AI Engine: OCR, RAG, LawGuard, Qdrant
 ```
 
-- **api-gateway** là cổng public DUY NHẤT. `core-svc` và `ai-svc` chỉ giao tiếp nội bộ.
-- **Database độc lập:** `core-svc` dùng MongoDB; `ai-svc` dùng Vector DB (Qdrant).
-- **Giao tiếp liên dịch vụ:** Dùng gRPC cho tác vụ nhanh và BullMQ (Redis) cho tác vụ bất đồng bộ, tải nặng.
+- **api-gateway** là cổng public duy nhất; `core-svc` và `ai-svc` chỉ giao tiếp nội bộ.
+- **DB độc lập:** `core-svc` → MongoDB; `ai-svc` → Qdrant (vector DB).
+- **Giao tiếp:** gRPC cho tác vụ nhanh, BullMQ (Redis) cho tác vụ AI bất đồng bộ, tải nặng.
+- **Auth:** JWT ký RS256 tại `core-svc` (private key), verify tại `api-gateway` (public key).
 
 ---
 
-## 🚀 Cài đặt & Chạy ứng dụng
+## ⚙️ Pipeline Xử lý Hồ sơ (11 Bước)
 
-### 1. Yêu cầu Hệ thống
-- Node.js >= 18, pnpm
-- Python >= 3.10
-- MongoDB, Redis, Qdrant (Có thể dùng Docker hoặc Cloud)
-
-### 2. Thiết lập Môi trường
-Cấu hình các biến môi trường trong file `.env` (tạo từ `.env.example`):
-```bash
-cp .env.example .env
-```
-> **⚠️ LƯU Ý QUAN TRỌNG KHI CHẠY LOCAL:**
-> - **Bắt buộc có Redis:** Hệ thống dùng BullMQ để điều phối các Queue tác vụ AI. Nếu Redis không hoạt động, tiến trình kiểm tra hồ sơ sẽ bị treo ở bước "Đang kiểm tra chéo". Đảm bảo cập nhật chính xác `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`.
-> - **Chế độ Demo (Mock OCR):** Việc gọi API OCR thực tế mất nhiều thời gian. Để quay demo mượt mà (xử lý <1s), hãy đặt `MOCK_OCR_FOR_DEMO=true` trong `.env`.
-
-### 3. Khởi chạy Hệ thống
-Bạn có thể chạy toàn bộ hệ thống bằng 1 lệnh duy nhất:
-
-**Option 1: Docker Compose (Khuyến nghị cho Demo)**
-Tự động dựng toàn bộ Web, Gateway, Core, AI, MongoDB, Redis, Qdrant.
-```bash
-docker compose -f infra/docker-compose.yml up --build
-```
-
-**Option 2: Dev Mode (Chạy Local cho Lập trình viên)**
-```bash
-bash scripts/setup.sh
-pnpm dev
-```
-
----
-
-## 📖 Tài liệu API (Swagger UI)
-
-Hệ thống cung cấp sẵn trang tài liệu API tự sinh qua Swagger. Sau khi khởi động hệ thống, truy cập:
-👉 **[http://localhost:4000/api/docs](http://localhost:4000/api/docs)**
-
----
-
-## ⚙️ Quy trình Pipeline Xử lý Hồ sơ (11 Bước)
-
-| Bước | Tác vụ | AI / Module | Service xử lý |
+| Bước | Tác vụ | Module | Service |
 |---|---|---|---|
-| 1 | Nhận diện thủ tục | HoSoBot (NLP) | ai-svc |
-| 2 | Người dân tải lên giấy tờ | Upload Manager | core-svc |
-| 3 | Bóc tách thông tin | OCR (VNPT eKYC/Qwen) | ai-svc (Queue) |
+| 1 | Nhận diện thủ tục | NLP | ai-svc |
+| 2 | Người dân tải giấy tờ | Upload Manager | core-svc |
+| 3 | Bóc tách thông tin | OCR (VNPT / Qwen VL) | ai-svc (Queue) |
 | 4 | Đối chiếu chéo dữ liệu | CrossCheck Engine | core-svc |
-| 5 | Chấm điểm hồ sơ (0-100) | Score Engine | core-svc |
+| 5 | Chấm điểm hồ sơ (0–100) | Score Engine | core-svc |
 | 6 | Kiểm duyệt pháp lý | LawGuard (RAG) | ai-svc (Queue) |
 | 7 | Tự động điền Tờ khai | SmartForm | core-svc |
-| 8 | Người dân xác nhận & Nộp | Submission | core-svc |
-| 9 | Cán bộ kiểm tra lại | Gov Re-Check | core-svc |
-| 10 | Phân luồng ưu tiên | SLA / Priority Ranking | core-svc |
+| 8 | Người dân xác nhận & nộp | Submission | core-svc |
+| 9 | Cán bộ tái kiểm | Gov Re-Check | core-svc |
+| 10 | Phân luồng ưu tiên | SLA / Priority (A/B/C/D) | core-svc |
 | 11 | Báo cáo thống kê | InsightMap | core-svc |
 
 ---
 
-## 🛠️ Stack Công nghệ Sử dụng
+## 🛠️ Chạy Dev Mode (dành cho lập trình viên)
+
+Nếu muốn hot-reload thay vì Docker, cần cài Node ≥ 20, pnpm ≥ 9, Python ≥ 3.10:
+
+```bash
+bash scripts/setup.sh     # cài deps JS + venv Python + build rule-engine
+pnpm dev:full             # Redis (Docker) + turbo dev cho cả 4 service
+```
+
+`pnpm dev:full` dùng **MongoDB Atlas** và **Qdrant remote** (không cần chạy local) — chỉ bật Redis qua Docker cho BullMQ.
+
+---
+
+## 🧰 Stack Công nghệ
 
 - **Frontend:** Next.js 14, React, TypeScript, Tailwind CSS
 - **Backend Core:** NestJS, Mongoose (MongoDB), BullMQ (Redis), Zod
 - **Backend AI:** FastAPI, Python, gRPC, SentenceTransformers, Qdrant
-- **Rule Engine:** Viết bằng TypeScript thuần (Đảm bảo minh bạch, có thể kiểm toán - Audit)
-- **Hạ tầng:** Docker, GitHub Actions, AWS/Redis Cloud
+- **Rule Engine:** TypeScript thuần (minh bạch, có thể kiểm toán)
+- **Hạ tầng:** Docker, GitHub Actions, Nginx + Let's Encrypt (TLS)
 
 ---
 
 ## 🔒 Nguyên tắc Bảo mật (Privacy by Design)
-1. **Zero-Retention:** Không lưu trữ dài hạn ảnh giấy tờ của người dân (tự động xóa sau TTL).
-2. **AI là Trợ lý, không phải Người ra quyết định:** Mọi kết luận từ AI (chấm điểm, cảnh báo) chỉ mang tính chất tham khảo, quyết định cuối cùng thuộc về cán bộ nhà nước.
-3. **Ẩn danh dữ liệu:** InsightMap và các dashboard thống kê chỉ sử dụng siêu dữ liệu (metadata), tuyệt đối không chứa PII (Thông tin định danh cá nhân).
-4. **RBAC Chặt chẽ:** Phân quyền rõ ràng CITIZEN / OFFICER / ADMIN. Xác thực qua JWT tại cổng API Gateway.
+
+1. **Zero-Retention:** Không lưu dài hạn ảnh giấy tờ — tự xóa sau TTL và ngay sau khi người dân xác nhận.
+2. **AI là Trợ lý, không phải Người quyết định:** Mọi kết luận AI (điểm số, cảnh báo) chỉ để tham khảo; quyết định cuối thuộc về cán bộ.
+3. **Ẩn danh thống kê:** InsightMap chỉ dùng metadata ẩn danh, không chứa PII.
+4. **Mask PII:** Officer xem hồ sơ người khác đều bị che CCCD/tên/ngày sinh (AES-256-GCM cho dữ liệu nhạy cảm khi lưu).
+5. **RBAC chặt:** Phân quyền CITIZEN / OFFICER / ADMIN; tài khoản cán bộ chỉ cấp qua seed nội bộ (chống leo thang đặc quyền).
