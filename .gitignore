@@ -70,3 +70,6 @@ htmlcov/
 skills-lock.json
 
 deploy/
+
+# Nested repos
+GovTrust-AI/
