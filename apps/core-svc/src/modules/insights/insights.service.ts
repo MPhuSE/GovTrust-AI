@@ -5,6 +5,10 @@ import { InsightLog, InsightLogDocument } from '../../database/schemas/insight-l
 
 import { Session, SessionDocument } from '../../database/schemas/session.schema';
 
+// Dashboard chỉ thống kê hồ sơ ĐÃ NỘP — bỏ hồ sơ nháp (INIT/UPLOADING/AI_PROCESSING/SCORED)
+// để số liệu không bị thổi phồng bởi các phiên người dân bỏ dở.
+const SUBMITTED_STATUSES = ['CONFIRMED', 'RECHECKED', 'REJECTED'];
+
 @Injectable()
 export class InsightsService {
   constructor(
@@ -62,7 +66,7 @@ export class InsightsService {
     // Lỗi thật nằm trong Session.aiResult.crossCheck.checks[] có status=MISMATCH
     // (InsightLog rỗng ở production). Gom theo ruleName để ra "top lỗi thường gặp".
     return this.sessionModel.aggregate([
-      { $match: { createdAt: { $gte: since }, 'aiResult.crossCheck.checks': { $exists: true, $ne: [] } } },
+      { $match: { createdAt: { $gte: since }, status: { $in: SUBMITTED_STATUSES }, 'aiResult.crossCheck.checks': { $exists: true, $ne: [] } } },
       { $unwind: '$aiResult.crossCheck.checks' },
       { $match: { 'aiResult.crossCheck.checks.status': 'MISMATCH' } },
       {
@@ -80,7 +84,7 @@ export class InsightsService {
   async getProcedureStats(since: Date) {
     // Thống kê theo thủ tục từ Session (không phải InsightLog rỗng).
     return this.sessionModel.aggregate([
-      { $match: { createdAt: { $gte: since } } },
+      { $match: { createdAt: { $gte: since }, status: { $in: SUBMITTED_STATUSES } } },
       {
         $addFields: {
           resolvedScore: { $ifNull: ['$aiResult.score.score', '$aiResult.score'] },
@@ -104,7 +108,7 @@ export class InsightsService {
   async getTrend(days = 30) {
     const since = new Date(Date.now() - days * 86400000);
     return this.sessionModel.aggregate([
-      { $match: { createdAt: { $gte: since } } },
+      { $match: { createdAt: { $gte: since }, status: { $in: SUBMITTED_STATUSES } } },
       {
         $addFields: {
           resolvedScore: { $ifNull: ['$aiResult.score.score', '$aiResult.score'] },
@@ -127,7 +131,7 @@ export class InsightsService {
 
   private async getSessionStats(since: Date) {
     const result = await this.sessionModel.aggregate([
-      { $match: { createdAt: { $gte: since } } },
+      { $match: { createdAt: { $gte: since }, status: { $in: SUBMITTED_STATUSES } } },
       {
         $addFields: {
           resolvedScore: { $ifNull: ['$aiResult.score.score', '$aiResult.score'] },
