@@ -59,27 +59,45 @@ export class InsightsService {
   }
 
   async getTopErrors(since: Date) {
-    return this.insightModel.aggregate([
-      { $match: { createdAt: { $gte: since } } },
-      { $group: { _id: '$errorType', count: { $sum: 1 }, avgScore: { $avg: '$finalScore' } } },
+    // Lỗi thật nằm trong Session.aiResult.crossCheck.checks[] có status=MISMATCH
+    // (InsightLog rỗng ở production). Gom theo ruleName để ra "top lỗi thường gặp".
+    return this.sessionModel.aggregate([
+      { $match: { createdAt: { $gte: since }, 'aiResult.crossCheck.checks': { $exists: true, $ne: [] } } },
+      { $unwind: '$aiResult.crossCheck.checks' },
+      { $match: { 'aiResult.crossCheck.checks.status': 'MISMATCH' } },
+      {
+        $group: {
+          _id: '$aiResult.crossCheck.checks.ruleName',
+          count: { $sum: 1 },
+        },
+      },
       { $sort: { count: -1 } },
       { $limit: 10 },
-      { $project: { errorType: '$_id', count: 1, avgScore: { $round: ['$avgScore', 1] }, _id: 0 } },
+      { $project: { errorType: '$_id', count: 1, avgScore: { $literal: 0 }, _id: 1 } },
     ]);
   }
 
   async getProcedureStats(since: Date) {
-    return this.insightModel.aggregate([
+    // Thống kê theo thủ tục từ Session (không phải InsightLog rỗng).
+    return this.sessionModel.aggregate([
       { $match: { createdAt: { $gte: since } } },
+      {
+        $addFields: {
+          resolvedScore: { $ifNull: ['$aiResult.score.score', '$aiResult.score'] },
+        },
+      },
       {
         $group: {
           _id: '$procedureId',
           totalSessions: { $sum: 1 },
-          avgScore: { $avg: '$finalScore' },
-          errorCount: { $sum: 1 },
+          avgScore: {
+            $avg: {
+              $cond: [{ $in: [{ $type: '$resolvedScore' }, ['int', 'double', 'long', 'decimal']] }, '$resolvedScore', null],
+            },
+          },
         },
       },
-      { $sort: { errorCount: -1 } },
+      { $sort: { totalSessions: -1 } },
     ]);
   }
 
