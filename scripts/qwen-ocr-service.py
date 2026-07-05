@@ -131,8 +131,8 @@ CHỈ trả JSON, KHÔNG giải thích."""
 
 # Test script
 if __name__ == "__main__":
-    API_KEY = "sk-9wWanfXQ5FKAmm5Dc3ZazOAtPtt8uaY9KAoVNH9fhIzSSHz7"
-
+    import os
+    API_KEY = os.environ.get("QWEN_OCR_API_KEY", "YOUR_KEY_HERE")
     service = QwenOCRService(API_KEY)
 
     # Test sổ đỏ
