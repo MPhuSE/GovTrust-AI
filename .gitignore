@@ -64,3 +64,5 @@ htmlcov/
 .gemini/
 .antigravityignore
 skills-lock.json
+
+deploy/
