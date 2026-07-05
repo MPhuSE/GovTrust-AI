@@ -50,7 +50,6 @@ Sau khi chạy xong:
 ```bash
 docker compose -f infra/docker-compose.yml logs -f    # xem log
 docker compose -f infra/docker-compose.yml down       # dừng toàn bộ
-node scripts/seed-officer.js                          # tạo tài khoản cán bộ (canbo_test / CanBo@1234)
 ```
 
 ---
