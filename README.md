@@ -10,30 +10,43 @@ Dự án tham gia: **Vietnamese Student HackAIthon 2026 | Bảng B — Challenge
 
 ## ⚡ Cài đặt & Chạy — 1 lệnh duy nhất
 
-Yêu cầu: **Docker + Docker Compose (v2) + openssl**. Không cần cài Node/Python/pnpm trên máy.
+Yêu cầu duy nhất: **Docker + Docker Compose (v2)**. Không cần cài Node/Python/OpenSSL trên máy.
 
+**Bước 1:** Clone mã nguồn
 ```bash
 git clone https://github.com/MPhuSE/GovTrust-AI.git
 cd GovTrust-AI
+```
+
+**Bước 2:** Chạy lệnh khởi động theo Hệ điều hành:
+
+*Dành cho macOS / Linux / WSL:*
+```bash
 bash scripts/quickstart.sh
 ```
 
-Script `quickstart.sh` tự động:
+*Dành cho Windows (CMD / PowerShell):*
+```cmd
+.\scripts\quickstart.bat
+```
+
+Script sẽ tự động:
 1. Tạo `.env` từ `.env.example` (nếu chưa có).
-2. **Tự sinh JWT RSA keypair (RS256) + PII encryption key** — thay các chỗ `AUTO_GENERATE`. *(Đây là lý do các bản clone trước đây đăng nhập lỗi: thiếu keypair.)*
+2. **Tự sinh JWT RSA keypair (RS256) + PII encryption key đa nền tảng** bằng Docker.
 3. Dựng toàn bộ stack qua Docker Compose: `web · api-gateway · core-svc · ai-svc · mongo · redis · qdrant`.
 
 Sau khi chạy xong:
 
-| Thành phần | URL |
-|---|---|
-| Cổng người dân | http://localhost:3000 |
-| API Gateway (health) | http://localhost:8080/health |
-| Swagger API | http://localhost:4000/api/docs |
+| Thành phần           | URL                            |
+| -------------------- | ------------------------------ |
+| Cổng người dân       | http://localhost:3000          |
+| API Gateway (health) | http://localhost:8080/health   |
+| Swagger API          | http://localhost:4000/api/docs |
 
 > **⚠️ OCR chạy API THẬT (không mock).** Nếu tạo `.env` mới, cần điền các API key trước khi OCR/tra cứu pháp luật hoạt động: `VNPT_*` (eKYC, SmartReader), `QWEN_OCR_API_KEY`, `QDRANT_API_KEY`. Script sẽ **nhắc và cho dừng** để bạn điền. Phần đăng nhập/RBAC vẫn chạy được ngay cả khi chưa có key OCR.
 
 **Lệnh vận hành:**
+
 ```bash
 docker compose -f infra/docker-compose.yml logs -f    # xem log
 docker compose -f infra/docker-compose.yml down       # dừng toàn bộ
@@ -45,12 +58,14 @@ node scripts/seed-officer.js                          # tạo tài khoản cán 
 ## 🌟 Tính năng Nổi bật
 
 ### Dành cho Người dân (Citizen)
+
 - **Tích hợp eKYC:** Tự động lấy thông tin định danh (CCCD) từ tài khoản đã xác thực, không cần nộp lại.
 - **Ảnh mẫu 1-chạm:** Mỗi ô tải giấy tờ có nút "Dùng ảnh mẫu" với nhiều biến thể (hợp lệ / sai lệch) — nạp thẳng vào form để demo nhanh.
 - **Bóc tách tự động (OCR):** Đọc và trích xuất dữ liệu từ Giấy chứng sinh, Giấy kết hôn, Sổ đỏ, Hợp đồng, ĐKHKD… (định tuyến VNPT SmartReader / Qwen VL theo loại giấy).
 - **SmartForm:** Tự động mapping dữ liệu vào biểu mẫu Tờ khai, xuất PDF/DOCX hoàn chỉnh.
 
 ### Dành cho Cán bộ (Officer)
+
 - **Hàng chờ ưu tiên (SLA & Priority):** Tự động xếp hạng hồ sơ **A/B/C/D** theo điểm số, mức độ rủi ro và hạn xử lý.
 - **AI Tiền kiểm (Score Engine):** Chấm điểm 0–100, phân loại "Hợp lệ" / "Cần bổ sung".
 - **Kiểm tra chéo (CrossCheck):** Phát hiện sai lệch dữ liệu giữa các giấy tờ, kèm căn cứ pháp lý.
@@ -84,19 +99,19 @@ ai-svc (:8000/:50051)  FastAPI — AI Engine: OCR, RAG, LawGuard, Qdrant
 
 ## ⚙️ Pipeline Xử lý Hồ sơ (11 Bước)
 
-| Bước | Tác vụ | Module | Service |
-|---|---|---|---|
-| 1 | Nhận diện thủ tục | NLP | ai-svc |
-| 2 | Người dân tải giấy tờ | Upload Manager | core-svc |
-| 3 | Bóc tách thông tin | OCR (VNPT / Qwen VL) | ai-svc (Queue) |
-| 4 | Đối chiếu chéo dữ liệu | CrossCheck Engine | core-svc |
-| 5 | Chấm điểm hồ sơ (0–100) | Score Engine | core-svc |
-| 6 | Kiểm duyệt pháp lý | LawGuard (RAG) | ai-svc (Queue) |
-| 7 | Tự động điền Tờ khai | SmartForm | core-svc |
-| 8 | Người dân xác nhận & nộp | Submission | core-svc |
-| 9 | Cán bộ tái kiểm | Gov Re-Check | core-svc |
-| 10 | Phân luồng ưu tiên | SLA / Priority (A/B/C/D) | core-svc |
-| 11 | Báo cáo thống kê | InsightMap | core-svc |
+| Bước | Tác vụ                   | Module                   | Service        |
+| ---- | ------------------------ | ------------------------ | -------------- |
+| 1    | Nhận diện thủ tục        | NLP                      | ai-svc         |
+| 2    | Người dân tải giấy tờ    | Upload Manager           | core-svc       |
+| 3    | Bóc tách thông tin       | OCR (VNPT / Qwen VL)     | ai-svc (Queue) |
+| 4    | Đối chiếu chéo dữ liệu   | CrossCheck Engine        | core-svc       |
+| 5    | Chấm điểm hồ sơ (0–100)  | Score Engine             | core-svc       |
+| 6    | Kiểm duyệt pháp lý       | LawGuard (RAG)           | ai-svc (Queue) |
+| 7    | Tự động điền Tờ khai     | SmartForm                | core-svc       |
+| 8    | Người dân xác nhận & nộp | Submission               | core-svc       |
+| 9    | Cán bộ tái kiểm          | Gov Re-Check             | core-svc       |
+| 10   | Phân luồng ưu tiên       | SLA / Priority (A/B/C/D) | core-svc       |
+| 11   | Báo cáo thống kê         | InsightMap               | core-svc       |
 
 ---
 
