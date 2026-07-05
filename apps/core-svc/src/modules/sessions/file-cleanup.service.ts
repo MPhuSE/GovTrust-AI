@@ -7,8 +7,9 @@ import { SessionDocument } from '../../database/schemas/session.schema';
 /**
  * Vòng đời file upload theo docs/Gov_Trust.md (data minimization):
  * - Xoá ngay khi người dân xác nhận hồ sơ (OCR đã xong, kết quả nằm trong aiResult).
- * - Sweep định kỳ xoá file quá SESSION_TTL_HOURS — bắt các phiên bị bỏ dở
- *   mà Mongo TTL đã xoá document (mất tham chiếu fileUrl).
+ * - Sweep định kỳ xoá file ảnh giấy tờ gốc quá FILE_TTL_MINUTES (mặc định 30 phút) —
+ *   bắt các phiên bị bỏ dở (upload xong nhưng không xác nhận). Metadata session giữ theo
+ *   SESSION_TTL_HOURS riêng; ảnh gốc là PII nhạy cảm nên xoá nhanh hơn nhiều.
  */
 @Injectable()
 export class FileCleanupService implements OnModuleInit, OnModuleDestroy {
@@ -22,11 +23,13 @@ export class FileCleanupService implements OnModuleInit, OnModuleDestroy {
   }
 
   private get ttlMs(): number {
-    return this.config.get<number>('SESSION_TTL_HOURS', 24) * 3600 * 1000;
+    // Ảnh giấy tờ gốc (PII) xoá sau FILE_TTL_MINUTES — mặc định 30 phút.
+    return this.config.get<number>('FILE_TTL_MINUTES', 30) * 60 * 1000;
   }
 
   onModuleInit() {
-    const sweepIntervalMs = 3600 * 1000; // mỗi giờ
+    // Sweep 5 phút/lần để mốc 30 phút có ý nghĩa (file bỏ dở bị quét trong ≤35 phút).
+    const sweepIntervalMs = 5 * 60 * 1000;
     this.sweepTimer = setInterval(() => {
       this.sweepExpiredUploads().catch(e =>
         this.logger.warn(`Sweep file hết hạn thất bại: ${(e as Error).message}`),
@@ -63,7 +66,7 @@ export class FileCleanupService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** Xoá mọi file trong UPLOAD_DIR cũ hơn SESSION_TTL_HOURS (theo mtime). */
+  /** Xoá mọi file trong UPLOAD_DIR cũ hơn FILE_TTL_MINUTES (theo mtime). */
   async sweepExpiredUploads(): Promise<number> {
     const cutoff = Date.now() - this.ttlMs;
     let entries: string[];

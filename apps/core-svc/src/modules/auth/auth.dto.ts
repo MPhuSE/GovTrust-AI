@@ -1,6 +1,5 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
-import { UserRole } from '../../database/schemas/user.schema';
 
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+\-=\[\]{};':"\\|,.<>\/])[A-Za-z\d@$!%*?&#^()_+\-=\[\]{};':"\\|,.<>\/]{8,}$/;
 
@@ -11,8 +10,8 @@ const RegisterSchema = z.object({
   fullName: z.string().min(1),
   phoneNumber: z.string().optional(),
   email: z.string().email('Email không hợp lệ').optional(),
-  // Cho phép đăng ký OFFICER/ADMIN để test Bước 9–11 (mặc định CITIZEN ở service).
-  role: z.nativeEnum(UserRole).optional(),
+  // KHÔNG nhận `role` từ client: đăng ký công khai luôn tạo CITIZEN.
+  // Tài khoản OFFICER/ADMIN cấp qua scripts/seed-officer.js (nội bộ).
 });
 
 const LoginSchema = z.object({

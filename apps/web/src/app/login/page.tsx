@@ -41,7 +41,9 @@ export default function LoginPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = (await authApi.login(username, password)) as unknown as {
+      // Trim username (dán từ clipboard hay dính space cuối) — password KHÔNG trim
+      // vì khoảng trắng có thể là ký tự hợp lệ trong mật khẩu.
+      const result = (await authApi.login(username.trim(), password)) as unknown as {
         access_token: string;
         user: { id: string; username: string; fullName: string; role: string };
       };

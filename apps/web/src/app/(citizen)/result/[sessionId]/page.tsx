@@ -189,51 +189,30 @@ export default function ResultPage() {
                 grade={score.grade as 'A' | 'B' | 'C' | 'D'}
               />
 
-              {/* Nút hành động ngay dưới điểm — không cần cuộn xuống cuối trang.
-                  canSubmit=false (điểm < 60 hoặc có lỗi nghiêm trọng, gồm sai lệch chéo)
-                  → CHẶN sang điền form, buộc quay lại sửa/tải lại giấy tờ đúng. */}
+              {/* Nút hành động ngay dưới điểm. KHÔNG chặn điền form theo điểm nữa:
+                  điểm thấp / có sai lệch chỉ HIỂN THỊ cảnh báo, người dân vẫn được
+                  điền & nộp để cán bộ có cơ sở tái kiểm và chấm. */}
               <div className="w-full mt-6 pt-6 border-t border-gray-100 space-y-3">
-                {score.canSubmit ? (
-                  <>
-                    <button
-                      className="w-full px-6 py-3.5 rounded font-bold bg-teal-700 text-white hover:bg-teal-800 transition-all text-center shadow-md flex items-center justify-center gap-2"
-                      onClick={() => router.push(`/smartform/${sessionId}`)}
-                    >
-                      Chuyển sang điền Form →
-                    </button>
-                    <button
-                      className="w-full px-6 py-3 rounded font-bold border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all text-center"
-                      onClick={() => router.back()}
-                    >
-                      Quay lại sửa lỗi
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-full flex items-start gap-2.5 bg-red-50 border border-red-200 rounded p-3.5 text-sm font-medium text-red-700">
-                      <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      <span>Hồ sơ có thông tin chưa hợp lệ nên chưa thể sang bước điền form. Vui lòng sửa các lỗi bên phải hoặc tải lại giấy tờ đúng.</span>
-                    </div>
-                    <button
-                      className="w-full px-6 py-3.5 rounded font-bold bg-teal-700 text-white hover:bg-teal-800 transition-all text-center shadow-md"
-                      onClick={() => router.push(`/upload/${sessionId}`)}
-                    >
-                      Quay lại sửa / tải lại giấy tờ
-                    </button>
-                    <button
-                      className="w-full px-6 py-3 rounded font-bold border-2 border-gray-200 text-gray-400 cursor-not-allowed text-center flex items-center justify-center gap-2"
-                      disabled
-                      title="Cần khắc phục lỗi trước khi điền form"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                      Điền Form (đang khoá)
-                    </button>
-                  </>
+                {!score.canSubmit && (
+                  <div className="w-full flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded p-3.5 text-sm font-medium text-amber-800">
+                    <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <span>Hồ sơ còn cảnh báo (điểm thấp hoặc có sai lệch thông tin). Bạn nên sửa lại giấy tờ để tăng khả năng được duyệt, nhưng vẫn có thể điền form và nộp để cán bộ xem xét.</span>
+                  </div>
                 )}
+                <button
+                  className="w-full px-6 py-3.5 rounded font-bold bg-teal-700 text-white hover:bg-teal-800 transition-all text-center shadow-md flex items-center justify-center gap-2"
+                  onClick={() => router.push(`/smartform/${sessionId}`)}
+                >
+                  Chuyển sang điền Form →
+                </button>
+                <button
+                  className="w-full px-6 py-3 rounded font-bold border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all text-center"
+                  onClick={() => router.push(`/upload/${sessionId}`)}
+                >
+                  Quay lại sửa / tải lại giấy tờ
+                </button>
               </div>
             </div>
 

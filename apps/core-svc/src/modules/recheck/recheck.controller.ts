@@ -22,6 +22,6 @@ export class RecheckController {
     @CurrentUser() user: any,
     @Body() payload: { decision: string; note: string }
   ) {
-    return this.recheckService.recheck(id, user.id, payload.decision, payload.note);
+    return this.recheckService.recheck(id, user.userId, payload.decision, payload.note);
   }
 }

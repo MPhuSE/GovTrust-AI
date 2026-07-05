@@ -41,7 +41,7 @@ export class AuthService {
     private ekycVerificationService: EkycVerificationService,
   ) {}
 
-  async register(dto: { username?: string; password: string; fullName: string; phoneNumber?: string; email?: string; role?: UserRole }) {
+  async register(dto: { username?: string; password: string; fullName: string; phoneNumber?: string; email?: string }) {
     // Validate password strength
     this.validatePasswordStrength(dto.password);
 
@@ -50,13 +50,16 @@ export class AuthService {
     if (exists) throw new ConflictException('Tên đăng nhập đã tồn tại');
 
     const passwordHash = await bcrypt.hash(dto.password, 12); // Increased bcrypt rounds to 12
+    // Đăng ký công khai LUÔN tạo CITIZEN — không nhận role từ client để tránh
+    // leo thang đặc quyền (bất kỳ ai cũng có thể tự tạo OFFICER/ADMIN qua API public).
+    // Tài khoản OFFICER/ADMIN chỉ được cấp qua seed script nội bộ (scripts/seed-officer.js).
     const user = await this.userModel.create({
       username,
       passwordHash,
       fullName: dto.fullName,
       phoneNumber: dto.phoneNumber,
       email: dto.email,
-      role: dto.role ?? UserRole.CITIZEN,
+      role: UserRole.CITIZEN,
     });
 
     return this.buildToken(user);

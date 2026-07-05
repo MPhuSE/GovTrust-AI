@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, Matches } from 'class-validator';
-import { UserRole } from '../../../database/schemas/user.schema';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength, Matches } from 'class-validator';
 
 export class RegisterDto {
   @ApiPropertyOptional({ example: 'nguyenvana', description: 'Tên đăng nhập (tùy chọn; sẽ dùng CCCD nếu không có)' })
@@ -35,15 +34,6 @@ export class RegisterDto {
   @IsEmail({}, { message: 'Email không hợp lệ' })
   @IsOptional()
   email?: string;
-
-  @ApiPropertyOptional({
-    enum: UserRole,
-    example: UserRole.CITIZEN,
-    description: 'Vai trò; mặc định CITIZEN. Đăng ký OFFICER để test Bước 9–11.',
-  })
-  @IsOptional()
-  @IsEnum(UserRole)
-  role?: UserRole;
 }
 
 export class LoginDto {

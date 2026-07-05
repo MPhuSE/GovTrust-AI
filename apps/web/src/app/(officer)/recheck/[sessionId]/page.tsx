@@ -36,7 +36,7 @@ interface RecheckSession {
     confidence: number;
     legalSource?: { title: string; article: string; url?: string };
   }>;
-  riskFlags: string[];
+  riskFlags: Array<{ type: string; message: string; severity: string }>;
 }
 
 export default function RecheckPage() {
@@ -63,7 +63,7 @@ export default function RecheckPage() {
           breakdown: (s.aiResult?.score?.breakdown || []) as RecheckSession['breakdown'],
           crossCheckResults: (s.aiResult?.crossCheck?.checks || []) as RecheckSession['crossCheckResults'],
           lawGuardAlerts: (s.aiResult?.lawGuardAlerts || []) as RecheckSession['lawGuardAlerts'],
-          riskFlags: s.recheckResult?.riskFlags || [],
+          riskFlags: (s.govReCheck?.riskFlags || []) as RecheckSession['riskFlags'],
         });
         setIsLoading(false);
       })
@@ -241,7 +241,17 @@ export default function RecheckPage() {
                     <ul className="space-y-3 pl-2">
                       {session.riskFlags.map((flag, i) => (
                         <li key={i} className="text-sm font-semibold text-navy flex items-start gap-3">
-                          <span className="text-red-500 mt-1">•</span> <span className="leading-relaxed">{flag}</span>
+                          <span className={`mt-1 ${flag.severity === 'HIGH' ? 'text-red-500' : 'text-amber-500'}`}>•</span>
+                          <span className="leading-relaxed">
+                            {flag.message}
+                            <Badge
+                              variant="outline"
+                              animate={false}
+                              className={`ml-2 align-middle text-[10px] font-mono ${flag.severity === 'HIGH' ? 'text-red-600 border-red-200' : 'text-amber-600 border-amber-200'}`}
+                            >
+                              {flag.severity}
+                            </Badge>
+                          </span>
                         </li>
                       ))}
                     </ul>

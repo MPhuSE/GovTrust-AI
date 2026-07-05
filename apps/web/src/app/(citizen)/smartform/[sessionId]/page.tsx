@@ -147,18 +147,14 @@ export default function SmartFormPage() {
 
     const readSession = async (): Promise<{
       status?: string;
-      canSubmit?: boolean;
-      hasScore: boolean;
       smartForm: SmartFormData | null;
     }> => {
       const session = (await sessionsApi.get(sessionId)) as unknown as {
         status?: string;
-        aiResult?: { smartForm?: SmartFormData; score?: { canSubmit?: boolean } };
+        aiResult?: { smartForm?: SmartFormData };
       };
       return {
         status: session.status,
-        canSubmit: session.aiResult?.score?.canSubmit,
-        hasScore: Boolean(session.aiResult?.score),
         smartForm: session.aiResult?.smartForm ?? null,
       };
     };
@@ -176,13 +172,9 @@ export default function SmartFormPage() {
           return;
         }
 
-        // 0b) Đã chấm điểm nhưng KHÔNG đạt (sai lệch chéo / điểm thấp) → chặn điền form,
-        //     đưa về trang kết quả để người dùng sửa lỗi. Chỉ chặn khi đã có score;
-        //     chưa chấm thì để đi tiếp (luồng cũ vẫn generate form được).
-        if (first.hasScore && first.canSubmit === false) {
-          router.replace(`/result/${sessionId}`);
-          return;
-        }
+        // 0b) KHÔNG chặn điền form theo điểm nữa. Kể cả điểm thấp / có sai lệch chéo,
+        //     người dân vẫn được điền và nộp — để cán bộ có cơ sở tái kiểm và chấm.
+        //     AI chỉ cảnh báo (ở trang /result), quyết định cuối thuộc cán bộ.
 
         // 1) Đã có sẵn từ pipeline (consumer chạy SmartFormService) → dùng ngay.
         let smartForm = first.smartForm;

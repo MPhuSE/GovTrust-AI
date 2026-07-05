@@ -20,8 +20,11 @@ export class PriorityService {
       .populate('userId')
       .sort({ createdAt: 1 });
 
-    const ranked = sessions.map(s => {
+    const ranked = sessions.flatMap(s => {
       const procedure = s.procedureId as unknown as ProcedureDocument;
+      // Bỏ qua session có procedureId mồ côi (procedure đã bị xóa → populate trả null).
+      // Nếu không guard, procedure.priorityConfig sẽ ném TypeError và sập cả queue (500).
+      if (!procedure) return [];
       const scoreResult = s.aiResult?.score as { score?: number; total?: number, breakdown?: any[] } | undefined;
       const score = scoreResult?.score ?? scoreResult?.total ?? 0;
       const hasCriticalError = scoreResult?.breakdown?.some(b => b.severity === 'CRITICAL') || false;
