@@ -14,7 +14,7 @@
 
 set -e
 
-domains=(govtrust.site www.govtrust.site)
+domains=(govtrust.site)
 rsa_key_size=4096
 data_path="./certbot"
 email="admin@govtrust.site"  # Thay bằng email thật để nhận thông báo từ Let's Encrypt
