@@ -13,6 +13,7 @@ Demo trực tuyến: **https://govtrust.site**
 Yêu cầu duy nhất: **Docker + Docker Compose (v2)**. Không cần cài Node/Python/OpenSSL trên máy.
 
 **Bước 1:** Clone mã nguồn
+
 ```bash
 git clone https://github.com/MPhuSE/GovTrust-AI.git
 cd GovTrust-AI
@@ -20,17 +21,20 @@ cd GovTrust-AI
 
 **Bước 2:** Chạy lệnh khởi động theo Hệ điều hành:
 
-*Dành cho macOS / Linux / WSL:*
+_Dành cho macOS / Linux / WSL:_
+
 ```bash
 bash scripts/quickstart.sh
 ```
 
-*Dành cho Windows (CMD / PowerShell):*
+_Dành cho Windows (CMD / PowerShell):_
+
 ```cmd
 .\scripts\quickstart.bat
 ```
 
 Script sẽ tự động:
+
 1. Tạo `.env` từ `.env.example` (nếu chưa có).
 2. **Tự sinh JWT RSA keypair (RS256) + PII encryption key đa nền tảng** bằng Docker.
 3. Dựng toàn bộ stack qua Docker Compose: `web · api-gateway · core-svc · ai-svc · mongo · redis · qdrant`.
@@ -42,7 +46,6 @@ Sau khi chạy xong:
 | Cổng người dân       | http://localhost:3000          |
 | API Gateway (health) | http://localhost:8080/health   |
 | Swagger API          | http://localhost:4000/api/docs |
-
 
 **Lệnh vận hành:**
 
