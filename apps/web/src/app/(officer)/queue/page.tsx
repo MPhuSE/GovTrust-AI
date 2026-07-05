@@ -34,14 +34,9 @@ export default function QueuePage() {
     priorityApi
       .getQueue()
       .then((data) => setQueue(((data as unknown) as QueueItem[]) || []))
-      .catch(() => {
-        // Demo data
-        setQueue([
-          { _id: '1', procedureName: 'Đăng ký khai sinh', score: 72, priority: 'B', status: 'AI_DONE', createdAt: new Date().toISOString(), citizenName: 'Nguyễn Thị H.' },
-          { _id: '2', procedureName: 'Cấp đổi CCCD', score: 45, priority: 'A', status: 'CONFIRMED', createdAt: new Date().toISOString(), citizenName: 'Trần Văn K.' },
-          { _id: '3', procedureName: 'Đăng ký tạm trú', score: 88, priority: 'C', status: 'AI_DONE', createdAt: new Date().toISOString(), citizenName: 'Lê Thị M.' },
-          { _id: '4', procedureName: 'Chứng thực bản sao', score: 95, priority: 'D', status: 'RECHECKED', createdAt: new Date().toISOString(), citizenName: 'Phạm Văn N.' },
-        ]);
+      .catch((err) => {
+        console.error('Failed to fetch queue:', err);
+        setQueue([]);
       })
       .finally(() => setIsLoading(false));
   }, []);

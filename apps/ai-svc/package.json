@@ -4,9 +4,9 @@
   "private": true,
   "description": "FastAPI/Python AI service; package scripts only integrate it with the monorepo runner.",
   "scripts": {
-    "dev": ".venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
-    "build": ".venv/bin/python -m compileall -q app",
-    "test": ".venv/bin/python -m pytest tests -q",
-    "type-check": ".venv/bin/pyrefly check"
+    "dev": ".venv\\Scripts\\python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
+    "build": ".venv\\Scripts\\python -m compileall -q app",
+    "test": ".venv\\Scripts\\python -m pytest tests -q",
+    "type-check": ".venv\\Scripts\\pyrefly check"
   }
 }

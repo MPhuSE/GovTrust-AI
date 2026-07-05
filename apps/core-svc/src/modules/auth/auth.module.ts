@@ -11,16 +11,14 @@ import { User, UserSchema } from '../../database/schemas/user.schema';
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-    // JwtModule chỉ dùng để ký access token bằng RS256 private key.
+    // JwtModule dùng để ký access token bằng secret.
     // Việc verify JWT đã được api-gateway xử lý trước khi request vào core-svc.
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        privateKey: config.get<string>('JWT_ACCESS_PRIVATE_KEY'),
-        publicKey: config.get<string>('JWT_ACCESS_PUBLIC_KEY'),
+        secret: config.get<string>('JWT_SECRET'),
         signOptions: {
-          algorithm: 'RS256',
-          expiresIn: config.get<string>('JWT_ACCESS_EXPIRES_IN', '30m'),
+          expiresIn: config.get<string>('JWT_EXPIRATION', '24h'),
         },
       }),
     }),

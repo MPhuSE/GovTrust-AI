@@ -13,7 +13,6 @@ import { Request, Response, NextFunction } from 'express';
 @Injectable()
 export class AuthVerifyMiddleware {
   private readonly logger = new Logger(AuthVerifyMiddleware.name);
-  private readonly publicKey: string;
 
   // Prefix không cần đăng nhập
   private readonly PUBLIC_PREFIXES = [
@@ -27,9 +26,10 @@ export class AuthVerifyMiddleware {
     '/api/docs-yaml',
   ];
 
-  constructor(private readonly _jwt: JwtService, config: ConfigService) {
-    this.publicKey = config.get<string>('JWT_ACCESS_PUBLIC_KEY', '');
-  }
+  constructor(
+    private readonly _jwt: JwtService,
+    private readonly config: ConfigService
+  ) {}
 
   use = (req: Request, res: Response, next: NextFunction): void => {
     // forRoutes('*') mounts middleware trên sub-router → req.path bị rút thành "/".
@@ -48,10 +48,8 @@ export class AuthVerifyMiddleware {
 
     try {
       const payload = this._jwt.verify(auth.slice(7), {
-        // RS256: verify bằng public key, không cần secret
-        publicKey: this.publicKey,
-        algorithms: ['RS256'],
-      } as any) as { sub?: string; role?: string };
+        secret: this.config.get<string>('JWT_SECRET'),
+      }) as { sub?: string; role?: string };
 
       // Gắn danh tính cho downstream (core-svc)
       req.headers['x-user-id'] = payload.sub ?? '';

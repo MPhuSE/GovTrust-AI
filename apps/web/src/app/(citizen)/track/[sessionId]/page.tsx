@@ -169,8 +169,21 @@ export default function TrackPage() {
                 <div className="space-y-3">
                   {completenessMeta && (
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-500">Đánh giá:</span>
+                      <span className="text-sm font-medium text-gray-500">Đánh giá hệ thống:</span>
                       <span className={`px-2.5 py-1 rounded border text-xs font-bold ${completenessMeta.color}`}>{completenessMeta.label}</span>
+                    </div>
+                  )}
+                  {session.priority?.finalDecisionByOfficer && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm font-medium text-gray-500">Quyết định của cán bộ:</span>
+                      <span className={`px-2.5 py-1 rounded border text-xs font-bold ${
+                        session.priority.finalDecisionByOfficer === 'PASS' ? 'text-teal-700 bg-teal-50 border-teal-200' : 
+                        session.priority.finalDecisionByOfficer === 'NEED_MORE' ? 'text-amber-700 bg-amber-50 border-amber-200' :
+                        'text-blue-700 bg-blue-50 border-blue-200'
+                      }`}>
+                        {session.priority.finalDecisionByOfficer === 'PASS' ? 'Đủ điều kiện, xử lý ngay' :
+                         session.priority.finalDecisionByOfficer === 'NEED_MORE' ? 'Yêu cầu bổ sung' : 'Cần tái kiểm tra chéo'}
+                      </span>
                     </div>
                   )}
                   {riskFlags.length > 0 && (

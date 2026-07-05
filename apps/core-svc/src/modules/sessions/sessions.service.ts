@@ -111,9 +111,16 @@ export class SessionsService {
     return session;
   }
 
-  async findAllByUser(userId: string) {
+  async findAllByUser(userId: string, role?: string) {
+    const filter: any = {};
+    if (role === 'OFFICER' || role === 'ADMIN') {
+      filter['govReCheck.reviewedBy'] = new Types.ObjectId(userId);
+    } else {
+      filter.userId = new Types.ObjectId(userId);
+    }
+
     const sessions = await this.sessionModel
-      .find({ userId: new Types.ObjectId(userId) })
+      .find(filter)
       .populate('procedureId', 'code name department')
       .sort({ createdAt: -1 })
       .lean();

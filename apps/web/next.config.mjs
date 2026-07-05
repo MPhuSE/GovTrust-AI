@@ -22,12 +22,12 @@ const nextConfig = {
             // Thiếu các domain này thì widget bị CSP chặn im lặng → nút chat không hiện.
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://livechat.vnpt.vn",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://livechat.vnpt.vn https://console-smartux.vnpt.vn",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://livechat.vnpt.vn",
               "font-src 'self' https://fonts.gstatic.com https://livechat.vnpt.vn data:",
               "img-src 'self' data: blob: https://*.vnpt.vn",
               "media-src 'self' https://ic-smartvoice.vnpt.vn",
-              `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'} https://livechat.vnpt.vn https://*.vnpt.ai wss://*.vnpt.ai`,
+              `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'} https://livechat.vnpt.vn https://*.vnpt.ai wss://*.vnpt.ai https://console-smartux.vnpt.vn`,
               "frame-src 'self' https://*.vnpt.vn",
               "frame-ancestors 'none'",
             ].join('; '),

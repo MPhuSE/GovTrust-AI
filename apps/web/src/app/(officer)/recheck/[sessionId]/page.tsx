@@ -74,7 +74,7 @@ export default function RecheckPage() {
     if (!decision) return;
     setIsSubmitting(true);
     try {
-      await recheckApi.recheck(sessionId);
+      await recheckApi.recheck(sessionId, { decision, note });
       setSubmitted(true);
     } catch (e) {
       alert((e as Error).message);
@@ -277,6 +277,7 @@ export default function RecheckPage() {
                     ].map((opt) => (
                       <label
                         key={opt.value}
+                        onClick={() => setDecision(opt.value)}
                         className={`flex items-center gap-4 p-4 rounded border cursor-pointer transition-all duration-200 ${
                           decision === opt.value
                             ? 'border-teal-500 bg-teal-50/30 shadow-sm'

@@ -15,8 +15,9 @@ export class PriorityService {
 
   async getQueue() {
     const sessions = await this.sessionModel
-      .find({ status: SessionStatus.RECHECKED })
+      .find({ status: SessionStatus.CONFIRMED })
       .populate('procedureId')
+      .populate('userId')
       .sort({ createdAt: 1 });
 
     const ranked = sessions.map(s => {
@@ -30,6 +31,11 @@ export class PriorityService {
 
       return {
         sessionId: s._id,
+        _id: s._id, // Add _id for frontend QueueItem
+        procedureName: procedure.name, // Add procedureName
+        status: s.status, // Add status
+        createdAt: s.createdAt, // Add createdAt
+        citizenName: (s as any).userId?.fullName || 'Người dùng', // Add citizenName (assuming populated or not, fallback)
         priority: level,
         reason: hasCriticalError ? 'Lỗi nghiêm trọng' : (score < 60 ? 'Điểm thấp' : `${procedure.name} — hạn xử lý còn ${Math.ceil(daysLeft)} ngày`),
         score,

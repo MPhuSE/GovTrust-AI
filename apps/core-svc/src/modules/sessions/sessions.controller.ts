@@ -26,8 +26,8 @@ export class SessionsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy danh sách phiên của người dùng (Lịch sử nộp hồ sơ)' })
-  findHistory(@CurrentUser() user: { userId: string }) {
-    return this.sessionsService.findAllByUser(user.userId);
+  findHistory(@CurrentUser() user: { userId: string; role: string }) {
+    return this.sessionsService.findAllByUser(user.userId, user.role);
   }
 
   @Get(':id')

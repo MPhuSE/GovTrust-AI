@@ -158,7 +158,7 @@ export const smartformApi = {
 // Controller: @Controller('sessions') — requires OFFICER/ADMIN
 export const recheckApi = {
   /** POST /sessions/:id/recheck — requires JWT + OFFICER/ADMIN role */
-  recheck: (sessionId: string) => apiClient.post(`/sessions/${sessionId}/recheck`),
+  recheck: (id: string, payload?: { decision: string; note: string }) => apiClient.post(`/sessions/${id}/recheck`, payload),
 };
 
 // ─── Priority ──────────────────────────────────────────

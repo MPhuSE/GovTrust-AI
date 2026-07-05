@@ -13,7 +13,7 @@ export class RecheckService {
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
   ) {}
 
-  async recheck(sessionId: string, officerId: string) {
+  async recheck(sessionId: string, officerId: string, decision?: string, note?: string) {
     const session = await this.sessionModel.findById(sessionId);
     if (!session || session.status !== SessionStatus.CONFIRMED) {
       throw new NotFoundException('Hồ sơ chưa được xác nhận hoặc không tồn tại');
@@ -32,13 +32,23 @@ export class RecheckService {
       reviewedBy: new Types.ObjectId(officerId),
       reviewedAt: new Date(),
     };
-
-    await this.sessionModel.findByIdAndUpdate(sessionId, {
+    
+    const updateData: any = {
       govReCheck,
       status: SessionStatus.RECHECKED,
-    });
+    };
+    
+    if (note) {
+      updateData.officerNotes = note;
+    }
+    
+    if (decision) {
+      updateData['priority.finalDecisionByOfficer'] = decision;
+    }
 
-    return { sessionId, govReCheck };
+    await this.sessionModel.findByIdAndUpdate(sessionId, updateData);
+
+    return { sessionId, govReCheck, decision, note };
   }
 
   private detectRisks(session: SessionDocument): Array<{ type: RiskFlagType; message: string; severity: Severity }> {

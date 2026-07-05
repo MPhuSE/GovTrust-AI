@@ -92,7 +92,7 @@ export default function HistoryPage() {
             </h1>
             <p className="text-gray-500 mt-2 font-medium">
               {isOfficer 
-                ? 'Danh sách các hồ sơ thủ tục hành chính mà bạn đã tham gia kiểm duyệt (Tính năng đang phát triển).' 
+                ? 'Danh sách các hồ sơ thủ tục hành chính mà bạn đã tham gia kiểm duyệt.' 
                 : 'Theo dõi trạng thái các thủ tục hành chính bạn đã thực hiện qua hệ thống AI.'}
             </p>
           </div>
