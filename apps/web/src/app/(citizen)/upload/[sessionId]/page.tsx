@@ -16,7 +16,7 @@ const CITIZEN_STEPS = ['Chọn thủ tục', 'Tải giấy tờ', 'Kết quả',
 interface SampleVariant {
   file: string;
   label: string;
-  desc: string;
+  desc?: string;
   tone: 'good' | 'warn' | 'bad' | 'neutral';
 }
 type SampleManifest = Record<string, SampleVariant[]>;
@@ -630,7 +630,7 @@ export default function UploadPage() {
                                     <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${tone.dot}`} />
                                     <span className="min-w-0">
                                       <span className="block text-sm font-bold text-gray-800">{v.label}</span>
-                                      <span className="block text-xs text-gray-500 mt-0.5 leading-snug">{v.desc}</span>
+                                      {v.desc && <span className="block text-xs text-gray-500 mt-0.5 leading-snug">{v.desc}</span>}
                                     </span>
                                   </button>
                                 );

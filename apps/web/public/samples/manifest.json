@@ -1,88 +1,28 @@
 {
   "HO_KINH_DOANH": [
-    {
-      "file": "happy.jpg",
-      "label": "Giấy ĐKHKD (ảnh thật)",
-      "desc": "Chủ hộ: LÊ THÁI HƯNG — dùng làm gốc đối chiếu với văn bản ủy quyền.",
-      "tone": "neutral"
-    }
+    { "file": "happy.jpg", "label": "Ảnh thật", "tone": "neutral" }
   ],
   "VAN_BAN_UY_QUYEN_HGD": [
-    {
-      "file": "happy.jpg",
-      "label": "Hợp lệ — mọi thông tin khớp",
-      "desc": "Người ủy quyền = chủ hộ cũ, người được ủy quyền = tài khoản của bạn. Cross-check xanh, điểm cao.",
-      "tone": "good"
-    },
-    {
-      "file": "chuho_mismatch.jpg",
-      "label": "Sai chủ hộ cũ",
-      "desc": "Người ủy quyền ghi TRẦN VĂN SỬU ≠ chủ hộ trên giấy ĐKHKD → cảnh báo đỏ (nghi bán quyền không hợp lệ).",
-      "tone": "bad"
-    },
-    {
-      "file": "tenhkd_mismatch.jpg",
-      "label": "Sai tên hộ kinh doanh",
-      "desc": "Tên HKD trên ủy quyền ≠ tên trên giấy ĐKHKD → cảnh báo mức trung bình.",
-      "tone": "warn"
-    }
+    { "file": "happy.jpg", "label": "Hợp lệ", "tone": "good" },
+    { "file": "chuho_mismatch.jpg", "label": "Sai chủ hộ cũ", "tone": "bad" },
+    { "file": "tenhkd_mismatch.jpg", "label": "Sai tên hộ kinh doanh", "tone": "warn" }
   ],
   "GIAY_CHUNG_SINH": [
-    {
-      "file": "happy.jpg",
-      "label": "Hợp lệ — tên mẹ khớp tài khoản",
-      "desc": "Họ tên mẹ = người yêu cầu (eKYC). Đối chiếu chéo xanh.",
-      "tone": "good"
-    },
-    {
-      "file": "me_mismatch.jpg",
-      "label": "Sai tên mẹ",
-      "desc": "Giấy chứng sinh ghi mẹ LÊ THỊ SAI ≠ tài khoản đăng nhập → cảnh báo đỏ, trừ điểm nặng.",
-      "tone": "bad"
-    }
+    { "file": "happy.jpg", "label": "Hợp lệ", "tone": "good" },
+    { "file": "me_mismatch.jpg", "label": "Sai tên mẹ", "tone": "bad" }
   ],
   "GIAY_KET_HON": [
-    {
-      "file": "happy.jpg",
-      "label": "Giấy đăng ký kết hôn (ảnh thật)",
-      "desc": "Vợ: ĐINH NGỌC ANH · Chồng: HOÀNG VĂN THÁI — VNPT SmartReader đọc layout thật.",
-      "tone": "neutral"
-    }
+    { "file": "happy.jpg", "label": "Ảnh thật", "tone": "neutral" }
   ],
   "GIAY_CHUNG_NHAN_QSDD": [
-    {
-      "file": "happy.jpg",
-      "label": "Hợp lệ — chủ sổ đỏ khớp hợp đồng",
-      "desc": "Chủ sử dụng đất = bên chuyển nhượng trên hợp đồng, diện tích khớp. Cross-check xanh.",
-      "tone": "good"
-    },
-    {
-      "file": "chusohuu_mismatch.jpg",
-      "label": "Sai chủ sổ đỏ",
-      "desc": "Sổ đỏ đứng tên LÊ VĂN HÙNG ≠ bên bán trên hợp đồng → nghi bán đất không thuộc sở hữu, cảnh báo đỏ.",
-      "tone": "bad"
-    }
+    { "file": "happy.jpg", "label": "Hợp lệ", "tone": "good" },
+    { "file": "chusohuu_mismatch.jpg", "label": "Sai chủ sổ đỏ", "tone": "bad" }
   ],
   "HOP_DONG_CHUYEN_NHUONG": [
-    {
-      "file": "happy.jpg",
-      "label": "Hợp lệ — mọi thông tin khớp",
-      "desc": "Bên nhận = tài khoản của bạn, bên bán = chủ sổ đỏ, diện tích khớp. Điểm cao.",
-      "tone": "good"
-    },
-    {
-      "file": "dientich_mismatch.jpg",
-      "label": "Sai diện tích thửa đất",
-      "desc": "Hợp đồng ghi 150 m² ≠ sổ đỏ 120 m² → sai lệch thông tin thửa đất, trừ điểm.",
-      "tone": "warn"
-    }
+    { "file": "happy.jpg", "label": "Hợp lệ", "tone": "good" },
+    { "file": "dientich_mismatch.jpg", "label": "Sai diện tích thửa đất", "tone": "warn" }
   ],
   "GIAY_KHAI_SINH": [
-    {
-      "file": "happy.jpg",
-      "label": "Giấy khai sinh (ảnh thật)",
-      "desc": "VNPT SmartReader đọc layout thật — dùng để đối chiếu quan hệ nhân thân.",
-      "tone": "neutral"
-    }
+    { "file": "happy.jpg", "label": "Ảnh thật", "tone": "neutral" }
   ]
 }
