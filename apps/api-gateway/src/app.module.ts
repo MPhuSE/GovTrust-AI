@@ -13,7 +13,9 @@ import { HealthController } from './health.controller';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET'),
+        // api-gateway chỉ verify, không ký → chỉ cần publicKey
+        publicKey: config.get<string>('JWT_ACCESS_PUBLIC_KEY'),
+        verifyOptions: { algorithms: ['RS256'] },
       }),
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 120 }]),
