@@ -4,11 +4,11 @@
 
 Dự án tham gia: **Vietnamese Student HackAIthon 2026 | Bảng B — Challenger**
 
-🌐 Demo trực tuyến: **https://govtrust.site**
+Demo trực tuyến: **https://govtrust.site**
 
 ---
 
-## ⚡ Cài đặt & Chạy — 1 lệnh duy nhất
+## Cài đặt & Chạy — 1 lệnh duy nhất
 
 Yêu cầu duy nhất: **Docker + Docker Compose (v2)**. Không cần cài Node/Python/OpenSSL trên máy.
 
@@ -43,7 +43,6 @@ Sau khi chạy xong:
 | API Gateway (health) | http://localhost:8080/health   |
 | Swagger API          | http://localhost:4000/api/docs |
 
-> **⚠️ OCR chạy API THẬT (không mock).** Nếu tạo `.env` mới, cần điền các API key trước khi OCR/tra cứu pháp luật hoạt động: `VNPT_*` (eKYC, SmartReader), `QWEN_OCR_API_KEY`, `QDRANT_API_KEY`. Script sẽ **nhắc và cho dừng** để bạn điền. Phần đăng nhập/RBAC vẫn chạy được ngay cả khi chưa có key OCR.
 
 **Lệnh vận hành:**
 
@@ -54,7 +53,7 @@ docker compose -f infra/docker-compose.yml down       # dừng toàn bộ
 
 ---
 
-## 🌟 Tính năng Nổi bật
+## Tính năng Nổi bật
 
 ### Dành cho Người dân (Citizen)
 
@@ -74,7 +73,7 @@ docker compose -f infra/docker-compose.yml down       # dừng toàn bộ
 
 ---
 
-## 🏗️ Kiến trúc Hệ thống (4 Services)
+## Kiến trúc Hệ thống (4 Services)
 
 ```text
 web (:3000)  Next.js (Frontend)
@@ -96,7 +95,7 @@ ai-svc (:8000/:50051)  FastAPI — AI Engine: OCR, RAG, LawGuard, Qdrant
 
 ---
 
-## ⚙️ Pipeline Xử lý Hồ sơ (11 Bước)
+## Pipeline Xử lý Hồ sơ (11 Bước)
 
 | Bước | Tác vụ                   | Module                   | Service        |
 | ---- | ------------------------ | ------------------------ | -------------- |
@@ -114,7 +113,7 @@ ai-svc (:8000/:50051)  FastAPI — AI Engine: OCR, RAG, LawGuard, Qdrant
 
 ---
 
-## 🛠️ Chạy Dev Mode (dành cho lập trình viên)
+## Chạy Dev Mode (dành cho lập trình viên)
 
 Nếu muốn hot-reload thay vì Docker, cần cài Node ≥ 20, pnpm ≥ 9, Python ≥ 3.10:
 
@@ -127,7 +126,7 @@ pnpm dev:full             # Redis (Docker) + turbo dev cho cả 4 service
 
 ---
 
-## 🧰 Stack Công nghệ
+## Stack Công nghệ
 
 - **Frontend:** Next.js 14, React, TypeScript, Tailwind CSS
 - **Backend Core:** NestJS, Mongoose (MongoDB), BullMQ (Redis), Zod
@@ -137,7 +136,7 @@ pnpm dev:full             # Redis (Docker) + turbo dev cho cả 4 service
 
 ---
 
-## 🔒 Nguyên tắc Bảo mật (Privacy by Design)
+## Nguyên tắc Bảo mật (Privacy by Design)
 
 1. **Zero-Retention:** Không lưu dài hạn ảnh giấy tờ — tự xóa sau TTL và ngay sau khi người dân xác nhận.
 2. **AI là Trợ lý, không phải Người quyết định:** Mọi kết luận AI (điểm số, cảnh báo) chỉ để tham khảo; quyết định cuối thuộc về cán bộ.
